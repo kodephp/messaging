@@ -1,14 +1,15 @@
 # kode/messaging
 
-**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP | PHP 8.2+ | PSR 合规 | 可插拔适配器**
+**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.2+ | PSR 合规 | 可插拔适配器**
 
 [![PHP Version](https://img.shields.io/badge/PHP-8.2+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue?style=flat-square)](CHANGELOG.md)
 
 ## 简介
 
-`kode/messaging` 是 `kode/*` 家族中的**统一消息层** Composer 包，封装 **WebSocket**、**SSE**、**MQTT**、**UDP**、**Long-Polling**、**CoAP** 等长连接 / 实时消息协议，提供**一致的 API**、**协议无关的消息抽象**和**可插拔的扩展点**。
+`kode/messaging` 是 `kode/*` 家族中的**统一消息层** Composer 包，封装 **WebSocket**、**SSE**、**MQTT**、**UDP**、**Long-Polling**、**CoAP**、**NATS**、**STOMP**、**gRPC**、**WebTransport**、**RTMP** 等 11 种长连接 / 实时消息协议，提供**一致的 API**、**协议无关的消息抽象**和**可插拔的扩展点**。
 
 一个 `Messaging::server()` 启动所有协议，**业务代码面向接口编程，不感知具体协议**。
 
@@ -16,7 +17,7 @@
 
 | 特性 | 说明 |
 |---|---|
-| 🌐 **多协议统一** | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP 共享同一 API |
+| 🌐 **11 协议统一** | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP |
 | 🔌 **可插拔适配器** | 新增协议不改动核心代码（3 步：Adapter / 注册 / 文档） |
 | 📡 **协议无关** | 业务层只依赖 `MessageInterface` |
 | 🧩 **中间件管道** | 鉴权 / 限流 / 编解码 / 校验 / 追踪 |
@@ -83,6 +84,52 @@ Messaging::client('mqtt://broker.example.com:1883')
     ->loop();
 ```
 
+### NATS（pub/sub、request/reply）
+
+```php
+$client = Messaging::client('nats://broker:4222');
+$client->subscribe('orders.*', function ($subject, $payload) {
+    echo "[$subject] $payload\n";
+});
+$client->connect();
+$client->publish('orders.created', json_encode(['id' => 1]));
+```
+
+### STOMP（消息队列客户端）
+
+```php
+$client = Messaging::client('stomp://broker:61613');
+$client->subscribe('/queue/orders', function ($data) {
+    echo $data['body'] . "\n";
+});
+$client->connect();
+$client->send('/queue/orders', 'hello');
+```
+
+### gRPC Streaming
+
+```php
+$client = Messaging::client('grpc://api.example.com:50051');
+$response = $client->call('/helloworld.Greeter/SayHello', $reqPayload);
+```
+
+### WebTransport（HTTP/3 双工）
+
+```php
+$client = Messaging::client('webtransport://example.com:4433');
+$conn = $client->connect();
+$conn->sendBidirectional('hello');
+$conn->sendDatagram('ping', reliable: false);
+```
+
+### RTMP（直播源接入）
+
+```php
+Messaging::server('rtmp://0.0.0.0:1935')
+    ->on('message.received', fn($c, $m) => log_rtmp($m))
+    ->start();
+```
+
 ## 协议矩阵
 
 | 协议 | 方案 | 服务端 | 客户端 | 适用 |
@@ -93,8 +140,11 @@ Messaging::client('mqtt://broker.example.com:1883')
 | UDP / Datagram | `udp://` | ✅ | ✅ | 实时音视频、游戏、广播 |
 | Long-Polling | `poll://` / `http://` | ✅ | ✅ | WebSocket 回退、低频推送 |
 | CoAP (RFC 7252) | `coap://` / `coaps://` | ✅ | ✅ | IoT 传感器、NB-IoT、LoRa |
-| WebTransport | `wt://` | 规划中 | 规划中 | HTTP/3 双工 |
-| NATS / STOMP / gRPC | — | 规划中 | 规划中 | 详见 [roadmap](./docs/roadmap.md) |
+| NATS | `nats://` | ✅ 嵌入式 Broker | ✅ | 微服务 Pub/Sub、request/reply |
+| STOMP 1.2 | `stomp://` | ✅ 嵌入式 Broker | ✅ | 消息队列（兼容 RabbitMQ / ActiveMQ） |
+| gRPC Streaming | `grpc://` | ✅ | ✅ | 微服务 RPC、4 种流式调用 |
+| WebTransport | `wt://` / `webtransport://` | HTTP/3-fallback | ✅ | HTTP/3 双工（依赖 aioquic / msquic） |
+| RTMP | `rtmp://` / `rtmps://` | ✅ | 规划中 | 直播源接入（OBS / FMLE） |
 
 ## 架构
 

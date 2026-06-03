@@ -157,6 +157,41 @@ final class Builder
     }
 
     /**
+     * 协议级订阅（topic 形式）——委托给适配器的 subscribe() 方法。
+     *
+     * 适用：MQTT / NATS / STOMP / CoAP。
+     * 业务也可改用 on('message.received', ...) 处理收到的消息。
+     *
+     * @return mixed 适配器返回的订阅句柄（int sid / string sub-id / null）
+     */
+    public function subscribe(string $topic, callable $handler, mixed $extra = null): mixed
+    {
+        $adapter = $this->makeAdapter();
+        if (!method_exists($adapter, 'subscribe')) {
+            throw new \LogicException("适配器 {$this->scheme} 不支持 subscribe()");
+        }
+        if ($this->connection === null) {
+            $this->connect();
+        }
+        return $adapter->subscribe($topic, $handler, $extra);
+    }
+
+    /**
+     * 协议级发布。
+     */
+    public function publish(string $topic, string $payload, mixed $extra = null): void
+    {
+        $adapter = $this->makeAdapter();
+        if (!method_exists($adapter, 'publish')) {
+            throw new \LogicException("适配器 {$this->scheme} 不支持 publish()");
+        }
+        if ($this->connection === null) {
+            $this->connect();
+        }
+        $adapter->publish($topic, $payload, $extra);
+    }
+
+    /**
      * 进入客户端事件循环。
      */
     public function loop(): void

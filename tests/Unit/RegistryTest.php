@@ -53,5 +53,18 @@ final class RegistryTest extends TestCase
         $this->assertSame(443, Messaging::defaultPort('ws', true));
         $this->assertSame(1883, Messaging::defaultPort('mqtt'));
         $this->assertSame(8883, Messaging::defaultPort('mqtt', true));
+        $this->assertSame(4222, Messaging::defaultPort('nats'));
+        $this->assertSame(61613, Messaging::defaultPort('stomp'));
+        $this->assertSame(50051, Messaging::defaultPort('grpc'));
+        $this->assertSame(1935, Messaging::defaultPort('rtmp'));
+    }
+
+    public function testNormalizeNewSchemes(): void
+    {
+        $this->assertSame('nats', Messaging::normalizeScheme('NATS'));
+        $this->assertSame('stomp', Messaging::normalizeScheme('stomps'));
+        $this->assertSame('grpc', Messaging::normalizeScheme('grpc-web'));
+        $this->assertSame('webtransport', Messaging::normalizeScheme('wt'));
+        $this->assertSame('rtmp', Messaging::normalizeScheme('rtmps'));
     }
 }

@@ -10,14 +10,14 @@
 | SSE | ✅ 已实现 | `sse://` / `https://` | 服务端推送、轻量流 | HTML5 |
 | MQTT | ✅ 已实现 | `mqtt://` / `mqtts://` | IoT 设备、Pub/Sub | MQTT 3.1.1 / 5.0 |
 | UDP | ✅ 已实现 | `udp://` | 实时音视频、组播广播 | RFC 768 |
-| **Long-Polling** | 🟢 本版本新增 | `poll://` / `http://` | WebSocket 回退、低频推送 | HTTP/1.1 |
-| **CoAP** | 🟢 本版本新增 | `coap://` / `coaps://` | IoT 传感器、低功耗 | RFC 7252 |
-| NATS | 🟡 规划中 | `nats://` | 轻量 Pub/Sub、Service Mesh | NATS Protocol |
-| STOMP | 🟡 规划中 | `stomp://` | 跨语言消息队列 | STOMP 1.2 |
-| gRPC Streaming | 🟡 规划中 | `grpc://` | 微服务、流式 RPC | gRPC over HTTP/2 |
+| Long-Polling | ✅ 已实现 | `poll://` / `http://` | WebSocket 回退、低频推送 | HTTP/1.1 |
+| CoAP | ✅ 已实现 | `coap://` / `coaps://` | IoT 传感器、低功耗 | RFC 7252 |
+| **NATS** | 🟢 2.0.0 新增 | `nats://` | 轻量 Pub/Sub、Service Mesh | NATS Protocol |
+| **STOMP** | 🟢 2.0.0 新增 | `stomp://` | 跨语言消息队列 | STOMP 1.2 |
+| **gRPC Streaming** | 🟢 2.0.0 新增 | `grpc://` | 微服务、流式 RPC | gRPC over HTTP/2 |
+| **WebTransport** | 🟢 2.0.0 新增 | `wt://` / `webtransport://` | 浏览器双向流 | W3C Draft + HTTP/3 |
+| **RTMP** | 🟢 2.0.0 新增 | `rtmp://` / `rtmps://` | 直播推流 | Adobe RTMP |
 | QUIC | 🟠 远期 | `quic://` | HTTP/3、低延迟 WebSocket | RFC 9000 |
-| WebTransport | 🟠 远期 | `webtransport://` | 浏览器双向流 | W3C Draft |
-| RTMP | ⚪ 视情况 | `rtmp://` | 直播推流 | Adobe RTMP |
 | AMQP 0.9.1 | ⚪ 委托 | — | RabbitMQ（已由 `kode/queue` 实现） | AMQP 0.9.1 |
 | SMTP / IMAP | ❌ 不做 | — | 邮件协议非实时长连接 | — |
 | FTP | ❌ 不做 | — | 短连接文件传输 | — |
@@ -71,6 +71,8 @@ final class Server extends AbstractAdapter
 in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 ```
 
+并把 `Adapter\NewProtocol\Server::autoRegister()` 加入 `src/register.php`。
+
 ### 3.3 编写文档与测试
 
 - `docs/newprotocol.md` 协议说明
@@ -87,10 +89,12 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 | 服务端通知 | SSE | WebSocket |
 | 移动端推送 | MQTT | WebSocket |
 | IoT 传感器（弱网） | CoAP | MQTT |
-| 实时音视频 | UDP | QUIC（未来） |
+| 实时音视频 | UDP | QUIC（未来） / WebTransport |
 | 直播推流 | RTMP | WebTransport |
 | 微服务流式 RPC | gRPC | WebSocket + Router |
 | 跨语言事件总线 | NATS / STOMP | MQTT + Pub/Sub |
+| 浏览器低延迟 | WebTransport | WebSocket |
+| Service Mesh | NATS | MQTT |
 
 ## 5. 协程与传输层
 
@@ -110,6 +114,8 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 | 版本 | 内容 |
 |---|---|
 | 1.0.0 | WebSocket / SSE / MQTT / UDP（首发） |
-| **1.1.0** | **Long-Polling / CoAP**（本版本） |
-| 1.2.0 | NATS / STOMP |
-| 2.0.0 | gRPC Streaming / QUIC（破坏性 API 收敛） |
+| 1.1.0 | Long-Polling / CoAP |
+| 1.2.0 | NATS / STOMP（合并入 2.0.0） |
+| **2.0.0** | **NATS / STOMP / gRPC Streaming / WebTransport / RTMP**（11 协议完整） |
+| 2.1.0 | gRPC 完整 HTTP/2 + HPACK + TLS；WebTransport 原生 HTTP/3 |
+| 3.0.0 | QUIC 独立实现 / Swoole 传输层 |

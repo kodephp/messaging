@@ -178,6 +178,11 @@ final class Messaging
             'udp'          => 8082,
             'long-polling' => 8083,
             'coap'         => $tls ? 5684 : 5683,
+            'nats'         => 4222,
+            'stomp'        => 61613,
+            'grpc'         => 50051,
+            'webtransport' => 4433,
+            'rtmp'         => 1935,
             default        => 0,
         };
     }
@@ -195,6 +200,11 @@ final class Messaging
             in_array($scheme, ['udp', 'datagram', 'dgram'], true)             => 'udp',
             in_array($scheme, ['poll', 'long-polling', 'longpolling', 'lp'], true) => 'long-polling',
             in_array($scheme, ['coap', 'coaps'], true)                       => 'coap',
+            in_array($scheme, ['nats', 'nats://'], true)                     => 'nats',
+            in_array($scheme, ['stomp', 'stomps'], true)                     => 'stomp',
+            in_array($scheme, ['grpc', 'grpc-web', 'grpcweb'], true)          => 'grpc',
+            in_array($scheme, ['webtransport', 'wt'], true)                   => 'webtransport',
+            in_array($scheme, ['rtmp', 'rtmps'], true)                       => 'rtmp',
             default                                                           => $scheme,
         };
     }

@@ -3,7 +3,7 @@
     "description": "kode/* 家族统一消息层：WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP 等长连接与实时协议统一封装，PHP 8.2+，PSR 合规，可插拔适配器。",
     "type": "library",
     "license": "Apache-2.0",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "keywords": [
         "messaging",
         "websocket",

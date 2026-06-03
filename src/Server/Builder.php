@@ -235,4 +235,12 @@ final class Builder
         }
         return new $class($this->logger);
     }
+
+    /**
+     * 创建并返回适配器实例（业务层可用于挂接协议级回调）。
+     */
+    public function adapter(): AdapterInterface
+    {
+        return $this->makeAdapter();
+    }
 }
