@@ -1,0 +1,72 @@
+# IDE & 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.iml
+.project
+.classpath
+.settings/
+nbproject/
+*.sublime-project
+*.sublime-workspace
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# 依赖
+/vendor/
+/composer.lock
+
+# 测试与覆盖率
+/build/
+/coverage/
+/.phpunit.cache/
+/.phpunit.result.cache
+/phpunit.xml.orig
+/coverage.xml
+/report/
+
+# 静态分析
+/phpstan-cache/
+/.phpstan.cache/
+
+# 代码风格
+/.php-cs-fixer.cache
+/.php_cs.cache
+
+# 调试 & 临时文件
+*.log
+*.pid
+*.seed
+*.pid.lock
+/tmp/
+/temp/
+/cache/
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# 运行时数据
+/runtime/
+/var/
+/storage/
+
+# 文档构建
+/docs/.vuepress/dist
+/_book/
+/.jekyll-cache/
+/.jekyll-metadata
+/site/
+
+# Trae / AI 助手本地缓存
+/.trae

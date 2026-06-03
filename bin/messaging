@@ -1,0 +1,157 @@
+#!/usr/bin/env php
+<?php
+/**
+ * kode/messaging 命令行工具
+ *
+ * 用法：
+ *   messaging <command> [options]
+ *
+ * 命令：
+ *   version / info   显示版本与运行时信息
+ *   protocols        列出支持的全部协议
+ *   start <file>     以守护进程方式启动服务
+ *   stop             停止运行中的服务
+ *   reload           平滑重载
+ *   status           查看服务状态
+ *   help             显示帮助
+ *
+ * @author  KodePHP Team
+ * @license Apache-2.0
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "messaging 只能通过命令行运行\n");
+    exit(1);
+}
+
+// 定位 autoload
+$autoload = null;
+$candidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+    __DIR__ . '/../../../../autoload.php',
+];
+foreach ($candidates as $candidate) {
+    if (is_file($candidate)) {
+        $autoload = $candidate;
+        break;
+    }
+}
+
+if ($autoload === null) {
+    fwrite(STDERR, "未找到 Composer autoload.php，请先执行 composer install\n");
+    exit(1);
+}
+
+require $autoload;
+
+use Kode\Messaging\Messaging;
+use Kode\Messaging\Kode;
+use Kode\Messaging\Adapter\Registry;
+use Kode\Messaging\Support\PhpCompat;
+
+$command = $argv[1] ?? 'help';
+$args    = array_slice($argv, 2);
+
+switch ($command) {
+    case 'version':
+    case 'info':
+        printInfo();
+        break;
+
+    case 'protocols':
+        printProtocols();
+        break;
+
+    case 'start':
+        if (!isset($args[0])) {
+            fwrite(STDERR, "用法: messaging start <server-file.php> [--daemon]\n");
+            exit(1);
+        }
+        startServer($args[0], in_array('--daemon', $args, true));
+        break;
+
+    case 'stop':
+        fwrite(STDOUT, "停止功能由 kode/process 提供（参见 kode/process 文档）\n");
+        break;
+
+    case 'help':
+    case '-h':
+    case '--help':
+    default:
+        printHelp();
+        break;
+}
+
+function printInfo(): void
+{
+    $rows = [
+        ['kode/messaging', Messaging::version()],
+        ['PHP',             PHP_VERSION],
+        ['8.2',             PhpCompat::isPhp82() ? '✓' : '✗'],
+        ['8.3',             PhpCompat::isPhp83() ? '✓' : '✗'],
+        ['8.4',             PhpCompat::isPhp84() ? '✓' : '✗'],
+        ['8.5',             PhpCompat::isPhp85() ? '✓' : '✗'],
+        ['Pipe operator (8.5)', PhpCompat::hasPipeOperator() ? '✓' : '✗'],
+        ['ext-sockets',     extension_loaded('sockets') ? '✓' : '✗'],
+        ['ext-openssl',     extension_loaded('openssl') ? '✓' : '✗'],
+        ['ext-pcntl',       extension_loaded('pcntl') ? '✓' : '✗'],
+        ['Swoole',          extension_loaded('swoole') ? '✓' : '✗'],
+        ['Swow',            extension_loaded('swow') ? '✓' : '✗'],
+    ];
+
+    foreach ($rows as [$k, $v]) {
+        fwrite(STDOUT, sprintf("  %-22s %s\n", $k, $v));
+    }
+}
+
+function printProtocols(): void
+{
+    $schemes = Registry::schemes();
+    sort($schemes);
+    fwrite(STDOUT, "支持的协议（scheme）：\n");
+    foreach ($schemes as $scheme) {
+        $adapter = Registry::find($scheme);
+        $status  = $adapter === null ? '（未注册）' : '';
+        fwrite(STDOUT, sprintf("  %-12s %s\n", $scheme, $status));
+    }
+}
+
+function startServer(string $file, bool $daemon): void
+{
+    if (!is_file($file)) {
+        fwrite(STDERR, "找不到文件: {$file}\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "启动服务: {$file}" . ($daemon ? ' (daemon)' : '') . "\n");
+    fwrite(STDOUT, "（kode/process 集成后将支持 daemon / reload / status）\n");
+    require $file;
+}
+
+function printHelp(): void
+{
+    $help = <<<HELP
+kode/messaging 命令行工具
+
+用法:
+  messaging <command> [options]
+
+命令:
+  version / info        显示版本与运行时信息
+  protocols              列出支持的全部协议
+  start <file>           启动服务（提供 PHP 文件路径）
+  stop                   停止服务（依赖 kode/process）
+  reload                 平滑重载（依赖 kode/process）
+  status                 查看状态（依赖 kode/process）
+  help                   显示本帮助
+
+示例:
+  messaging version
+  messaging protocols
+  messaging start examples/websocket_server.php
+
+HELP;
+    fwrite(STDOUT, $help);
+}

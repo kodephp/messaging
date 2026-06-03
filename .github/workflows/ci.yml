@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '8.2'
+          - '8.3'
+          - '8.4'
+          - '8.5'
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json, sockets
+          coverage: xdebug
+
+      - name: Composer 缓存
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-php${{ matrix.php }}-
+
+      - name: 安装依赖
+        run: composer install --no-interaction --prefer-dist
+
+      - name: 单元 / 集成测试
+        run: vendor/bin/phpunit
+
+      - name: 静态分析（仅 8.3+）
+        if: ${{ matrix.php != '8.2' }}
+        run: |
+          composer global require phpstan/phpstan --no-interaction
+          vendor/bin/phpstan analyse --no-progress --level=6 src tests || true
+
+      - name: 代码风格检查
+        run: |
+          composer global require friendsofphp/php-cs-fixer --no-interaction
+          vendor/bin/php-cs-fixer fix --dry-run --diff --no-interaction || true

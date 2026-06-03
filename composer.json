@@ -1,0 +1,125 @@
+{
+    "name": "kode/messaging",
+    "description": "kode/* 家族统一消息层：WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP 等长连接与实时协议统一封装，PHP 8.2+，PSR 合规，可插拔适配器。",
+    "type": "library",
+    "license": "Apache-2.0",
+    "version": "1.1.0",
+    "keywords": [
+        "messaging",
+        "websocket",
+        "sse",
+        "mqtt",
+        "udp",
+        "datagram",
+        "long-polling",
+        "longpolling",
+        "coap",
+        "iot",
+        "realtime",
+        "pub/sub",
+        "rpc",
+        "fiber",
+        "coroutine",
+        "php",
+        "php8",
+        "kode"
+    ],
+    "homepage": "https://github.com/kodephp/messaging",
+    "authors": [
+        {
+            "name": "KodePHP Team",
+            "email": "382601296@qq.com",
+            "homepage": "https://github.com/kodephp"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/kodephp/messaging/issues",
+        "source": "https://github.com/kodephp/messaging",
+        "docs": "https://github.com/kodephp/messaging/blob/master/docs/index.md",
+        "wiki": "https://github.com/kodephp/messaging/wiki"
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/kodephp"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "psr/log": "^2.0|^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5|^11.0",
+        "phpstan/phpstan": "^1.10",
+        "friendsofphp/php-cs-fixer": "^3.40"
+    },
+    "suggest": {
+        "ext-sockets": "使用 ext-sockets 传输层以获得更高性能（推荐生产环境）",
+        "ext-openssl": "支持 TLS（wss://、mqtts://）",
+        "ext-pcntl": "信号处理（kode/process 协作时需要）",
+        "ext-curl": "长轮询回退（与 kode/http-client 协作）",
+        "ext-msgpack": "MsgPack 编解码中间件",
+        "swoole/swoole": "Swoole 协程传输层（百万级并发）",
+        "swow/swow": "Swow 协程传输层（跨平台）",
+        "kode/fibers": "Fiber 协程支持",
+        "kode/event": "事件派发器（kode/event）",
+        "kode/context": "上下文追踪（TraceMiddleware）",
+        "kode/queue": "异步消息落地、延迟消息",
+        "kode/cache": "会话状态、广播订阅关系",
+        "kode/http-client": "长轮询回退（kode/http-client）",
+        "kode/jwt": "JWT 鉴权中间件（kode/jwt）",
+        "kode/process": "多 Worker 进程管理、集群（kode/process）",
+        "kode/ai-agent": "AI Agent 流式消息（kode/ai-agent）",
+        "nyholm/psr7": "PSR-7 消息实现（SSE 嵌入 HTTP 服务时需要）"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kode\\Messaging\\": "src/"
+        },
+        "files": [
+            "src/register.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kode\\Messaging\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/messaging"
+    ],
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "platform-check": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite=unit",
+        "test:integration": "phpunit --testsuite=integration",
+        "test:feature": "phpunit --testsuite=feature",
+        "coverage": "phpunit --coverage-html build/coverage",
+        "analyse": "phpstan analyse src tests --level=8",
+        "analyse:baseline": "phpstan analyse src tests --generate-baseline phpstan-baseline.neon",
+        "fix": "php-cs-fixer fix",
+        "fix:diff": "php-cs-fixer fix --dry-run --diff",
+        "ci": [
+            "@fix:diff",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev",
+            "dev-next": "2.x-dev"
+        }
+    }
+}

@@ -1,0 +1,20 @@
+# PHPStan 静态分析配置
+# level=8: 严格模式，覆盖所有可能的类型问题
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        analyseAndScan:
+            - tests/_fixtures/*
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # 测试夹具
+        - '#Unsafe usage of new static#'
+        # 协议 codec 中允许 union / mixed
+        - '#Cannot access offset.*on mixed#'
+        # Version::PRE_RELEASE 的运行时比较
+        - '#Strict comparison using !== between .* and .* will always evaluate to false#'
+        # 构造函数兼容父类签名，未使用参数
+        - '#Constructor of class.*has an unused parameter#'
