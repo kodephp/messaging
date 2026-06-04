@@ -1,0 +1,70 @@
+# =====================================================================
+# kode/messaging systemd 单元文件
+# ---------------------------------------------------------------------
+# 安装：
+#   sudo cp deploy/systemd/messaging.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now messaging
+#
+# 多实例（不同协议）：
+#   sudo cp deploy/systemd/messaging@.service /etc/systemd/system/
+#   sudo systemctl enable --now messaging@ws
+#   sudo systemctl enable --now messaging@sse
+# =====================================================================
+
+[Unit]
+Description=kode/messaging (%i)
+Documentation=https://github.com/kodephp/messaging
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/messaging
+Environment=APP_ENV=production
+Environment=MESSAGING_TRANSPORT=auto
+Environment=MESSAGING_LOG_LEVEL=info
+# 协议来自实例名（@ws / @sse / @nats ...）
+ExecStart=/usr/bin/php /srv/messaging/bin/messaging start --protocol=%i --port=${PORT}
+Restart=on-failure
+RestartSec=3
+StartLimitInterval=60
+StartLimitBurst=5
+TimeoutStopSec=20
+KillMode=mixed
+KillSignal=SIGTERM
+SuccessExitStatus=0 143
+
+# 文件句柄
+LimitNOFILE=65535
+LimitNPROC=65535
+
+# 优雅停机
+ExecStop=/bin/kill -TERM $MAINPID
+FinalKillSignal=SIGKILL
+SendSIGKILL=yes
+
+# 资源
+MemoryMax=512M
+TasksMax=4096
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/messaging/var
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

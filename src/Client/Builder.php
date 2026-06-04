@@ -104,10 +104,27 @@ final class Builder
     }
 
     /**
+     * 归一化后的协议名（用于 Registry 查找）。
+     *
+     * 用户传入 `mqtt://broker:1883` 也能映射到注册表里的 `mqtt`。
+     */
+    private function normalizedScheme(): string
+    {
+        $url = \Kode\Messaging\Messaging::parseUrl($this->scheme);
+        return $url['scheme'];
+    }
+
+    /**
      * 建立连接（返回 Connection）。
+     *
+     * 该方法是幂等的：第一次调用真实建连，后续调用直接返回已存在的连接。
+     * 若连接失败抛出 {@see AdapterNotFoundException} 或底层连接异常。
      */
     public function connect(): ConnectionInterface
     {
+        if ($this->connection !== null && $this->connection->isOpen()) {
+            return $this->connection;
+        }
         $adapter = $this->makeAdapter();
         $url = \Kode\Messaging\Messaging::parseUrl($this->scheme);
         $merged = array_replace_recursive(
@@ -133,7 +150,30 @@ final class Builder
         );
         $adapter->boot($merged);
         $this->connection = $adapter->connect($merged);
+        if ($this->connection === null) {
+            throw new \RuntimeException(
+                "kode/messaging: 适配器 {$this->scheme}::connect() 返回 null，连接未建立"
+            );
+        }
         $this->emit('open', ['connection' => $this->connection]);
+        return $this->connection;
+    }
+
+    /**
+     * 确保已建立连接，返回非空的连接对象。
+     *
+     * @throws \RuntimeException 当连接未建立或已关闭
+     */
+    private function ensureConnected(): ConnectionInterface
+    {
+        if ($this->connection === null) {
+            $this->connect();
+        }
+        if ($this->connection === null || !$this->connection->isOpen()) {
+            throw new \RuntimeException(
+                "kode/messaging: 协议 {$this->scheme} 连接尚未建立或已关闭，请先调用 connect()"
+            );
+        }
         return $this->connection;
     }
 
@@ -142,10 +182,8 @@ final class Builder
      */
     public function send(mixed $payload, array $options = []): bool
     {
-        if ($this->connection === null) {
-            $this->connect();
-        }
-        return $this->connection?->send($payload, $options) ?? false;
+        $conn = $this->ensureConnected();
+        return $conn->send($payload, $options);
     }
 
     /**
@@ -154,6 +192,7 @@ final class Builder
     public function disconnect(int $code = 1000, string $reason = ''): void
     {
         $this->connection?->close($code, $reason);
+        $this->connection = null;
     }
 
     /**
@@ -163,6 +202,9 @@ final class Builder
      * 业务也可改用 on('message.received', ...) 处理收到的消息。
      *
      * @return mixed 适配器返回的订阅句柄（int sid / string sub-id / null）
+     *
+     * @throws \LogicException   适配器不支持 subscribe()
+     * @throws \RuntimeException 连接未建立 / 已关闭
      */
     public function subscribe(string $topic, callable $handler, mixed $extra = null): mixed
     {
@@ -170,14 +212,15 @@ final class Builder
         if (!method_exists($adapter, 'subscribe')) {
             throw new \LogicException("适配器 {$this->scheme} 不支持 subscribe()");
         }
-        if ($this->connection === null) {
-            $this->connect();
-        }
+        $this->ensureConnected();
         return $adapter->subscribe($topic, $handler, $extra);
     }
 
     /**
      * 协议级发布。
+     *
+     * @throws \LogicException   适配器不支持 publish()
+     * @throws \RuntimeException 连接未建立 / 已关闭
      */
     public function publish(string $topic, string $payload, mixed $extra = null): void
     {
@@ -185,9 +228,7 @@ final class Builder
         if (!method_exists($adapter, 'publish')) {
             throw new \LogicException("适配器 {$this->scheme} 不支持 publish()");
         }
-        if ($this->connection === null) {
-            $this->connect();
-        }
+        $this->ensureConnected();
         $adapter->publish($topic, $payload, $extra);
     }
 
@@ -202,7 +243,7 @@ final class Builder
 
     public function makeAdapter(): AdapterInterface
     {
-        $class = Registry::find($this->scheme);
+        $class = Registry::find($this->normalizedScheme());
         if ($class === null) {
             throw AdapterNotFoundException::forScheme($this->scheme, Registry::schemes());
         }

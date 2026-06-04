@@ -1,0 +1,40 @@
+# =====================================================================
+# kode/messaging 单实例 systemd 单元
+# ---------------------------------------------------------------------
+# 适用：单一协议服务（如仅部署 WebSocket）
+# =====================================================================
+
+[Unit]
+Description=kode/messaging WebSocket Server
+Documentation=https://github.com/kodephp/messaging
+After=network-online.target redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/messaging
+Environment=APP_ENV=production
+Environment=MESSAGING_TRANSPORT=auto
+Environment=MESSAGING_REDIS_HOST=127.0.0.1
+Environment=MESSAGING_REDIS_PORT=6379
+ExecStart=/usr/bin/php /srv/messaging/bin/messaging start /srv/messaging/examples/websocket_server.php
+Restart=on-failure
+RestartSec=3
+StartLimitInterval=60
+StartLimitBurst=5
+TimeoutStopSec=20
+KillMode=mixed
+KillSignal=SIGTERM
+LimitNOFILE=65535
+LimitNPROC=65535
+MemoryMax=1G
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/messaging/var
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

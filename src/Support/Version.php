@@ -10,15 +10,15 @@ namespace Kode\Messaging\Support;
 final class Version
 {
     public const MAJOR = 2;
-    public const MINOR = 0;
+    public const MINOR = 1;
     public const PATCH = 0;
     public const PRE_RELEASE = '';
 
     public static function get(): string
     {
-        $version = sprintf('%d.%d.%d', self::MAJOR, self::MINOR, self::PATCH);
+        $version = \sprintf('%d.%d.%d', self::MAJOR, self::MINOR, self::PATCH);
         /** @var string $pre 来自常量的运行时值，PHPStan 静态分析可能判定为常量 */
-        $pre = (string)constant('self::PRE_RELEASE');
+        $pre = (string)\constant('self::PRE_RELEASE');
         if ($pre !== '') {
             return $version . '-' . $pre;
         }

@@ -1,0 +1,72 @@
+# =====================================================================
+# kode/messaging 官方 docker-compose 示例
+# ---------------------------------------------------------------------
+# 启动一个 WebSocket 8080 服务 + 可选 Redis（Pub/Sub 总线）
+# =====================================================================
+
+version: "3.8"
+
+services:
+  # WebSocket 主服务
+  messaging-ws:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: kode/messaging:latest
+    container_name: messaging-ws
+    restart: unless-stopped
+    command: ["start", "--protocol=ws", "--port=8080"]
+    ports:
+      - "8080:8080"
+    environment:
+      MESSAGING_HEALTH_HOST: "0.0.0.0"
+      MESSAGING_HEALTH_PORT: "8080"
+    volumes:
+      - ./config/messaging.php:/app/config/messaging.php:ro
+      - ./var/log:/app/var/log
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [messaging-net]
+
+  # SSE 服务（可选，独立部署）
+  messaging-sse:
+    image: kode/messaging:latest
+    container_name: messaging-sse
+    restart: unless-stopped
+    command: ["start", "--protocol=sse", "--port=8081"]
+    ports:
+      - "8081:8081"
+    networks: [messaging-net]
+
+  # MQTT 客户端（连接外部 broker）
+  messaging-mqtt:
+    image: kode/messaging:latest
+    container_name: messaging-mqtt
+    restart: unless-stopped
+    command: ["start", "examples/mqtt_subscribe.php"]
+    depends_on: [redis]
+    environment:
+      MQTT_BROKER_HOST: ${MQTT_BROKER_HOST:-broker}
+      MQTT_BROKER_PORT: ${MQTT_BROKER_PORT:-1883}
+    networks: [messaging-net]
+
+  # Redis（Pub/Sub 背板）
+  redis:
+    image: redis:7-alpine
+    container_name: messaging-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks: [messaging-net]
+
+networks:
+  messaging-net:
+    driver: bridge
+
+volumes:
+  redis-data:

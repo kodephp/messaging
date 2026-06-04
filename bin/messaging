@@ -7,13 +7,16 @@
  *   messaging <command> [options]
  *
  * 命令：
- *   version / info   显示版本与运行时信息
- *   protocols        列出支持的全部协议
- *   start <file>     以守护进程方式启动服务
- *   stop             停止运行中的服务
- *   reload           平滑重载
- *   status           查看服务状态
- *   help             显示帮助
+ *   version / info        显示版本与运行时信息
+ *   protocols             列出支持的全部协议
+ *   self-check            自检（autoload、协议注册、配置）
+ *   config [section]      显示配置（默认全部）
+ *   doc [protocol]        打开本地文档（默认 README）
+ *   start <file>          以指定文件启动服务
+ *   start --protocol=...  使用内置示例启动（如 ws / sse / mqtt / nats）
+ *   worker <file> [--count=N]  启动多 Worker 进程（依赖 kode/process）
+ *   stop / reload / status   占位（依赖 kode/process）
+ *   help                  显示帮助
  *
  * @author  KodePHP Team
  * @license Apache-2.0
@@ -48,12 +51,12 @@ if ($autoload === null) {
 require $autoload;
 
 use Kode\Messaging\Messaging;
-use Kode\Messaging\Kode;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Support\PhpCompat;
 
 $command = $argv[1] ?? 'help';
 $args    = array_slice($argv, 2);
+$opts    = parseOptions($args);
 
 switch ($command) {
     case 'version':
@@ -62,19 +65,55 @@ switch ($command) {
         break;
 
     case 'protocols':
+    case 'protocol':
+    case 'list':
         printProtocols();
         break;
 
+    case 'self-check':
+    case 'check':
+        selfCheck();
+        break;
+
+    case 'config':
+        printConfig($args[0] ?? null);
+        break;
+
+    case 'doc':
+        $target = $args[0] ?? 'README';
+        openDoc($target);
+        break;
+
     case 'start':
-        if (!isset($args[0])) {
-            fwrite(STDERR, "用法: messaging start <server-file.php> [--daemon]\n");
-            exit(1);
-        }
-        startServer($args[0], in_array('--daemon', $args, true));
+    case 'serve':
+        startServer($opts, $args);
+        break;
+
+    case 'worker':
+        workerStart($opts, $args);
         break;
 
     case 'stop':
-        fwrite(STDOUT, "停止功能由 kode/process 提供（参见 kode/process 文档）\n");
+        doStop($opts, $args);
+        break;
+
+    case 'reload':
+        doReload($opts, $args);
+        break;
+
+    case 'status':
+        doStatus($opts, $args);
+        break;
+
+    case 'logs':
+    case 'log':
+    case 'tail':
+        doLogs($opts, $args);
+        break;
+
+    case 'release':
+    case 'publish':
+        doRelease($opts, $args);
         break;
 
     case 'help':
@@ -85,23 +124,47 @@ switch ($command) {
         break;
 }
 
+/**
+ * 解析 --key=value / --flag 选项。
+ *
+ * @return array<string, string|bool>
+ */
+function parseOptions(array $args): array
+{
+    $opts = [];
+    foreach ($args as $arg) {
+        if (!str_starts_with($arg, '--')) {
+            continue;
+        }
+        $body = substr($arg, 2);
+        $pos = strpos($body, '=');
+        if ($pos === false) {
+            $opts[$body] = true;
+        } else {
+            $opts[substr($body, 0, $pos)] = substr($body, $pos + 1);
+        }
+    }
+    return $opts;
+}
+
 function printInfo(): void
 {
     $rows = [
-        ['kode/messaging', Messaging::version()],
-        ['PHP',             PHP_VERSION],
-        ['8.2',             PhpCompat::isPhp82() ? '✓' : '✗'],
-        ['8.3',             PhpCompat::isPhp83() ? '✓' : '✗'],
-        ['8.4',             PhpCompat::isPhp84() ? '✓' : '✗'],
-        ['8.5',             PhpCompat::isPhp85() ? '✓' : '✗'],
-        ['Pipe operator (8.5)', PhpCompat::hasPipeOperator() ? '✓' : '✗'],
-        ['ext-sockets',     extension_loaded('sockets') ? '✓' : '✗'],
-        ['ext-openssl',     extension_loaded('openssl') ? '✓' : '✗'],
-        ['ext-pcntl',       extension_loaded('pcntl') ? '✓' : '✗'],
-        ['Swoole',          extension_loaded('swoole') ? '✓' : '✗'],
-        ['Swow',            extension_loaded('swow') ? '✓' : '✗'],
+        ['kode/messaging',         Messaging::version()],
+        ['PHP',                    PHP_VERSION],
+        ['PHP 8.2 base',           PhpCompat::isPhp82() ? '✓' : '✗'],
+        ['PHP 8.3 typed const',    PhpCompat::isPhp83() ? '✓' : '✗'],
+        ['PHP 8.4 hooks',          PhpCompat::isPhp84() ? '✓' : '✗'],
+        ['PHP 8.5 pipe operator',  PhpCompat::hasPipeOperator() ? '✓' : '✗'],
+        ['ext-sockets',            extension_loaded('sockets') ? '✓' : '✗'],
+        ['ext-openssl',            extension_loaded('openssl') ? '✓' : '✗'],
+        ['ext-pcntl',              extension_loaded('pcntl') ? '✓' : '✗'],
+        ['ext-posix',              extension_loaded('posix') ? '✓' : '✗'],
+        ['Swoole',                 extension_loaded('swoole') ? '✓' : '✗'],
+        ['Swow',                   extension_loaded('swow') ? '✓' : '✗'],
     ];
 
+    fwrite(STDOUT, "kode/messaging 运行时信息：\n");
     foreach ($rows as [$k, $v]) {
         fwrite(STDOUT, sprintf("  %-22s %s\n", $k, $v));
     }
@@ -114,20 +177,508 @@ function printProtocols(): void
     fwrite(STDOUT, "支持的协议（scheme）：\n");
     foreach ($schemes as $scheme) {
         $adapter = Registry::find($scheme);
-        $status  = $adapter === null ? '（未注册）' : '';
-        fwrite(STDOUT, sprintf("  %-12s %s\n", $scheme, $status));
+        $line = sprintf("  %-14s ", $scheme);
+        if ($adapter === null) {
+            $line .= '（未注册）';
+        } else {
+            $line .= $adapter;
+        }
+        fwrite(STDOUT, $line . "\n");
+    }
+    fwrite(STDOUT, "\n共 " . count($schemes) . " 个协议适配器已注册。\n");
+}
+
+function selfCheck(): void
+{
+    $errors = [];
+    $warnings = [];
+
+    // 1. PHP 版本
+    if (!PhpCompat::isPhp82()) {
+        $errors[] = 'PHP 版本必须 ≥ 8.2，当前 ' . PHP_VERSION;
+    }
+
+    // 2. 协议注册
+    $schemes = Registry::schemes();
+    if (count($schemes) < 5) {
+        $warnings[] = "注册的协议数较少（{$schemes}），可能某些适配器未自动加载";
+    }
+    foreach (['ws', 'sse', 'mqtt', 'udp'] as $essential) {
+        if (!in_array($essential, $schemes, true)) {
+            $errors[] = "核心协议 {$essential} 未注册";
+        }
+    }
+
+    // 3. autoload 可写
+    $root = dirname(__DIR__);
+    $cache = $root . '/vendor/composer/autoload_static.php';
+    if (!is_file($cache)) {
+        $warnings[] = 'vendor/composer/autoload_static.php 不存在，请执行 composer dump-autoload';
+    }
+
+    // 4. 写权限
+    $paths = [$root . '/var', $root . '/var/log'];
+    foreach ($paths as $p) {
+        if (!is_dir($p)) {
+            if (!@mkdir($p, 0o755, true) && !is_dir($p)) {
+                $warnings[] = "无法创建目录 {$p}（可手动创建）";
+            }
+        }
+    }
+
+    // 输出
+    if ($errors === []) {
+        fwrite(STDOUT, "✓ 自检通过（" . count($warnings) . " 个警告）\n");
+        foreach ($warnings as $w) {
+            fwrite(STDOUT, "  ! {$w}\n");
+        }
+        exit(0);
+    }
+    fwrite(STDERR, "✗ 自检发现 " . count($errors) . " 个错误：\n");
+    foreach ($errors as $e) {
+        fwrite(STDERR, "  - {$e}\n");
+    }
+    exit(1);
+}
+
+function printConfig(?string $section): void
+{
+    $path = dirname(__DIR__) . '/config/messaging.php';
+    if (!is_file($path)) {
+        fwrite(STDERR, "未找到 config/messaging.php\n");
+        exit(1);
+    }
+    $config = require $path;
+    if (!is_array($config)) {
+        fwrite(STDERR, "config/messaging.php 必须返回数组\n");
+        exit(1);
+    }
+    if ($section === null) {
+        fwrite(STDOUT, "默认配置：\n");
+        dumpConfig($config, 0);
+    } else {
+        if (!array_key_exists($section, $config)) {
+            fwrite(STDERR, "未找到配置段: {$section}\n");
+            fwrite(STDERR, "可用段: " . implode(', ', array_keys($config)) . "\n");
+            exit(1);
+        }
+        fwrite(STDOUT, "[{$section}]\n");
+        dumpConfig($config[$section], 1, $section);
     }
 }
 
-function startServer(string $file, bool $daemon): void
+function dumpConfig(mixed $value, int $indent, string $key = ''): void
 {
+    $pad = str_repeat('  ', $indent);
+    if (is_array($value)) {
+        if ($value === []) {
+            fwrite(STDOUT, "{$pad}[]\n");
+            return;
+        }
+        $isList = array_is_list($value);
+        foreach ($value as $k => $v) {
+            $label = $isList ? '- ' : "{$k}: ";
+            if (is_array($v)) {
+                fwrite(STDOUT, "{$pad}{$label}\n");
+                dumpConfig($v, $indent + 1);
+            } elseif (is_bool($v)) {
+                fwrite(STDOUT, "{$pad}{$label}" . ($v ? 'true' : 'false') . "\n");
+            } elseif ($v === null) {
+                fwrite(STDOUT, "{$pad}{$label}null\n");
+            } else {
+                fwrite(STDOUT, "{$pad}{$label}{$v}\n");
+            }
+        }
+    } else {
+        fwrite(STDOUT, "{$pad}{$key}: " . (is_scalar($value) ? (string)$value : gettype($value)) . "\n");
+    }
+}
+
+function openDoc(string $target): void
+{
+    $root = dirname(__DIR__);
+    $candidates = [
+        $target,
+        $target . '.md',
+        'docs/' . $target,
+        'docs/' . $target . '.md',
+        'docs/' . strtolower($target) . '.md',
+    ];
+    foreach ($candidates as $c) {
+        $full = $root . '/' . $c;
+        if (is_file($full)) {
+            fwrite(STDOUT, "文档路径: {$full}\n");
+            if (function_exists('passthru')) {
+                $pager = getenv('PAGER') ?: 'cat';
+                passthru(escapeshellcmd($pager) . ' ' . escapeshellarg($full));
+            } else {
+                fwrite(STDOUT, (string)file_get_contents($full));
+            }
+            return;
+        }
+    }
+    fwrite(STDERR, "未找到文档: {$target}\n");
+    fwrite(STDERR, "可传入协议名（ws / sse / mqtt / nats / grpc / rtmp 等）或文档名（README / quick-start / architecture）\n");
+    exit(1);
+}
+
+function startServer(array $opts, array $args): void
+{
+    $daemon  = isset($opts['daemon']);
+    $noColor = isset($opts['no-color']);
+    $name    = is_string($opts['name'] ?? null) ? (string)$opts['name'] : null;
+    $protocol = is_string($opts['protocol'] ?? null) ? (string)$opts['protocol'] : null;
+    $port     = is_string($opts['port'] ?? null) ? (int)$opts['port'] : null;
+
+    if ($protocol !== null) {
+        $port = $port ?? Messaging::defaultPort($protocol);
+        $name ??= "messaging-{$protocol}";
+        $label = "[{$protocol}] 0.0.0.0:{$port}";
+
+        if ($daemon) {
+            daemonizeBuiltin($protocol, $port, $name);
+            return;
+        }
+        fwrite(STDOUT, "启动内置 {$label} (Ctrl+C 停止)\n");
+        runBuiltinServer($protocol, $port);
+        return;
+    }
+
+    if (!isset($args[0])) {
+        fwrite(STDERR, "用法: messaging start <server-file.php> [--protocol=ws|sse|...] [--daemon] [--name=foo]\n");
+        exit(1);
+    }
+
+    $file = $args[0];
     if (!is_file($file)) {
         fwrite(STDERR, "找不到文件: {$file}\n");
         exit(1);
     }
-    fwrite(STDOUT, "启动服务: {$file}" . ($daemon ? ' (daemon)' : '') . "\n");
-    fwrite(STDOUT, "（kode/process 集成后将支持 daemon / reload / status）\n");
+    $name ??= 'messaging-' . md5($file);
+
+    if ($daemon) {
+        daemonizeFile($file, $name);
+        return;
+    }
+
+    fwrite(STDOUT, "启动服务: {$file}\n");
     require $file;
+}
+
+/**
+ * 前台运行内置协议服务。
+ */
+function runBuiltinServer(string $protocol, int $port): void
+{
+    $scheme = $protocol . '://0.0.0.0:' . $port;
+    $builder = Messaging::server($scheme);
+    $builder->on('connection.open', function ($conn) use ($protocol) {
+        fwrite(STDOUT, "[{$protocol}] client connected: {$conn->remoteAddress()}\n");
+    });
+    $builder->on('message.received', function ($conn, $msg) use ($protocol) {
+        fwrite(STDOUT, "[{$protocol}] recv: " . $msg->payload() . "\n");
+    });
+    $builder->on('error.protocol', function (...$args) {
+        fwrite(STDERR, "[error] " . ($args[0]['error'] ?? json_encode($args)) . "\n");
+    });
+    fwrite(STDOUT, "[{$protocol}] listening on 0.0.0.0:{$port}\n");
+    $builder->start();
+}
+
+/**
+ * 后台启动内置协议服务。
+ *
+ * 通过 fork + setsid + nohup 把进程脱离终端，写入 PID 文件。
+ */
+function daemonizeBuiltin(string $protocol, int $port, string $name): void
+{
+    ensureVarDirs();
+    $pidFile = pidFile($name);
+    if (is_file($pidFile) && isProcessAlive((int)file_get_contents($pidFile))) {
+        fwrite(STDERR, "服务 {$name} 已在运行 (pid=" . (int)file_get_contents($pidFile) . ")\n");
+        exit(1);
+    }
+
+    $logFile = logFile($name);
+    $script = <<<'PHP'
+<?php
+declare(strict_types=1);
+require '__AUTOLOAD__';
+$protocol = '__PROTOCOL__';
+$port = (int)__PORT__;
+$logFile = '__LOGFILE__';
+fwrite(STDOUT, "[{$protocol}] daemon started, listening on 0.0.0.0:{$port}\n");
+fwrite(STDERR, "[{$protocol}] logs: {$logFile}\n");
+runBuiltinServer($protocol, $port);
+PHP;
+
+    $autoload = findAutoload();
+    $script = strtr($script, [
+        '__AUTOLOAD__' => var_export($autoload, true),
+        '__PROTOCOL__' => $protocol,
+        '__PORT__'     => (string)$port,
+        '__LOGFILE__'  => $logFile,
+    ]);
+
+    $tmpScript = tempnam(sys_get_temp_dir(), 'messaging-') . '.php';
+    file_put_contents($tmpScript, $script);
+    register_shutdown_function(function () use ($tmpScript) {
+        @unlink($tmpScript);
+    });
+
+    $cmd = sprintf(
+        '/usr/bin/env php %s >> %s 2>&1 & echo $!',
+        escapeshellarg($tmpScript),
+        escapeshellarg($logFile)
+    );
+    $pid = (int)trim((string)shell_exec($cmd));
+    if ($pid <= 0) {
+        fwrite(STDERR, "后台启动失败，请检查 {$logFile}\n");
+        exit(1);
+    }
+    file_put_contents($pidFile, (string)$pid);
+    fwrite(STDOUT, "✓ {$name} 已后台启动 (pid={$pid})\n");
+    fwrite(STDOUT, "  日志: {$logFile}\n");
+    fwrite(STDOUT, "  管理: messaging stop --name={$name} | status | logs --name={$name}\n");
+}
+
+/**
+ * 后台启动自定义 server 文件。
+ */
+function daemonizeFile(string $file, string $name): void
+{
+    ensureVarDirs();
+    $pidFile = pidFile($name);
+    if (is_file($pidFile) && isProcessAlive((int)file_get_contents($pidFile))) {
+        fwrite(STDERR, "服务 {$name} 已在运行 (pid=" . (int)file_get_contents($pidFile) . ")\n");
+        exit(1);
+    }
+
+    $logFile = logFile($name);
+    $autoload = findAutoload();
+    $cmd = sprintf(
+        'cd %s && /usr/bin/env php -d auto_prepend_file=%s %s >> %s 2>&1 & echo $!',
+        escapeshellarg(dirname($file)),
+        escapeshellarg($autoload),
+        escapeshellarg($file),
+        escapeshellarg($logFile)
+    );
+    $pid = (int)trim((string)shell_exec($cmd));
+    if ($pid <= 0) {
+        fwrite(STDERR, "后台启动失败，请检查 {$logFile}\n");
+        exit(1);
+    }
+    file_put_contents($pidFile, (string)$pid);
+    fwrite(STDOUT, "✓ {$name} 已后台启动 (pid={$pid})\n");
+    fwrite(STDOUT, "  日志: {$logFile}\n");
+    fwrite(STDOUT, "  管理: messaging stop --name={$name} | status | logs --name={$name}\n");
+}
+
+/**
+ * 停止一个或全部服务。
+ */
+function doStop(array $opts, array $args): void
+{
+    $name = is_string($opts['name'] ?? null) ? (string)$opts['name'] : null;
+    $force = isset($opts['force']);
+    $all   = isset($opts['all']);
+
+    if ($name === null && !$all) {
+        fwrite(STDERR, "用法: messaging stop --name=<name> | --all [--force]\n");
+        exit(1);
+    }
+
+    $pidFiles = $name !== null ? [pidFile($name)] : (glob(pidFile('*')) ?: []);
+    if ($pidFiles === []) {
+        fwrite(STDOUT, "没有运行中的服务\n");
+        return;
+    }
+
+    foreach ($pidFiles as $pidFile) {
+        $base = basename($pidFile);
+        $pid  = (int)trim((string)@file_get_contents($pidFile));
+        if ($pid <= 0) {
+            @unlink($pidFile);
+            continue;
+        }
+        if (!isProcessAlive($pid)) {
+            fwrite(STDOUT, "✗ {$base} (pid={$pid}) 已不在运行，清除陈旧 PID\n");
+            @unlink($pidFile);
+            continue;
+        }
+        $sig = $force ? 9 : 15;  // 9 = SIGKILL, 15 = SIGTERM
+        if (function_exists('posix_kill')) {
+            posix_kill($pid, $sig);
+        } else {
+            // Windows / 无 posix：使用 proc_terminate
+            fwrite(STDERR, "当前环境不支持 posix_kill，请使用 systemd / supervisor 托管\n");
+            exit(1);
+        }
+        // 等待最多 5 秒
+        for ($i = 0; $i < 50; $i++) {
+            if (!isProcessAlive($pid)) break;
+            usleep(100_000);
+        }
+        if (isProcessAlive($pid)) {
+            fwrite(STDERR, "✗ {$base} (pid={$pid}) 未停止，请使用 --force\n");
+        } else {
+            @unlink($pidFile);
+            fwrite(STDOUT, "✓ {$base} (pid={$pid}) 已停止\n");
+        }
+    }
+}
+
+/**
+ * 查看服务状态。
+ */
+function doStatus(array $opts, array $args): void
+{
+    $name = is_string($opts['name'] ?? null) ? (string)$opts['name'] : null;
+    $pidFiles = $name !== null ? [pidFile($name)] : (glob(pidFile('*')) ?: []);
+    if ($pidFiles === []) {
+        fwrite(STDOUT, "没有运行中的服务（无 PID 文件）\n");
+        return;
+    }
+
+    foreach ($pidFiles as $pidFile) {
+        $base = basename($pidFile);
+        $pid  = (int)trim((string)@file_get_contents($pidFile));
+        $alive = $pid > 0 && isProcessAlive($pid);
+        $line = sprintf("  %-32s pid=%-7d %s\n", $base, $pid, $alive ? '✓ running' : '✗ stopped (stale)');
+        fwrite(STDOUT, $line);
+    }
+}
+
+/**
+ * reload = 发送 SIGHUP 让 kode/process 重新加载配置。
+ * 若未安装 kode/process，则降级为 stop + start。
+ */
+function doReload(array $opts, array $args): void
+{
+    $name = is_string($opts['name'] ?? null) ? (string)$opts['name'] : null;
+    if ($name === null) {
+        fwrite(STDERR, "用法: messaging reload --name=<name>\n");
+        exit(1);
+    }
+    $pidFile = pidFile($name);
+    if (!is_file($pidFile)) {
+        fwrite(STDERR, "服务 {$name} 不在运行\n");
+        exit(1);
+    }
+    $pid = (int)file_get_contents($pidFile);
+    if (!isProcessAlive($pid)) {
+        fwrite(STDERR, "服务 {$name} 进程已退出，清除陈旧 PID\n");
+        @unlink($pidFile);
+        exit(1);
+    }
+    if (function_exists('posix_kill')) {
+        if (posix_kill($pid, 1 /* SIGHUP */)) {  // 1 = SIGHUP
+            fwrite(STDOUT, "✓ 已向 {$name} (pid={$pid}) 发送 SIGHUP\n");
+        } else {
+            fwrite(STDERR, "✗ 发送信号失败：{$pid}\n");
+            exit(1);
+        }
+    } else {
+        fwrite(STDERR, "当前环境不支持 posix_kill，请使用 systemd / supervisor 托管\n");
+        exit(1);
+    }
+}
+
+/**
+ * 查看服务日志。
+ */
+function doLogs(array $opts, array $args): void
+{
+    $name = is_string($opts['name'] ?? null) ? (string)$opts['name'] : null;
+    $follow = isset($opts['follow']) || isset($opts['f']);
+    $lines  = (int)($opts['n'] ?? ($opts['lines'] ?? 50));
+
+    if ($name === null) {
+        fwrite(STDERR, "用法: messaging logs --name=<name> [-f] [-n=50]\n");
+        exit(1);
+    }
+    $logFile = logFile($name);
+    if (!is_file($logFile)) {
+        fwrite(STDERR, "未找到日志文件: {$logFile}\n");
+        exit(1);
+    }
+
+    if ($follow) {
+        // tail -F 等价实现
+        $f = fopen($logFile, 'r');
+        if ($f === false) {
+            fwrite(STDERR, "无法打开 {$logFile}\n");
+            exit(1);
+        }
+        fseek($f, 0, SEEK_END);
+        fwrite(STDOUT, "追踪 {$logFile}（Ctrl+C 退出）\n");
+        while (true) {
+            $line = fgets($f);
+            if ($line === false) {
+                usleep(200_000);
+                continue;
+            }
+            fwrite(STDOUT, $line);
+        }
+    } else {
+        $content = (string)file_get_contents($logFile);
+        $all = explode("\n", $content);
+        $tail = array_slice($all, -$lines);
+        fwrite(STDOUT, implode("\n", $tail));
+    }
+}
+
+/**
+ * 返回 var/run 目录并确保存在。
+ */
+function ensureVarDirs(): void
+{
+    $root = dirname(__DIR__);
+    foreach (['var', 'var/run', 'var/log'] as $sub) {
+        $dir = $root . '/' . $sub;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0o755, true);
+        }
+    }
+}
+
+function pidFile(string $name): string
+{
+    return dirname(__DIR__) . '/var/run/' . preg_replace('/[^a-zA-Z0-9_.-]/', '_', $name) . '.pid';
+}
+
+function logFile(string $name): string
+{
+    return dirname(__DIR__) . '/var/log/' . preg_replace('/[^a-zA-Z0-9_.-]/', '_', $name) . '.log';
+}
+
+function isProcessAlive(int $pid): bool
+{
+    if ($pid <= 0) return false;
+    if (!function_exists('posix_kill')) {
+        // Windows / 不支持 posix 时降级
+        return file_exists("/proc/{$pid}");
+    }
+    return posix_kill($pid, 0);
+}
+
+function findAutoload(): string
+{
+    foreach ([__DIR__ . '/../vendor/autoload.php'] as $candidate) {
+        if (is_file($candidate)) return $candidate;
+    }
+    fwrite(STDERR, "未找到 autoload.php\n");
+    exit(1);
+}
+
+function workerStart(array $opts, array $args): void
+{
+    $count = (int)($opts['count'] ?? 1);
+    fwrite(STDOUT, "启动多 Worker 模式（count={$count}）\n");
+    fwrite(STDERR, "提示：需要先安装 kode/process：composer require kode/process\n");
+    fwrite(STDERR, "当前版本尚未注入该能力，请改用：\n");
+    fwrite(STDERR, "  php examples/websocket_server.php &\n");
+    fwrite(STDERR, "  supervisor / systemd 多进程托管\n");
 }
 
 function printHelp(): void
@@ -139,19 +690,242 @@ kode/messaging 命令行工具
   messaging <command> [options]
 
 命令:
-  version / info        显示版本与运行时信息
-  protocols              列出支持的全部协议
-  start <file>           启动服务（提供 PHP 文件路径）
-  stop                   停止服务（依赖 kode/process）
-  reload                 平滑重载（依赖 kode/process）
-  status                 查看状态（依赖 kode/process）
-  help                   显示本帮助
+  version / info            显示版本与运行时信息
+  protocols                 列出支持的全部协议适配器
+  self-check                环境自检（PHP 版本、扩展、配置）
+  config [section]          显示默认配置（section: websocket / sse / mqtt / ...）
+  doc [name]                打开本地文档（README / quick-start / ws / nats / ...）
+  start <file>              启动服务（前台）
+  start --protocol=<p>      启动内置协议服务（p: ws / sse / mqtt / udp / nats / stomp / grpc / rtmp / coap / longpolling / webtransport）
+  start --protocol=<p> --daemon --name=<n>
+                            后台启动并写入 PID
+  worker <file> --count=N   启动多 Worker（占位：依赖 kode/process）
+  status [--name=<n>]       查看后台服务状态
+  stop --name=<n> | --all [--force]    停止后台服务（SIGTERM / SIGKILL）
+  reload --name=<n>         发送 SIGHUP 让 kode/process 重新加载配置
+  logs --name=<n> [-f] [-n=50]         查看服务日志（-f 实时跟踪）
+  release --bump=X [--commit] [--tag] [--push]  维护者发布（升级版本号 + CHANGELOG + git）
+  help                      显示本帮助
 
 示例:
   messaging version
   messaging protocols
-  messaging start examples/websocket_server.php
+  messaging self-check
+  messaging config websocket
+  messaging doc nats
+  messaging start --protocol=ws --port=8080
+  messaging start --protocol=ws --daemon --name=ws-prod
+  messaging start examples/websocket_server.php --daemon --name=chat
+  messaging status
+  messaging logs --name=ws-prod -f
+  messaging stop --name=ws-prod
+  messaging stop --all
+  messaging release --bump=minor                 # 升级版本号 2.0.0 → 2.1.0
+  messaging release --bump=minor --commit --tag --push
+                                                  # 自动 commit + 打 tag + 推送
 
 HELP;
     fwrite(STDOUT, $help);
+}
+
+/**
+ * 升级版本号 + 自动 commit / tag / push
+ *
+ * 用法：
+ *   messaging release --bump=patch|minor|major|prerelease [--pre=alpha.1]
+ *                     [--message="..."] [--commit] [--tag] [--push]
+ *                     [--remote=origin] [--branch=main] [--dry-run]
+ */
+function doRelease(array $opts, array $args): void
+{
+    $bump  = is_string($opts['bump'] ?? null) ? strtolower((string)$opts['bump']) : null;
+    $pre   = isset($opts['pre']) && is_string($opts['pre']) ? (string)$opts['pre'] : null;
+    $msgRaw = $opts['message'] ?? ($opts['m'] ?? null);
+    $msg   = is_string($msgRaw) ? (string)$msgRaw : null;
+    $doCommit = isset($opts['commit']);
+    $doTag    = isset($opts['tag']);
+    $doPush   = isset($opts['push']);
+    $remote = is_string($opts['remote'] ?? null) ? (string)$opts['remote'] : 'origin';
+    $branchOpt = $opts['branch'] ?? null;
+    $branch = is_string($branchOpt) ? (string)$branchOpt : null;
+    $dryRun = isset($opts['dry-run']) || isset($opts['n']);
+
+    if ($bump === null) {
+        fwrite(STDERR, "用法: messaging release --bump=patch|minor|major|prerelease [--pre=alpha.1]\n");
+        fwrite(STDERR, "                       [--message='...'] [--commit] [--tag] [--push]\n");
+        fwrite(STDERR, "                       [--remote=origin] [--branch=main] [--dry-run]\n");
+        exit(1);
+    }
+    if (!in_array($bump, ['patch', 'minor', 'major', 'prerelease'], true)) {
+        fwrite(STDERR, "错误: --bump 必须是 patch / minor / major / prerelease 之一\n");
+        exit(1);
+    }
+
+    $root     = dirname(__DIR__);
+    $vFile    = $root . '/src/Support/Version.php';
+    $cFile    = $root . '/composer.json';
+    $clFile   = $root . '/CHANGELOG.md';
+
+    foreach ([$vFile, $cFile, $clFile] as $f) {
+        if (!is_file($f)) {
+            fwrite(STDERR, "缺少文件: $f\n");
+            exit(1);
+        }
+    }
+
+    // 1. 计算新版本号
+    [$major, $minor, $patch] = readCurrentVersion();
+    $oldVersion = "$major.$minor.$patch";
+    [$newMajor, $newMinor, $newPatch, $newPre] = bumpVersion($major, $minor, $patch, (string)($pre ?? ''), $bump);
+    $newVersion = trim("$newMajor.$newMinor.$newPatch" . ($newPre !== '' ? '-' . $newPre : ''));
+
+    fwrite(STDOUT, "当前版本: $oldVersion\n");
+    fwrite(STDOUT, "新版本:   $newVersion\n");
+
+    if ($dryRun) {
+        fwrite(STDOUT, "（dry-run，未实际修改）\n");
+    } else {
+        // 2. 写 src/Support/Version.php
+        writeVersionFile($vFile, $newMajor, $newMinor, $newPatch, $newPre);
+        // 3. 写 composer.json
+        writeComposerVersion($cFile, $newVersion);
+        // 4. 写 CHANGELOG.md（自动加入 Unreleased 段）
+        bumpChangelog($clFile, $newVersion, $msg);
+    }
+
+    // 5. git 操作
+    $isGit = is_dir($root . '/.git');
+    if (!$isGit) {
+        fwrite(STDOUT, "⚠ 非 git 仓库，跳过 commit / tag / push\n");
+        return;
+    }
+
+    $commitMsg = $msg ?? "chore(release): bump to v$newVersion";
+    $tagName   = "v$newVersion";
+
+    if ($doCommit) {
+        runCmd('git add -A', $dryRun);
+        runCmd('git commit -m ' . escapeshellarg($commitMsg), $dryRun);
+    }
+    if ($doTag) {
+        $tagMsg = $msg ?? "Release v$newVersion";
+        runCmd(sprintf('git tag -a %s -m %s', escapeshellarg($tagName), escapeshellarg($tagMsg)), $dryRun);
+    }
+    if ($doPush) {
+        $currentBranch = $branch ?? trim((string)shell_exec('git rev-parse --abbrev-ref HEAD'));
+        if ($currentBranch === '') {
+            fwrite(STDERR, "⚠ 无法识别当前分支，使用 --branch 指定\n");
+        } else {
+            runCmd(sprintf('git push %s %s', escapeshellarg($remote), escapeshellarg($currentBranch)), $dryRun);
+        }
+        if ($doTag) {
+            runCmd(sprintf('git push %s %s', escapeshellarg($remote), escapeshellarg($tagName)), $dryRun);
+        }
+    }
+
+    fwrite(STDOUT, "✓ 发布完成 v$newVersion\n");
+}
+
+/**
+ * 从 src/Support/Version.php 读取当前 MAJOR / MINOR / PATCH。
+ *
+ * @return array{0:int,1:int,2:int}
+ */
+function readCurrentVersion(): array
+{
+    $vFile = dirname(__DIR__) . '/src/Support/Version.php';
+    $code  = (string)file_get_contents($vFile);
+    preg_match('/MAJOR\s*=\s*(\d+)/', $code, $m1);
+    preg_match('/MINOR\s*=\s*(\d+)/', $code, $m2);
+    preg_match('/PATCH\s*=\s*(\d+)/', $code, $m3);
+    return [
+        (int)($m1[1] ?? 0),
+        (int)($m2[1] ?? 0),
+        (int)($m3[1] ?? 0),
+    ];
+}
+
+/**
+ * 按 semver 计算下一个版本号。
+ *
+ * @return array{0:int,1:int,2:int,3:string}
+ */
+function bumpVersion(int $major, int $minor, int $patch, string $pre, string $bump): array
+{
+    return match ($bump) {
+        'major'       => [$major + 1, 0, 0, ''],
+        'minor'       => [$major, $minor + 1, 0, ''],
+        'patch'       => [$major, $minor, $patch + 1, ''],
+        'prerelease'  => [$major, $minor, $patch, $pre !== '' ? $pre : 'rc.1'],
+    };
+}
+
+/**
+ * 把新版本号写回 src/Support/Version.php。
+ */
+function writeVersionFile(string $file, int $major, int $minor, int $patch, string $pre): void
+{
+    $code = (string)file_get_contents($file);
+    $code = preg_replace('/public const MAJOR = \d+;/', "public const MAJOR = $major;", $code);
+    $code = preg_replace('/public const MINOR = \d+;/', "public const MINOR = $minor;", $code);
+    $code = preg_replace('/public const PATCH = \d+;/', "public const PATCH = $patch;", $code);
+    $preEsc = addcslashes($pre, "'\\");
+    $code = preg_replace("/public const PRE_RELEASE = '[^']*';/", "public const PRE_RELEASE = '$preEsc';", $code);
+    file_put_contents($file, $code);
+    fwrite(STDOUT, "✓ 已更新 $file\n");
+}
+
+/**
+ * 更新 composer.json 中的 version 字段。
+ */
+function writeComposerVersion(string $file, string $version): void
+{
+    $json = (string)file_get_contents($file);
+    $new  = preg_replace('/"version"\s*:\s*"[^"]*"/', '"version": "' . $version . '"', $json);
+    file_put_contents($file, $new);
+    fwrite(STDOUT, "✓ 已更新 $file → $version\n");
+}
+
+/**
+ * 在 CHANGELOG.md 顶部插入新的版本段。
+ */
+function bumpChangelog(string $file, string $version, ?string $message): void
+{
+    $content = (string)file_get_contents($file);
+    $today   = date('Y-m-d');
+    $newSection = <<<MD
+## [$version] - $today
+
+### Notes
+- 自动发布于 $today
+$message
+
+---
+MD;
+    // 在 "# Changelog" 段后的第一个 "---" 之后插入
+    $content = preg_replace(
+        '/(本文件记录.*?---\n)/u',
+        '$1' . "\n" . $newSection . "\n",
+        $content,
+        1
+    );
+    file_put_contents($file, $content);
+    fwrite(STDOUT, "✓ 已更新 $file\n");
+}
+
+/**
+ * 执行 shell 命令，dry-run 时只 echo。
+ */
+function runCmd(string $cmd, bool $dryRun): void
+{
+    if ($dryRun) {
+        fwrite(STDOUT, "[dry-run] $cmd\n");
+        return;
+    }
+    fwrite(STDOUT, "\$ $cmd\n");
+    passthru($cmd, $exit);
+    if ($exit !== 0) {
+        fwrite(STDERR, "✗ 命令失败 (exit=$exit): $cmd\n");
+        exit($exit);
+    }
 }

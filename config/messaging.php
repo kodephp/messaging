@@ -107,6 +107,72 @@ return [
         'default_response_format' => 50,        // application/json
     ],
 
+    // ============== NATS（pub/sub）==============
+    'nats' => [
+        'host'             => '0.0.0.0',
+        'port'             => 4222,
+        'name'             => 'kode-messaging',  // 客户端标识
+        'pedantic'         => false,             // 严格模式
+        'verbose'          => false,             // 详细日志
+        'ping_interval'    => 30,                // 心跳间隔（秒），0 关闭
+        'max_payload'      => 1_048_576,         // 1 MiB
+        'auth' => [
+            'token'        => null,              // NATS Token
+            'user'         => null,              // 用户名
+            'password'     => null,              // 密码
+        ],
+        'tls' => [
+            'cafile'      => null,
+            'local_cert'  => null,
+            'local_pk'    => null,
+            'verify_peer' => true,
+        ],
+    ],
+
+    // ============== STOMP 1.2（消息队列）==============
+    'stomp' => [
+        'host'             => '0.0.0.0',
+        'port'             => 61613,
+        'version'          => '1.2',             // 1.0 / 1.1 / 1.2
+        'login'            => null,
+        'passcode'         => null,
+        'client_id'        => null,
+        'heartbeat_ms'     => 10_000,            // 心跳间隔（毫秒）
+        'heartbeat_zero'   => '0,0',             // 关闭心跳
+        'default_destination' => '/queue/default',
+    ],
+
+    // ============== gRPC Streaming ==============
+    'grpc' => [
+        'host'              => '0.0.0.0',
+        'port'              => 50051,
+        'tls'               => false,
+        'timeout'           => 5.0,              // Unary 超时（秒）
+        'max_message_size'  => 4 * 1024 * 1024,  // 4 MiB
+        'user_agent'        => 'kode-messaging/grpc',
+        'default_authority' => null,
+    ],
+
+    // ============== WebTransport（HTTP/3-fallback）==============
+    'webtransport' => [
+        'host'           => '0.0.0.0',
+        'port'           => 4433,
+        'subprotocol'    => 'wt-bidi',          // wt-bidi / wt-unidi / wt-dgram
+        'http3_backend'  => null,               // 外部 HTTP/3 后端地址
+        'datagram_reliable' => false,           // 默认 datagram 不可靠
+    ],
+
+    // ============== RTMP（直播源）==============
+    'rtmp' => [
+        'host'             => '0.0.0.0',
+        'port'             => 1935,
+        'chunk_size'       => 4096,
+        'window_ack_size'  => 2_500_000,
+        'peer_bandwidth'   => 2_500_000,
+        'app'              => 'live',            // 默认 app
+        'chunk_buffer_size' => 65_536,           // chunk 缓冲
+    ],
+
     // ============== 发布订阅总线 ==============
     'pubsub' => [
         'default' => 'memory',                 // memory | channel | redis

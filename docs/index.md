@@ -5,9 +5,11 @@
 ## 目录
 
 ### 入门
-- [快速开始](./quick-start.md) — 5 分钟跑通第一个 WebSocket
-- [架构设计](./architecture.md) — 协议适配器、消息管道、连接抽象
-- [配置说明](./configuration.md) — 全部配置项
+- [快速开始](./quick-start.md) — 5 分钟跑通第一个服务（含 CLI 工具一览）
+- [架构设计](./architecture.md) — 协议矩阵、适配器、消息管道、连接抽象
+- [配置说明](./configuration.md) — 全部 11 协议配置项 + 环境变量
+- [部署指南](./deployment.md) — systemd / supervisor / Docker / K8s / Nginx 一键部署
+- [发布指南](./release.md) — 维护者发布流程：版本号、commit、tag、Packagist、Docker Hub
 
 ### 协议指南（11 协议）
 - [WebSocket](./websocket.md) — 浏览器长连接、双向通信
@@ -27,6 +29,15 @@
 - [中间件](./middleware.md) — 鉴权、限流、编解码
 - [协议扩展路线图](./roadmap.md) — 计划与已实现的协议
 - [迁移指南](./migration.md) — 从 workerman / Swoole 迁移
+
+### CLI 工具（`bin/messaging`）
+- `messaging version` — 版本 + 运行时信息
+- `messaging protocols` — 已注册协议适配器
+- `messaging self-check` — 环境自检
+- `messaging config [section]` — 打印默认配置
+- `messaging doc [name]` — 打开本地文档
+- `messaging start <file|--protocol=...>` — 启动服务
+- `messaging worker <file> --count=N` — 多 Worker（依赖 kode/process）
 
 ### 示例
 - [聊天](./examples/chat.php) — WebSocket 聊天室
