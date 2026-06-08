@@ -909,15 +909,15 @@ function bumpChangelog(string $file, string $version, ?string $message): void
 $messageBlock
 ---
 MD;
-    // 在 "# Changelog" 段后的第一个 "---" 之后插入
+    // 在 "# Changelog" 段后的第一个 "---" 之后插入（用 /us 让 . 匹配换行）
     $content = preg_replace(
-        '/(本文件记录.*?---\n)/u',
+        '/(本文件记录.*?---\n)/us',
         '$1' . "\n" . $newSection . "\n",
         $content,
         1
     );
     file_put_contents($file, $content);
-    fwrite(STDOUT, "✓ 已更新 $file（添加 [$version] 段）\n");
+    fwrite(STDOUT, '✓ 已更新 ' . $file . "（添加 [$version] 段）\n");
 }
 
 /**

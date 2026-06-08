@@ -173,6 +173,59 @@ return [
         'chunk_buffer_size' => 65_536,           // chunk 缓冲
     ],
 
+    // ============== 限流（基于 kode/limiting）==============
+    //
+    // 支持两层限流：
+    //  - rtmp.connection：连接级（按 IP 限并发连接数，capacity 即最大并发数）
+    //  - rtmp.command  ：命令级（按 connection_id 限 AMF0 命令频率）
+    //
+    // 存储后端：
+    //  - memory  ：单进程（默认）
+    //  - redis   ：跨机器分布式（推荐生产环境）
+    //  - memcached：跨机器（需要 ext-memcached）
+    //  - pdo     ：跨机器（需要 pdo_mysql / pdo_pgsql / pdo_sqlite）
+    //
+    // 业务层可通过以下方式使用：
+    //   use Kode\Messaging\Middleware\RateLimit\RateLimitFactory;
+    //   $connLimiter = RateLimitFactory::create($cfg['rate_limit']['rtmp']['connection']);
+    //   $cmdLimiter  = RateLimitFactory::create($cfg['rate_limit']['rtmp']['command']);
+    'rate_limit' => [
+        'enabled' => true,
+        'rtmp' => [
+            'connection' => [
+                'driver'     => 'token_bucket',
+                'capacity'   => 100,             // 单 IP 最大并发连接数
+                'rate'       => 1.0,             // 每秒补充令牌（连接数/秒）
+                'store'      => 'memory',        // memory | redis | memcached | pdo
+                'store_opts' => [
+                    'host'     => '127.0.0.1',
+                    'port'     => 6379,
+                    'password' => null,
+                    'database' => 0,
+                ],
+                'ttl'        => 60,
+                'prefix'     => 'rtmp:conn:',
+            ],
+            'command' => [
+                'driver'     => 'token_bucket',
+                'capacity'   => 200,             // 单连接令牌桶容量（瞬时突发）
+                'rate'       => 50.0,            // 每秒 50 个 AMF0 command
+                'store'      => 'memory',
+                'store_opts' => [
+                    'host'     => '127.0.0.1',
+                    'port'     => 6379,
+                    'password' => null,
+                    'database' => 0,
+                ],
+                'ttl'        => 60,
+                'prefix'     => 'rtmp:cmd:',
+            ],
+        ],
+        // 其他协议可按需扩展：
+        // 'websocket' => [...],
+        // 'mqtt'      => [...],
+    ],
+
     // ============== 发布订阅总线 ==============
     'pubsub' => [
         'default' => 'memory',                 // memory | channel | redis

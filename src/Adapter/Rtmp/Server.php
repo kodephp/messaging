@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Rtmp;
 
+use Kode\Limiting\Algorithm\RateLimiterInterface;
 use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
@@ -21,6 +22,15 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  *
 > 实现范围：handshake + chunk + AMF0 命令分发（connect / createStream / publish / play）。
 > 不实现：FLV 封装、video/audio 解码。
+ *
+ * ## 限流（三层防御，基于 kode/limiting）
+ *
+ *  1. **连接级限流** `connectionLimiter`：新 TCP 连接进入前检查（防握手洪水）
+ *  2. **命令级限流** `commandLimiter`：每个 AMF0 command 进入时检查（防恶意命令洪水）
+ *  3. **消息级限流**：通过 `Builder::middleware()` 注册的中间件管道（业务层自定义）
+ *
+ * 限流配置形态参考 `config/messaging.php` 中的 `rate_limit.rtmp` 段，
+ * 可通过 `setRateLimiters()` 注入（推荐用 `RateLimitFactory::create()` 构造）。
  */
 final class Server extends AbstractAdapter
 {
@@ -35,6 +45,15 @@ final class Server extends AbstractAdapter
     private int $nextMessageStreamId = 1;
     private ?ServerBuilder $builder = null;
 
+    /** @var RateLimiterInterface|null 连接级限流器（按 IP 限连接数） */
+    private ?RateLimiterInterface $connectionLimiter = null;
+    /** @var RateLimiterInterface|null 命令级限流器（按 connection_id 限 AMF0 命令） */
+    private ?RateLimiterInterface $commandLimiter = null;
+
+    /** 触发限流时主动断开连接的回调列表（用于业务层清理资源） */
+    /** @var list<callable> */
+    private array $onLimitedCallbacks = [];
+
     public static function scheme(): string
     {
         return 'rtmp';
@@ -48,6 +67,32 @@ final class Server extends AbstractAdapter
     public function setBuilder(ServerBuilder $builder): void
     {
         $this->builder = $builder;
+    }
+
+    /**
+     * 注入限流器（基于 kode/limiting）。
+     *
+     *  - `$connectionLimiter`：连接级，按 IP 限并发连接数（容量 = 允许的最大连接数）
+     *  - `$commandLimiter`  ：命令级，按 connection_id 限 AMF0 命令频率
+     *
+     * 触发限流时：
+     *  - 连接级：拒绝接受（关闭 socket、emit `error.protocol`）
+     *  - 命令级：抛 MessagingException(429)、关闭连接、emit `error.protocol`
+     */
+    public function setRateLimiters(
+        ?RateLimiterInterface $connectionLimiter = null,
+        ?RateLimiterInterface $commandLimiter = null,
+    ): void {
+        $this->connectionLimiter = $connectionLimiter;
+        $this->commandLimiter = $commandLimiter;
+    }
+
+    /**
+     * 注册限流触发时的回调（用于业务层清理资源 / 埋点）。
+     */
+    public function onLimited(callable $callback): void
+    {
+        $this->onLimitedCallbacks[] = $callback;
     }
 
     protected function defaultConfig(): array
@@ -84,15 +129,7 @@ final class Server extends AbstractAdapter
             $new = @stream_socket_accept($this->socket, 0);
             if ($new !== false) {
                 $peer = stream_socket_get_name($new, true) ?: 'unknown';
-                $this->connections[$peer] = new RtmpConnection(
-                    RtmpConnection::generateId('rtmp'),
-                    'rtmp',
-                    $peer,
-                    $new,
-                );
-                $this->buffers[$peer] = '';
-                $this->handshakeStep[$peer] = 0;
-                $this->builder?->emit('connection.open', ['connection' => $this->connections[$peer]]);
+                $this->handleNewConnection($new, $peer);
             }
 
             foreach ($this->connections as $peer => $conn) {
@@ -125,6 +162,7 @@ final class Server extends AbstractAdapter
         }
         $this->connections = [];
         $this->buffers = [];
+        $this->handshakeStep = [];
         if ($this->socket !== null) {
             @fclose($this->socket);
             $this->socket = null;
@@ -134,6 +172,43 @@ final class Server extends AbstractAdapter
     public static function autoRegister(): void
     {
         Registry::register('rtmp', self::class);
+    }
+
+    /**
+     * 处理新连接（含连接级限流）。
+     *
+     * @param resource $socket
+     */
+    private function handleNewConnection($socket, string $peer): void
+    {
+        // 连接级限流（按 IP 限并发连接数）
+        if ($this->connectionLimiter !== null) {
+            $ip = $this->extractIp($peer);
+            $key = 'rtmp:conn:' . $ip;
+            if (!$this->connectionLimiter->allow($key, 1)) {
+                $this->emitLimited('connection', $peer, [
+                    'ip'           => $ip,
+                    'wait_time'    => $this->connectionLimiter->getWaitTime($key),
+                    'remaining'    => $this->connectionLimiter->getRemaining($key),
+                ]);
+                $this->builder?->emit('error.protocol', [
+                    'peer'  => $peer,
+                    'error' => '连接级限流触发',
+                ]);
+                @fclose($socket);
+                return;
+            }
+        }
+
+        $this->connections[$peer] = new RtmpConnection(
+            RtmpConnection::generateId('rtmp'),
+            'rtmp',
+            $peer,
+            $socket,
+        );
+        $this->buffers[$peer] = '';
+        $this->handshakeStep[$peer] = 0;
+        $this->builder?->emit('connection.open', ['connection' => $this->connections[$peer]]);
     }
 
     private function processPeer(string $peer): void
@@ -199,7 +274,6 @@ final class Server extends AbstractAdapter
         $type = $msg['type'];
         $body = $msg['body'];
         $csid = $msg['csid'];
-        $messageStreamId = 0;
 
         switch ($type) {
             case 0x14: // AMF0 Command
@@ -234,6 +308,24 @@ final class Server extends AbstractAdapter
 
     private function handleAmf0Command(RtmpConnection $conn, int $csid, string $body): void
     {
+        // 命令级限流（按 connection_id）
+        if ($this->commandLimiter !== null) {
+            $key = 'rtmp:cmd:' . $conn->id();
+            if (!$this->commandLimiter->allow($key, 1)) {
+                $this->emitLimited('command', $conn->remoteAddress(), [
+                    'connection_id' => $conn->id(),
+                    'wait_time'     => $this->commandLimiter->getWaitTime($key),
+                    'remaining'     => $this->commandLimiter->getRemaining($key),
+                ]);
+                $this->builder?->emit('error.protocol', [
+                    'peer'  => $conn->remoteAddress(),
+                    'error' => '命令级限流触发',
+                ]);
+                $this->closePeer($conn->remoteAddress());
+                return;
+            }
+        }
+
         $offset = 0;
         $commandName = Amf0::decode($body, $offset);
         $transactionId = Amf0::decode($body, $offset);
@@ -321,5 +413,43 @@ final class Server extends AbstractAdapter
             $conn->close();
         }
         unset($this->connections[$peer], $this->buffers[$peer], $this->handshakeStep[$peer]);
+    }
+
+    /**
+     * 从 peer 字符串中提取 IP。
+     */
+    private function extractIp(string $peer): string
+    {
+        $pos = strrpos($peer, ':');
+        if ($pos === false) {
+            return $peer;
+        }
+        $ip = substr($peer, 0, $pos);
+        // IPv6 带 []
+        if (str_starts_with($ip, '[') && str_ends_with($ip, ']')) {
+            $ip = substr($ip, 1, -1);
+        }
+        return $ip !== '' ? $ip : $peer;
+    }
+
+    /**
+     * 触发限流事件。
+     */
+    private function emitLimited(string $type, string $peer, array $info): void
+    {
+        $payload = [
+            'type'        => $type,
+            'peer'        => $peer,
+            'limiter'     => 'kode/limiting',
+            'info'        => $info,
+        ];
+        $this->builder?->emit('rate_limit.exceeded', $payload);
+        foreach ($this->onLimitedCallbacks as $cb) {
+            try {
+                $cb($payload);
+            } catch (\Throwable $e) {
+                $this->logger->error('onLimited callback error: ' . $e->getMessage());
+            }
+        }
     }
 }
