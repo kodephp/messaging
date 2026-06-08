@@ -144,7 +144,7 @@ Messaging::server('rtmp://0.0.0.0:1935')
 | STOMP 1.2 | `stomp://` | ✅ 嵌入式 Broker | ✅ | 消息队列（兼容 RabbitMQ / ActiveMQ） |
 | gRPC Streaming | `grpc://` | ✅ | ✅ | 微服务 RPC、4 种流式调用 |
 | WebTransport | `wt://` / `webtransport://` | HTTP/3-fallback | ✅ | HTTP/3 双工（依赖 aioquic / msquic） |
-| RTMP | `rtmp://` / `rtmps://` | ✅ | 规划中 | 直播源接入（OBS / FMLE） |
+| RTMP | `rtmp://` / `rtmps://` | ✅ | ✅ | 直播源接入（OBS / FMLE） |
 
 ## 架构
 
@@ -209,10 +209,17 @@ Messaging::server('rtmp://0.0.0.0:1935')
 - [docs/udp.md](./docs/udp.md) — UDP 协议指南
 - [docs/long-polling.md](./docs/long-polling.md) — Long-Polling 协议指南
 - [docs/coap.md](./docs/coap.md) — CoAP 协议指南
+- [docs/nats.md](./docs/nats.md) — NATS 协议指南
+- [docs/stomp.md](./docs/stomp.md) — STOMP 协议指南
+- [docs/grpc.md](./docs/grpc.md) — gRPC Streaming 协议指南
+- [docs/webtransport.md](./docs/webtransport.md) — WebTransport 协议指南
+- [docs/rtmp.md](./docs/rtmp.md) — RTMP 协议指南
 - [docs/roadmap.md](./docs/roadmap.md) — 协议扩展路线图
 - [docs/pubsub.md](./docs/pubsub.md) — 发布订阅总线
 - [docs/middleware.md](./docs/middleware.md) — 中间件
 - [docs/configuration.md](./docs/configuration.md) — 配置
+- [docs/deployment.md](./docs/deployment.md) — 部署
+- [docs/release.md](./docs/release.md) — 发布流程
 - [docs/migration.md](./docs/migration.md) — 从其它框架迁移
 - [docs/examples/](./docs/examples/) — 完整示例
 
@@ -223,6 +230,14 @@ Messaging::server('rtmp://0.0.0.0:1935')
 - `examples/sse_server.php` — SSE 服务端
 - `examples/mqtt_publish.php` — MQTT 发布
 - `examples/mqtt_subscribe.php` — MQTT 订阅
+- `examples/udp_client.php` — UDP 客户端
+- `examples/coap_server.php` / `coap_client.php` — CoAP 服务端 / 客户端
+- `examples/nats_server.php` / `nats_client.php` — NATS 服务端 / 客户端
+- `examples/stomp_server.php` — STOMP 服务端
+- `examples/grpc_server.php` — gRPC 服务端
+- `examples/longpolling_server.php` / `longpolling_client.php` — Long-Polling
+- `examples/webtransport_server.php` — WebTransport
+- `examples/rtmp_server.php` — RTMP 直播源接入
 - `docs/examples/chat.php` — 聊天室
 - `docs/examples/push.php` — 实时通知
 - `docs/examples/iot.php` — IoT 设备
