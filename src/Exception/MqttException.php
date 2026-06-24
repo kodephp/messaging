@@ -38,4 +38,14 @@ class MqttException extends MessagingException
             $context,
         );
     }
+
+    /**
+     * 服务端错误（监听失败、内部异常等）。
+     *
+     * @param array<string, mixed> $context
+     */
+    public static function serverError(string $reason, array $context = []): self
+    {
+        return new self("MQTT 服务端错误: {$reason}", 5002, $context);
+    }
 }

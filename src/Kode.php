@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Kode\Messaging;
 
 use Kode\Messaging\Support\PhpCompat;
+use Kode\Messaging\Support\RuntimeDetector;
 
 /**
  * 与 kode/process\Kode 风格一致的次级门面
  *
- * 提供 PHP 版本与特性检测，调用方式更短。
+ * 提供 PHP 版本与特性检测、运行时环境检测，调用方式更短。
  */
 final class Kode
 {
@@ -55,6 +56,54 @@ final class Kode
     public static function hasPipeOperator(): bool
     {
         return PhpCompat::hasPipeOperator();
+    }
+
+    /**
+     * 安全的 JSON 校验（兼容 8.2 和 8.3+）
+     */
+    public static function jsonValidate(string $json): bool
+    {
+        return PhpCompat::jsonValidate($json);
+    }
+
+    /**
+     * 获取安全的随机字节（兼容 8.2 和 8.3+）
+     *
+     * @throws \Exception 在熵源不可用时抛出
+     */
+    public static function randomBytes(int $length): string
+    {
+        return PhpCompat::randomBytes($length);
+    }
+
+    // ============== 运行时环境检测 ==============
+
+    /**
+     * 当前运行时环境：swoole / swow / workerman / plain
+     */
+    public static function runtime(): string
+    {
+        return RuntimeDetector::runtime();
+    }
+
+    public static function isSwoole(): bool
+    {
+        return RuntimeDetector::isSwoole();
+    }
+
+    public static function isSwow(): bool
+    {
+        return RuntimeDetector::isSwow();
+    }
+
+    public static function isWorkerman(): bool
+    {
+        return RuntimeDetector::isWorkerman();
+    }
+
+    public static function inCoroutine(): bool
+    {
+        return RuntimeDetector::inCoroutine();
     }
 
     /**

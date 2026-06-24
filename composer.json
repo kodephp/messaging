@@ -3,7 +3,7 @@
     "description": "统一消息层，封装 **11 种长连接 / 实时消息协议**（WebSocket、SSE、MQTT、UDP、Long-Polling、CoAP、NATS、STOMP、gRPC Streaming、WebTransport、RTMP），提供**一致的 API**、**协议无关的消息抽象**和**可插拔的扩展点**",
     "type": "library",
     "license": "Apache-2.0",
-    "version": "2.2.2",
+    "version": "2.3.0",
     "keywords": [
         "messaging",
         "websocket",
@@ -64,6 +64,7 @@
         "ext-msgpack": "MsgPack 编解码中间件",
         "swoole/swoole": "Swoole 协程传输层（百万级并发）",
         "swow/swow": "Swow 协程传输层（跨平台）",
+        "workerman/workerman": "Workerman 事件循环传输层（多进程）",
         "kode/fibers": "Fiber 协程支持",
         "kode/event": "事件派发器（kode/event）",
         "kode/context": "上下文追踪（TraceMiddleware）",

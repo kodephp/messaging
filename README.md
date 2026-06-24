@@ -5,7 +5,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-8.2+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
-[![Version](https://img.shields.io/badge/version-2.2.0-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue?style=flat-square)](CHANGELOG.md)
 
 ## 简介
 
@@ -74,6 +74,8 @@ Messaging::server('sse://0.0.0.0:8081')
 
 ### MQTT
 
+客户端（连接外部 Broker）：
+
 ```php
 Messaging::client('mqtt://broker.example.com:1883')
     ->withClientId('device-001')
@@ -82,6 +84,19 @@ Messaging::client('mqtt://broker.example.com:1883')
     })
     ->connect()
     ->loop();
+```
+
+Broker（内置 MQTT 3.1.1 服务端，支持 QoS 0/1/2、主题通配符、保留消息、遗嘱消息）：
+
+```php
+Messaging::server('mqtt://0.0.0.0:1883')
+    ->on('connection.open', fn($c) => log_connect($c))
+    ->on('message.received', function ($c, $m) {
+        $topic = $m->topic();
+        $payload = $m->payload();
+        echo "[mqtt] topic={$topic} payload={$payload}\n";
+    })
+    ->start();
 ```
 
 ### NATS（pub/sub、request/reply）
@@ -136,7 +151,7 @@ Messaging::server('rtmp://0.0.0.0:1935')
 |---|---|---|---|---|
 | WebSocket | `ws://` / `wss://` | ✅ | ✅ | 浏览器长连接、聊天、游戏 |
 | SSE | `sse://` | ✅ | ✅ | 服务端推送、通知、大屏 |
-| MQTT 3.1.1 / 5.0 | `mqtt://` / `mqtts://` | 实验性 Broker | ✅ | IoT、移动推送、Pub/Sub |
+| MQTT 3.1.1 / 5.0 | `mqtt://` / `mqtts://` | ✅ Broker | ✅ | IoT、移动推送、Pub/Sub |
 | UDP / Datagram | `udp://` | ✅ | ✅ | 实时音视频、游戏、广播 |
 | Long-Polling | `poll://` / `http://` | ✅ | ✅ | WebSocket 回退、低频推送 |
 | CoAP (RFC 7252) | `coap://` / `coaps://` | ✅ | ✅ | IoT 传感器、NB-IoT、LoRa |
@@ -149,18 +164,44 @@ Messaging::server('rtmp://0.0.0.0:1935')
 ## 架构
 
 ```
-┌────────────────────────────────────────────────────────┐
-│  Layer 5 — 应用层                                       │
-│           Messaging::server()->on('message.received')  │
-├────────────────────────────────────────────────────────┤
-│  Layer 4 — 中间件管道（Auth → RateLimit → Codec → ...） │
-├────────────────────────────────────────────────────────┤
-│  Layer 3 — 协议适配器（WebSocket / SSE / MQTT / ...）   │
-├────────────────────────────────────────────────────────┤
-│  Layer 2 — 消息抽象（MessageInterface / Connection）    │
-├────────────────────────────────────────────────────────┤
-│  Layer 1 — 传输层（stream / sockets / swoole / swow）  │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Layer 5 — 应用层                                             │
+│           Messaging::server()->on('message.received')        │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 4 — 中间件管道（Auth → RateLimit → Codec → ...）       │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 3 — 协议适配器（WebSocket / SSE / MQTT / ...）         │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 2 — 消息抽象（MessageInterface / Connection）          │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 1 — 传输层（TransportInterface）                      │
+│           stream / sockets / swoole / swow / workerman       │
+│           RuntimeDetector 自动检测最佳驱动                    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## 传输层（多运行时兼容）
+
+`kode/messaging` 通过 `TransportInterface` 抽象底层 socket 操作，支持 5 种传输驱动：
+
+| 驱动 | 依赖 | 性能 | 说明 |
+|---|---|---|---|
+| `stream` | 零依赖（内置） | 基准 | 纯 PHP `stream_socket_*`，始终可用 |
+| `sockets` | `ext-sockets` | +20-50% | 底层 socket 扩展 |
+| `swoole` | `ext-swoole` | 100x | Swoole 协程，百万级并发 |
+| `swow` | `ext-swow` | 100x | Swow 协程，跨平台 |
+| `workerman` | `workerman/workerman` | 50x | Workerman 事件循环，多进程 |
+
+**自动检测**：配置 `transport: auto` 时，`TransportFactory` 按优先级自动选择：
+swoole > swow > workerman > stream。
+
+```php
+// 手动指定传输层
+Messaging::configure(['transport' => 'swoole']);
+
+// 或运行时检测
+use Kode\Messaging\Kode;
+echo Kode::runtime(); // 'swoole' | 'swow' | 'workerman' | 'plain'
 ```
 
 ## 与 kode/* 家族协作
@@ -184,19 +225,33 @@ Messaging::server('rtmp://0.0.0.0:1935')
 - **推荐**：PHP 8.3 / 8.4
 - **已验证**：PHP 8.5
 
-支持的现代特性：
+支持的现代特性（通过 `PhpCompat` / `RuntimeDetector` 运行时检测，自动降级）：
 
-| 特性 | 用法 | 版本 |
-|---|---|---|
-| `readonly class` | 不可变消息体 | ≥ 8.2 |
-| `enum` | 协议状态机 | ≥ 8.1 |
-| `Fibers` | 协程 | ≥ 8.1 |
-| typed class constants | 协议常量 | ≥ 8.3 |
-| `#[\Override]` | 覆盖标记 | ≥ 8.3 |
-| property hooks | 连接属性 | ≥ 8.4 |
-| pipe operator `\|>` | 链式构造 | ≥ 8.5 |
+| 特性 | 用法 | 版本 | 降级方案 |
+|---|---|---|---|
+| `readonly class` | 不可变消息体 | ≥ 8.2 | — |
+| `enum` | 协议状态机 | ≥ 8.1 | — |
+| `Fibers` | 协程 | ≥ 8.1 | — |
+| `json_validate()` | JSON 快速校验 | ≥ 8.3 | `json_decode` + `json_last_error` |
+| `Random\Randomizer` | 安全随机 | ≥ 8.3 | `random_bytes()` |
+| typed class constants | 协议常量 | ≥ 8.3 | 普通 `const`（当前使用） |
+| `#[\Override]` | 覆盖标记 | ≥ 8.3 | 静默忽略（8.2 安全） |
+| property hooks | 连接属性 | ≥ 8.4 | 传统 getter/setter |
+| pipe operator `\|>` | 链式构造 | ≥ 8.5 | `Kode::pipe()` foreach 模拟 |
 
-8.5 不可用时自动提供 `Messaging::pipeline()` 等价实现。
+```php
+use Kode\Messaging\Kode;
+
+// JSON 校验（8.3+ 用 json_validate，8.2 降级）
+Kode::jsonValidate('{"ok":true}'); // bool
+
+// 安全随机（8.3+ 用 Randomizer，8.2 降级）
+Kode::randomBytes(16); // string
+
+// 运行时环境检测
+Kode::runtime();       // 'swoole' | 'swow' | 'workerman' | 'plain'
+Kode::inCoroutine();   // bool
+```
 
 ## 文档
 

@@ -98,7 +98,7 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 
 ## 5. 协程与传输层
 
-所有协议适配器最终落到同一传输层抽象：
+所有协议适配器最终落到同一传输层抽象（`src/Transport/TransportInterface`）：
 
 | 驱动 | 协议 | 性能 | 依赖 |
 |---|---|---|---|
@@ -106,8 +106,10 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 | `SocketTransport` | TCP/UDP | 提升 20-50% | ext-sockets |
 | `SwooleTransport` | TCP/UDP | 100 倍 | ext-swoole |
 | `SwowTransport` | TCP/UDP | 100 倍 | ext-swow |
+| `WorkermanTransport` | TCP | 50 倍 | workerman/workerman |
 
-传输层切换对业务代码透明，适配器在 `boot()` 时根据配置选择。
+传输层切换对业务代码透明，`AbstractAdapter` 在 `boot()` 时通过 `TransportFactory::create()` 自动选择。
+`RuntimeDetector` 检测当前运行时环境（swoole / swow / workerman / plain），供业务层和配置使用。
 
 ## 6. 版本节奏
 
@@ -116,6 +118,8 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 | 1.0.0 | WebSocket / SSE / MQTT / UDP（首发） |
 | 1.1.0 | Long-Polling / CoAP |
 | 1.2.0 | NATS / STOMP（合并入 2.0.0） |
-| **2.0.0** | **NATS / STOMP / gRPC Streaming / WebTransport / RTMP**（11 协议完整） |
+| 2.0.0 | NATS / STOMP / gRPC Streaming / WebTransport / RTMP（11 协议完整） |
 | 2.1.0 | gRPC 完整 HTTP/2 + HPACK + TLS；WebTransport 原生 HTTP/3 |
-| 3.0.0 | QUIC 独立实现 / Swoole 传输层 |
+| 2.2.0 | RTMP 三层限流 + 防护 |
+| **2.3.0** | **MQTT Broker 完整实现 + 传输层抽象（Swoole/Swow/Workerman）+ RuntimeDetector + PhpCompat 接入** |
+| 3.0.0 | QUIC 独立实现 / enum 全面应用 / Fiber 协程 |

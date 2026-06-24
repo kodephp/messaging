@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter;
 
 use Kode\Messaging\Contract\AdapterInterface;
+use Kode\Messaging\Support\RuntimeDetector;
+use Kode\Messaging\Transport\TransportFactory;
+use Kode\Messaging\Transport\TransportInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -15,6 +18,7 @@ use Psr\Log\NullLogger;
  *  - 配置管理
  *  - Logger 注入
  *  - 运行状态（idle / running / shutting-down）
+ *  - 传输层自动检测（stream / swoole / swow / workerman）
  */
 abstract class AbstractAdapter implements AdapterInterface
 {
@@ -23,6 +27,7 @@ abstract class AbstractAdapter implements AdapterInterface
     protected bool $running = false;
     protected string $host = '0.0.0.0';
     protected int $port = 0;
+    protected ?TransportInterface $transport = null;
 
     public function __construct(?LoggerInterface $logger = null)
     {
@@ -37,6 +42,28 @@ abstract class AbstractAdapter implements AdapterInterface
     public function boot(array $config): void
     {
         $this->config = array_replace_recursive($this->defaultConfig(), $config);
+        $this->initTransport();
+    }
+
+    /**
+     * 初始化传输层 —— 根据配置或自动检测选择最佳传输驱动。
+     */
+    protected function initTransport(): void
+    {
+        $driver = $this->config['transport'] ?? 'auto';
+        $this->transport = TransportFactory::create($driver === 'auto' ? null : $driver);
+        $this->logger->debug('传输层已初始化', [
+            'driver' => $this->transport->driver(),
+            'runtime' => RuntimeDetector::runtime(),
+        ]);
+    }
+
+    /**
+     * 获取当前传输层实例。
+     */
+    protected function transport(): TransportInterface
+    {
+        return $this->transport ??= TransportFactory::create();
     }
 
     /**

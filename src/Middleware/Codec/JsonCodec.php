@@ -6,6 +6,7 @@ namespace Kode\Messaging\Middleware\Codec;
 
 use Kode\Messaging\Contract\MessageInterface;
 use Kode\Messaging\Contract\MiddlewareInterface;
+use Kode\Messaging\Support\PhpCompat;
 
 /**
  * JSON 编解码中间件
@@ -14,6 +15,10 @@ use Kode\Messaging\Contract\MiddlewareInterface;
  *  出站：payload 数组 → JSON 编码后写回 raw
  *
  *  默认只处理 text 帧；二进制帧跳过。
+ *
+ *  JSON 校验通过 PhpCompat 兼容层：
+ *    - PHP 8.3+ 使用 json_validate()（C 实现，快速校验）
+ *    - PHP 8.2   降级为 json_decode + json_last_error
  */
 final class JsonCodec implements MiddlewareInterface
 {
@@ -46,12 +51,12 @@ final class JsonCodec implements MiddlewareInterface
         if ($raw === '') {
             return $m;
         }
-        try {
-            /** @var mixed $decoded */
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
+        // 使用 PhpCompat 兼容层校验 JSON（8.3+ 用 json_validate，8.2 降级）
+        if (!PhpCompat::jsonValidate($raw)) {
             return $m; // 非 JSON，保持原样
         }
+        /** @var mixed $decoded */
+        $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         if (is_array($decoded) && isset($decoded['event']) && is_string($decoded['event'])) {
             return $m->withEvent($decoded['event'])->withPayload($decoded);
         }

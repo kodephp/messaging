@@ -16,12 +16,13 @@ return [
     'logger' => null,                          // Psr\Log\LoggerInterface|null
     'event_dispatcher' => null,                // Psr\EventDispatcher\EventDispatcherInterface|null
 
-    // 传输层选择：auto | stream | sockets | swoole | swow
-    //   - auto    : 自动检测最佳传输层
-    //   - stream  : 纯 PHP stream_socket_*，零扩展依赖
-    //   - sockets : ext-sockets
-    //   - swoole  : ext-swoole（协程）
-    //   - swow    : ext-swow（协程）
+    // 传输层选择：auto | stream | sockets | swoole | swow | workerman
+    //   - auto      : 自动检测最佳传输层（swoole > swow > workerman > stream）
+    //   - stream    : 纯 PHP stream_socket_*，零扩展依赖
+    //   - sockets   : ext-sockets
+    //   - swoole    : ext-swoole（协程）
+    //   - swow      : ext-swow（协程）
+    //   - workerman : workerman/workerman 事件循环
     'transport' => 'auto',
 
     // ============== WebSocket ==============
