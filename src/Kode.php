@@ -33,11 +33,6 @@ final class Kode
         return PhpCompat::versionId();
     }
 
-    public static function isPhp82(): bool
-    {
-        return PhpCompat::isPhp82();
-    }
-
     public static function isPhp83(): bool
     {
         return PhpCompat::isPhp83();

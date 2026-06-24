@@ -15,15 +15,18 @@ final class PhpCompatTest extends TestCase
         $this->assertGreaterThanOrEqual(80_300, PhpCompat::versionId());
     }
 
-    public function testHasStandaloneTypes(): void
+    public function testJsonValidateAlwaysAvailable(): void
     {
-        $this->assertTrue(PhpCompat::hasStandaloneTypes());
+        // 8.3 基线：json_validate 始终可用
+        $this->assertTrue(PhpCompat::jsonValidate('{"key":"value"}'));
+        $this->assertFalse(PhpCompat::jsonValidate('{invalid}'));
     }
 
-    public function testJsonValidateOn83(): void
+    public function testRandomBytes(): void
     {
-        $has = PhpCompat::hasJsonValidate();
-        $this->assertSame(PhpCompat::isPhp83(), $has);
+        // 8.3 基线：Randomizer 始终可用
+        $bytes = PhpCompat::randomBytes(16);
+        $this->assertSame(16, strlen($bytes));
     }
 
     public function testPipeOperatorOnlyOn85(): void
@@ -31,8 +34,13 @@ final class PhpCompatTest extends TestCase
         $this->assertSame(PhpCompat::isPhp85(), PhpCompat::hasPipeOperator());
     }
 
-    public function testRandomizerOn83(): void
+    public function testPropertyHooksOnlyOn84(): void
     {
-        $this->assertSame(PhpCompat::isPhp83(), PhpCompat::hasRandomizer());
+        $this->assertSame(PhpCompat::isPhp84(), PhpCompat::hasPropertyHooks());
+    }
+
+    public function testAsymmetricVisibilityOnlyOn84(): void
+    {
+        $this->assertSame(PhpCompat::isPhp84(), PhpCompat::hasAsymmetricVisibility());
     }
 }

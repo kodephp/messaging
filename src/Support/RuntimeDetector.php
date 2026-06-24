@@ -15,13 +15,16 @@ use Random\Randomizer;
  *   - workerman: workerman/workerman 包已安装
  *   - plain:     纯 PHP stream 模式（默认）
  *
- * 同时提供 PHP 8.3/8.4/8.5 新特性的运行时检测，
+ * 同时提供 PHP 8.4/8.5 新特性的运行时检测，
  * 供业务代码在不确定运行时版本时做兼容降级。
+ *
+ * 注意：PHP 8.3 为最低基线，json_validate / Randomizer / #[\Override]
+ * / typed class constants 均可直接使用，不再需要运行时判断。
  *
  * 用法：
  *   $rt = RuntimeDetector::runtime();        // 'swoole' | 'swow' | 'workerman' | 'plain'
  *   if (RuntimeDetector::inCoroutine()) { ... }
- *   if (RuntimeDetector::hasJsonValidate()) { ... }
+ *   if (RuntimeDetector::hasPropertyHooks()) { ... }
  */
 final class RuntimeDetector
 {
@@ -198,46 +201,6 @@ final class RuntimeDetector
     }
 
     /**
-     * 是否支持 PHP 8.3 typed class constants
-     *
-     * @return bool
-     */
-    public static function hasTypedClassConstants(): bool
-    {
-        return PHP_VERSION_ID >= 80300;
-    }
-
-    /**
-     * 是否支持 PHP 8.3 #[\Override] 属性
-     *
-     * @return bool
-     */
-    public static function hasOverrideAttribute(): bool
-    {
-        return PHP_VERSION_ID >= 80300;
-    }
-
-    /**
-     * 是否支持 PHP 8.3 json_validate()
-     *
-     * @return bool
-     */
-    public static function hasJsonValidate(): bool
-    {
-        return function_exists('json_validate');
-    }
-
-    /**
-     * 是否支持 PHP 8.3 Random\Randomizer
-     *
-     * @return bool
-     */
-    public static function hasRandomizer(): bool
-    {
-        return class_exists(Randomizer::class);
-    }
-
-    /**
      * 是否支持 PHP 8.4 property hooks
      *
      * @return bool
@@ -272,35 +235,23 @@ final class RuntimeDetector
     /**
      * 安全的 JSON 校验（8.3 基线直接使用 json_validate）
      *
-     * 8.3+ 使用 json_validate()，旧版降级为 json_decode + json_last_error。
-     *
      * @param string $json 待校验的 JSON 字符串
      * @return bool 是否为合法 JSON
      */
     public static function jsonValidate(string $json): bool
     {
-        if (self::hasJsonValidate()) {
-            return json_validate($json);
-        }
-        json_decode($json, true);
-        return json_last_error() === JSON_ERROR_NONE;
+        return json_validate($json);
     }
 
     /**
      * 获取安全的随机字节（8.3 基线直接使用 Random\Randomizer）
      *
-     * 8.3+ 优先使用 Random\Randomizer，旧版降级为 random_bytes。
-     *
      * @param int $length 字节长度
      * @return string 随机字节串
-     * @throws \Exception 在熵源不可用时抛出
      */
     public static function randomBytes(int $length): string
     {
-        if (self::hasRandomizer()) {
-            return self::randomizer()->getBytes($length);
-        }
-        return random_bytes($length);
+        return self::randomizer()->getBytes($length);
     }
 
     /**
@@ -322,10 +273,6 @@ final class RuntimeDetector
             'ext_pcntl' => self::hasExtPcntl(),
             'fiber' => self::hasFiber(),
             'in_coroutine' => self::inCoroutine(),
-            'typed_class_constants' => self::hasTypedClassConstants(),
-            'override_attribute' => self::hasOverrideAttribute(),
-            'json_validate' => self::hasJsonValidate(),
-            'randomizer' => self::hasRandomizer(),
             'property_hooks' => self::hasPropertyHooks(),
             'asymmetric_visibility' => self::hasAsymmetricVisibility(),
             'pipe_operator' => self::hasPipeOperator(),

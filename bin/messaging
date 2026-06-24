@@ -152,8 +152,7 @@ function printInfo(): void
     $rows = [
         ['kode/messaging',         Messaging::version()],
         ['PHP',                    PHP_VERSION],
-        ['PHP 8.2 base',           PhpCompat::isPhp82() ? '✓' : '✗'],
-        ['PHP 8.3 typed const',    PhpCompat::isPhp83() ? '✓' : '✗'],
+        ['PHP 8.3 base',           PhpCompat::isPhp83() ? '✓' : '✗'],
         ['PHP 8.4 hooks',          PhpCompat::isPhp84() ? '✓' : '✗'],
         ['PHP 8.5 pipe operator',  PhpCompat::hasPipeOperator() ? '✓' : '✗'],
         ['ext-sockets',            extension_loaded('sockets') ? '✓' : '✗'],
@@ -194,8 +193,8 @@ function selfCheck(): void
     $warnings = [];
 
     // 1. PHP 版本
-    if (!PhpCompat::isPhp82()) {
-        $errors[] = 'PHP 版本必须 ≥ 8.2，当前 ' . PHP_VERSION;
+    if (!PhpCompat::isPhp83()) {
+        $errors[] = 'PHP 版本必须 ≥ 8.3，当前 ' . PHP_VERSION;
     }
 
     // 2. 协议注册
