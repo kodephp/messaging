@@ -836,7 +836,7 @@ class Server extends AbstractAdapter
 
         // 记录协议版本
         $this->peerVersions[$peer] = $versionStr;
-        $this->peerProperties[$peer] = $info['properties'];
+        $this->peerProperties[$peer] = $info['properties'] ?? [];
 
         // 在连接对象上存储元信息
         $conn = $this->connections[$peer] ?? null;

@@ -18,3 +18,13 @@ parameters:
         - '#Strict comparison using !== between .* and .* will always evaluate to false#'
         # 构造函数兼容父类签名，未使用参数
         - '#Constructor of class.*has an unused parameter#'
+        # 可选依赖（Workerman / Swoole / Swow）未安装时的类型解析
+        - '#Class Workerman\\.*not found#'
+        - '#Class Swoole\\.*not found#'
+        - '#Class Swow\\.*not found#'
+        - '#invalid type Workerman\\#'
+        - '#invalid type Swoole\\#'
+        - '#invalid type Swow\\#'
+        - '#on an unknown class Workerman\\#'
+        - '#on an unknown class Swoole\\#'
+        - '#on an unknown class Swow\\#'

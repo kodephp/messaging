@@ -29,7 +29,7 @@ class Client extends AbstractAdapter
 
     private int $nextPacketId = 1;
 
-    /** @var list<string> 待发订阅 */
+    /** @var list<array{0: array<string, int>, 1: int}> 待重连后重新订阅 */
     private array $pendingSubs = [];
 
     public static function scheme(): string
@@ -127,9 +127,22 @@ class Client extends AbstractAdapter
     public function run(): void
     {
         if ($this->conn === null) {
-            $this->conn = $this->connect($this->config);
+            $conn = $this->connect($this->config);
+            assert($conn instanceof MqttConnection);
+            $this->conn = $conn;
         }
+        $this->resubscribe();
         $this->readLoop();
+    }
+
+    /**
+     * 重连后重新订阅所有 pendingSubs。
+     */
+    private function resubscribe(): void
+    {
+        foreach ($this->pendingSubs as $entry) {
+            $this->sendSubscribe($entry[0]);
+        }
     }
 
     private function readLoop(): void
