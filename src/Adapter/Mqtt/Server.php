@@ -30,19 +30,19 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  *
  * @see https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
  */
-final class Server extends AbstractAdapter
+class Server extends AbstractAdapter
 {
     /** @var resource|null 监听 socket */
-    private $socket = null;
+    protected $socket = null;
 
     /** @var array<string, MqttConnection> peer → 连接对象 */
-    private array $connections = [];
+    protected array $connections = [];
 
     /** @var array<string, string> peer → 输入缓冲（未解析完的字节） */
-    private array $buffers = [];
+    protected array $buffers = [];
 
     /** @var array<string, string> clientId → peer（用于重复连接检测） */
-    private array $clientIds = [];
+    protected array $clientIds = [];
 
     /**
      * 会话存储（clientId → 会话状态）。
@@ -53,24 +53,24 @@ final class Server extends AbstractAdapter
      *     pendingInboundQos2: array<int, true>
      * }>
      */
-    private array $sessions = [];
+    protected array $sessions = [];
 
     /** @var array<string, array{payload: string, qos: int}> topic → 保留消息 */
-    private array $retainedMessages = [];
+    protected array $retainedMessages = [];
 
     /** @var array<string, array{topic: string, payload: string, qos: int, retain: bool}> peer → 遗嘱消息 */
-    private array $willMessages = [];
+    protected array $willMessages = [];
 
     /** @var array<string, int> peer → Keep Alive 秒数（0 表示不检测） */
-    private array $keepAlive = [];
+    protected array $keepAlive = [];
 
     /** @var array<string, int> peer → 最后活动时间戳 */
-    private array $lastActivity = [];
+    protected array $lastActivity = [];
 
     /** @var array<string, int> peer → 下一个出站 Packet ID */
-    private array $nextPacketId = [];
+    protected array $nextPacketId = [];
 
-    private ?ServerBuilder $builder = null;
+    protected ?ServerBuilder $builder = null;
 
     public static function scheme(): string
     {
@@ -137,6 +137,21 @@ final class Server extends AbstractAdapter
     public function run(): void
     {
         $this->running = true;
+
+        // 集群模式：订阅总线接收跨节点消息
+        // 注意：Redis pub/sub 是阻塞的，单线程事件循环中无法同时订阅和服务连接。
+        // 生产环境建议使用 kode/process 多进程架构：主进程服务 MQTT，子进程订阅总线。
+        // 此处仅注册回调，实际总线轮询由子类或多进程架构负责。
+        if ($this->bus !== null) {
+            try {
+                $this->bus->subscribe('#', function (array $msg): void {
+                    $this->onClusterMessage($msg);
+                }, ['pattern' => 'mqtt']);
+                $this->logger->info('集群总线订阅已注册', ['pattern' => '#']);
+            } catch (\Throwable $e) {
+                $this->logger->warning('集群总线订阅失败', ['error' => $e->getMessage()]);
+            }
+        }
 
         while ($this->running) {
             // 1. 接受新连接
@@ -529,7 +544,7 @@ final class Server extends AbstractAdapter
     /**
      * 从 peer 缓冲区解析完整 MQTT 包并派发。
      */
-    private function parseAndDispatch(string $peer): void
+    protected function parseAndDispatch(string $peer): void
     {
         $buf = &$this->buffers[$peer];
 
@@ -576,7 +591,7 @@ final class Server extends AbstractAdapter
      * @param int    $flags 固定头标志位
      * @param string $body  包体
      */
-    private function dispatchPacket(string $peer, int $type, int $flags, string $body): void
+    protected function dispatchPacket(string $peer, int $type, int $flags, string $body): void
     {
         switch ($type) {
             case PacketType::CONNECT:
@@ -623,7 +638,7 @@ final class Server extends AbstractAdapter
      *
      * @throws MqttException
      */
-    private function handleConnect(string $peer, string $body): void
+    protected function handleConnect(string $peer, string $body): void
     {
         $info = self::decodeConnect($body);
 
@@ -727,7 +742,7 @@ final class Server extends AbstractAdapter
      * @param int $flags 固定头标志位
      * @throws MqttException
      */
-    private function handlePublish(string $peer, int $flags, string $body): void
+    protected function handlePublish(string $peer, int $flags, string $body): void
     {
         $dup = ($flags & 0x08) !== 0;
         $qos = ($flags >> 1) & 0x03;
@@ -789,7 +804,7 @@ final class Server extends AbstractAdapter
     /**
      * 处理 PUBACK（QoS 1 出站确认）。
      */
-    private function handleSimpleAck(string $peer, string $body, int $type): void
+    protected function handleSimpleAck(string $peer, string $body, int $type): void
     {
         $offset = 0;
         $packetId = Codec::decodeUint16($body, $offset);
@@ -810,7 +825,7 @@ final class Server extends AbstractAdapter
     /**
      * 处理 PUBREC（QoS 2 第二步：客户端已收到，回复 PUBREL）。
      */
-    private function handlePubrec(string $peer, string $body): void
+    protected function handlePubrec(string $peer, string $body): void
     {
         $offset = 0;
         $packetId = Codec::decodeUint16($body, $offset);
@@ -820,7 +835,7 @@ final class Server extends AbstractAdapter
     /**
      * 处理 PUBREL（QoS 2 第二步：发布者释放，回复 PUBCOMP 并投递消息）。
      */
-    private function handlePubrel(string $peer, string $body): void
+    protected function handlePubrel(string $peer, string $body): void
     {
         $offset = 0;
         $packetId = Codec::decodeUint16($body, $offset);
@@ -842,7 +857,7 @@ final class Server extends AbstractAdapter
      *
      * @throws MqttException
      */
-    private function handleSubscribe(string $peer, string $body): void
+    protected function handleSubscribe(string $peer, string $body): void
     {
         $info = self::decodeSubscribe($body);
         $packetId = $info['packet_id'];
@@ -879,7 +894,7 @@ final class Server extends AbstractAdapter
      *
      * @throws MqttException
      */
-    private function handleUnsubscribe(string $peer, string $body): void
+    protected function handleUnsubscribe(string $peer, string $body): void
     {
         $info = self::decodeUnsubscribe($body);
         $packetId = $info['packet_id'];
@@ -897,7 +912,7 @@ final class Server extends AbstractAdapter
     /**
      * 处理 PINGREQ：回复 PINGRESP。
      */
-    private function handlePingreq(string $peer): void
+    protected function handlePingreq(string $peer): void
     {
         $this->write($peer, self::encodePingresp());
     }
@@ -905,7 +920,7 @@ final class Server extends AbstractAdapter
     /**
      * 处理 DISCONNECT：优雅断开，清除遗嘱消息。
      */
-    private function handleDisconnect(string $peer): void
+    protected function handleDisconnect(string $peer): void
     {
         $this->disconnectClient($peer, true);
     }
@@ -922,8 +937,9 @@ final class Server extends AbstractAdapter
      * @param int    $qos     消息 QoS
      * @param bool   $retain  是否保留消息
      */
-    private function publishToSubscribers(string $topic, string $payload, int $qos, bool $retain): void
+    protected function publishToSubscribers(string $topic, string $payload, int $qos, bool $retain): void
     {
+        // 本地投递
         foreach ($this->sessions as $clientId => $session) {
             $peer = $this->clientIds[$clientId] ?? null;
             if ($peer === null) {
@@ -944,6 +960,59 @@ final class Server extends AbstractAdapter
                 }
             }
         }
+
+        // 集群广播：转发到其他节点
+        if ($this->bus !== null) {
+            try {
+                $this->bus->publish($topic, [
+                    'payload' => $payload,
+                    'qos' => $qos,
+                    'retain' => $retain,
+                    'node_id' => $this->builder?->nodeId() ?? 'local',
+                ], ['qos' => $qos]);
+            } catch (\Throwable $e) {
+                $this->logger->warning('集群总线发布失败', [
+                    'topic' => $topic,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * 处理来自集群总线的消息（其他节点转发过来的 PUBLISH）。
+     *
+     * @param array<string, mixed> $msg 总线消息体
+     */
+    protected function onClusterMessage(array $msg): void
+    {
+        $topic = $msg['topic'] ?? '';
+        $payload = $msg['payload'] ?? '';
+        $qos = (int)($msg['qos'] ?? 0);
+        $retain = (bool)($msg['retain'] ?? false);
+
+        if ($topic === '') {
+            return;
+        }
+
+        // 仅本地投递，不再转发回总线（避免循环）
+        foreach ($this->sessions as $clientId => $session) {
+            $peer = $this->clientIds[$clientId] ?? null;
+            if ($peer === null) {
+                continue;
+            }
+            $conn = $this->connections[$peer] ?? null;
+            if ($conn === null || !$conn->isOpen()) {
+                continue;
+            }
+            foreach ($session['subscriptions'] as $filter => $subQos) {
+                if (self::matchTopic($filter, $topic)) {
+                    $deliverQos = min($qos, $subQos);
+                    $this->sendPublish($peer, $topic, $payload, $deliverQos, false);
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -955,7 +1024,7 @@ final class Server extends AbstractAdapter
      * @param int    $qos      投递 QoS
      * @param bool   $retain   是否为保留消息投递
      */
-    private function sendPublish(string $peer, string $topic, string $payload, int $qos, bool $retain): void
+    protected function sendPublish(string $peer, string $topic, string $payload, int $qos, bool $retain): void
     {
         $packetId = 0;
         if ($qos > 0) {
@@ -1004,7 +1073,7 @@ final class Server extends AbstractAdapter
      * @param string $filter     订阅过滤器
      * @param int    $subQos     订阅 QoS
      */
-    private function deliverRetainedMessages(string $peer, string $filter, int $subQos): void
+    protected function deliverRetainedMessages(string $peer, string $filter, int $subQos): void
     {
         foreach ($this->retainedMessages as $topic => $retained) {
             if (self::matchTopic($filter, $topic)) {
@@ -1020,7 +1089,7 @@ final class Server extends AbstractAdapter
      * @param string $peer     客户端地址
      * @param string $clientId 客户端 ID
      */
-    private function deliverPendingMessages(string $peer, string $clientId): void
+    protected function deliverPendingMessages(string $peer, string $clientId): void
     {
         $session = $this->sessions[$clientId] ?? null;
         if ($session === null) {
@@ -1048,7 +1117,7 @@ final class Server extends AbstractAdapter
      * @param string $peer     客户端地址
      * @param bool   $graceful 是否为优雅断开（true=不发遗嘱消息，false=发遗嘱消息）
      */
-    private function disconnectClient(string $peer, bool $graceful): void
+    protected function disconnectClient(string $peer, bool $graceful): void
     {
         $conn = $this->connections[$peer] ?? null;
 
@@ -1116,7 +1185,7 @@ final class Server extends AbstractAdapter
      * MQTT 3.1.1 §3.1.2.10：若 Keep Alive 非零，服务端在 1.5 * Keep Alive
      * 秒内未收到任何包，则应断开连接（视为非优雅断开，触发遗嘱）。
      */
-    private function checkKeepAlive(): void
+    protected function checkKeepAlive(): void
     {
         $now = time();
         foreach ($this->keepAlive as $peer => $ka) {
@@ -1139,7 +1208,7 @@ final class Server extends AbstractAdapter
     /**
      * 获取 peer 对应的 clientId。
      */
-    private function clientIdOf(string $peer): ?string
+    protected function clientIdOf(string $peer): ?string
     {
         foreach ($this->clientIds as $clientId => $p) {
             if ($p === $peer) {
@@ -1152,7 +1221,7 @@ final class Server extends AbstractAdapter
     /**
      * 生成下一个出站 Packet ID（1-65535 循环）。
      */
-    private function nextPacketId(string $peer): int
+    protected function nextPacketId(string $peer): int
     {
         $id = $this->nextPacketId[$peer] ?? 1;
         $this->nextPacketId[$peer] = $id >= 0xFFFF ? 1 : $id + 1;
@@ -1165,7 +1234,7 @@ final class Server extends AbstractAdapter
      * @param string $peer 客户端地址
      * @param string $data 已编码的 MQTT 包
      */
-    private function write(string $peer, string $data): void
+    protected function write(string $peer, string $data): void
     {
         $conn = $this->connections[$peer] ?? null;
         if ($conn === null) {

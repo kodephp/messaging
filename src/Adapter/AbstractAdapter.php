@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter;
 
 use Kode\Messaging\Contract\AdapterInterface;
+use Kode\Messaging\Contract\BusInterface;
 use Kode\Messaging\Support\RuntimeDetector;
 use Kode\Messaging\Transport\TransportFactory;
 use Kode\Messaging\Transport\TransportInterface;
@@ -28,10 +29,24 @@ abstract class AbstractAdapter implements AdapterInterface
     protected string $host = '0.0.0.0';
     protected int $port = 0;
     protected ?TransportInterface $transport = null;
+    protected ?BusInterface $bus = null;
 
     public function __construct(?LoggerInterface $logger = null)
     {
         $this->logger = $logger ?? new NullLogger();
+    }
+
+    /**
+     * 注入跨节点消息总线（集群模式）。
+     */
+    public function setBus(BusInterface $bus): void
+    {
+        $this->bus = $bus;
+    }
+
+    public function getBus(): ?BusInterface
+    {
+        return $this->bus;
     }
 
     public function version(): string

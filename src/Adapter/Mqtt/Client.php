@@ -18,7 +18,7 @@ use Kode\Messaging\Exception\MqttException;
 /**
  * MQTT 客户端适配器
  */
-final class Client extends AbstractAdapter
+class Client extends AbstractAdapter
 {
     /** @var resource|null */
     private $stream = null;

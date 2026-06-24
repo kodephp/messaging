@@ -174,6 +174,7 @@ final class Messaging
         return match ($scheme) {
             'ws'           => $tls ? 443 : 80,
             'mqtt'         => $tls ? 8883 : 1883,
+            'mqtt+ws'      => $tls ? 8443 : 8083,
             'sse'          => 8081,
             'udp'          => 8082,
             'long-polling' => 8083,
@@ -197,6 +198,7 @@ final class Messaging
             in_array($scheme, ['ws', 'wss', 'websocket', 'websockets'], true) => 'ws',
             in_array($scheme, ['sse', 'eventsource', 'event-stream'], true)   => 'sse',
             in_array($scheme, ['mqtt', 'mqtts', 'mqttv3', 'mqttv5'], true)    => 'mqtt',
+            in_array($scheme, ['mqtt+ws', 'mqtt+wss', 'ws+mqtt', 'wss+mqtt'], true) => 'mqtt+ws',
             in_array($scheme, ['udp', 'datagram', 'dgram'], true)             => 'udp',
             in_array($scheme, ['poll', 'long-polling', 'longpolling', 'lp'], true) => 'long-polling',
             in_array($scheme, ['coap', 'coaps'], true)                       => 'coap',

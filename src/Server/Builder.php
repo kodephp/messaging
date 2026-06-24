@@ -218,12 +218,55 @@ final class Builder
             $this->userConfig,
         );
         $adapter->boot($merged);
+
+        // 集群模式：创建跨节点消息总线
+        if ($this->withCluster) {
+            $this->initClusterBus($adapter);
+        }
+
         $adapter->listen($url['host'], $url['port']);
         $this->emit('server.start', ['scheme' => $this->scheme, 'host' => $url['host'], 'port' => $url['port']]);
         try {
             $adapter->run();
         } finally {
             $this->emit('server.stop', []);
+        }
+    }
+
+    /**
+     * 初始化集群消息总线。
+     *
+     * 根据配置选择 RedisBus（跨节点）或 ChannelBus（单节点多 Worker）。
+     */
+    private function initClusterBus(AdapterInterface $adapter): void
+    {
+        $clusterConfig = $this->globalConfig['cluster'] ?? [];
+        $driver = $clusterConfig['driver'] ?? 'redis';
+
+        if ($driver === 'redis') {
+            $redisConfig = $this->globalConfig['redis'] ?? [];
+            $redis = $redisConfig['host'] ?? '127.0.0.1';
+            $port = $redisConfig['port'] ?? 6379;
+            $prefix = $redisConfig['prefix'] ?? 'kode:messaging:';
+
+            try {
+                $bus = new \Kode\Messaging\PubSub\RedisBus([
+                    'host' => $redis,
+                    'port' => $port,
+                    'prefix' => $prefix,
+                ]);
+                if ($adapter instanceof \Kode\Messaging\Adapter\AbstractAdapter) {
+                    $adapter->setBus($bus);
+                }
+                $this->logger->info('集群总线已启用（Redis）', [
+                    'node_id' => $this->nodeId,
+                    'redis' => "{$redis}:{$port}",
+                ]);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Redis 总线初始化失败，降级为单节点模式', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

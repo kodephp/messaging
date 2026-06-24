@@ -122,4 +122,5 @@ in_array($scheme, ['newprotocol', 'newprotocols'], true) => 'newprotocol',
 | 2.1.0 | gRPC 完整 HTTP/2 + HPACK + TLS；WebTransport 原生 HTTP/3 |
 | 2.2.0 | RTMP 三层限流 + 防护 |
 | **2.3.0** | **MQTT Broker 完整实现 + 传输层抽象（Swoole/Swow/Workerman）+ RuntimeDetector + PhpCompat 接入** |
+| **2.4.0** | **MQTT over WebSocket（mqtt+ws://）+ 集群支持（RedisBus 跨节点路由）+ IoT 百万设备方案** |
 | 3.0.0 | QUIC 独立实现 / enum 全面应用 / Fiber 协程 |

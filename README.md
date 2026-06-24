@@ -5,7 +5,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-8.2+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
-[![Version](https://img.shields.io/badge/version-2.3.0-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue?style=flat-square)](CHANGELOG.md)
 
 ## 简介
 
@@ -145,6 +145,37 @@ Messaging::server('rtmp://0.0.0.0:1935')
     ->start();
 ```
 
+### MQTT + WebSocket 组合（IoT 百万设备方案）
+
+设备端（充电桩、手表等）用裸 MQTT（tcp://1883），用户端（App、网页管理后台）用 MQTT over WebSocket（ws://8083），两种客户端连同一个 Broker，消息互通。
+
+```php
+// 设备端：裸 MQTT（高效、省资源）
+Messaging::server('mqtt://0.0.0.0:1883')
+    ->on('message.received', fn($c, $m) => handle_device($m))
+    ->start();
+
+// 用户端：MQTT over WebSocket（穿越防火墙）
+Messaging::server('mqtt+ws://0.0.0.0:8083')
+    ->on('message.received', fn($c, $m) => handle_app($m))
+    ->start();
+
+// 集群模式：百万设备连接（多节点通过 Redis 总线同步）
+Messaging::server('mqtt://0.0.0.0:1883')
+    ->withCluster(true, 'node-1')  // 启用 Redis 跨节点消息路由
+    ->start();
+```
+
+浏览器端使用 MQTT.js 连接：
+```javascript
+const client = mqtt.connect('ws://127.0.0.1:8083/mqtt', {
+  protocol: 'mqtt',  // WebSocket subprotocol
+  clientId: 'web-admin-001'
+});
+client.subscribe('sensors/+/temperature');
+client.on('message', (topic, payload) => console.log(topic, payload.toString()));
+```
+
 ## 协议矩阵
 
 | 协议 | 方案 | 服务端 | 客户端 | 适用 |
@@ -152,6 +183,7 @@ Messaging::server('rtmp://0.0.0.0:1935')
 | WebSocket | `ws://` / `wss://` | ✅ | ✅ | 浏览器长连接、聊天、游戏 |
 | SSE | `sse://` | ✅ | ✅ | 服务端推送、通知、大屏 |
 | MQTT 3.1.1 / 5.0 | `mqtt://` / `mqtts://` | ✅ Broker | ✅ | IoT、移动推送、Pub/Sub |
+| MQTT over WebSocket | `mqtt+ws://` / `mqtt+wss://` | ✅ | ✅ | App/网页管理后台、穿越防火墙 |
 | UDP / Datagram | `udp://` | ✅ | ✅ | 实时音视频、游戏、广播 |
 | Long-Polling | `poll://` / `http://` | ✅ | ✅ | WebSocket 回退、低频推送 |
 | CoAP (RFC 7252) | `coap://` / `coaps://` | ✅ | ✅ | IoT 传感器、NB-IoT、LoRa |
