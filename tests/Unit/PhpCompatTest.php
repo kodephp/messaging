@@ -9,10 +9,10 @@ use PHPUnit\Framework\TestCase;
 
 final class PhpCompatTest extends TestCase
 {
-    public function testVersionIsAtLeast82(): void
+    public function testVersionIsAtLeast83(): void
     {
-        $this->assertTrue(PhpCompat::isPhp82(), '需要 PHP 8.2 或更高');
-        $this->assertGreaterThanOrEqual(80_200, PhpCompat::versionId());
+        $this->assertTrue(PhpCompat::isPhp83(), '需要 PHP 8.3 或更高');
+        $this->assertGreaterThanOrEqual(80_300, PhpCompat::versionId());
     }
 
     public function testHasStandaloneTypes(): void

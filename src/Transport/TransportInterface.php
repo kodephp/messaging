@@ -10,7 +10,7 @@ namespace Kode\Messaging\Transport;
  * 所有协议适配器通过此接口操作底层 socket，不感知具体运行时
  * （stream / swoole / swow / workerman）。
  *
- * 驱动类型常量（PHP 8.2 兼容：不使用 typed class constants）：
+ * 驱动类型常量（PHP 8.3 基线：可直接使用 typed class constants）：
  *   - stream      纯 PHP stream 函数（始终可用，基准实现）
  *   - sockets     ext-sockets 扩展
  *   - swoole      Swoole 协程 Socket

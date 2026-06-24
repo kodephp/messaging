@@ -7,7 +7,7 @@ namespace Kode\Messaging\Support;
 use Random\Randomizer;
 
 /**
- * PHP 8.2/8.3/8.4/8.5 特性兼容层
+ * PHP 8.3/8.4/8.5 特性兼容层
  *
  * 业务代码统一通过该类判断版本与特性，避免到处写版本判断。
  *
@@ -71,7 +71,7 @@ final class PhpCompat
     }
 
     /**
-     * PHP 8.2 引入 true/false/null 独立类型。
+     * PHP 8.2 引入 true/false/null 独立类型（8.3 基线已含）。
      */
     public static function hasStandaloneTypes(): bool
     {
@@ -119,9 +119,9 @@ final class PhpCompat
     }
 
     /**
-     * 安全的 JSON 校验（兼容 8.2 和 8.3+）
+     * 安全的 JSON 校验（8.3 基线直接使用 json_validate）
      *
-     * 8.3+ 使用 json_validate()，8.2 降级为 json_decode + json_last_error。
+     * 8.3+ 使用 json_validate()，旧版降级为 json_decode + json_last_error。
      */
     public static function jsonValidate(string $json): bool
     {
@@ -133,9 +133,9 @@ final class PhpCompat
     }
 
     /**
-     * 获取安全的随机字节（兼容 8.2 和 8.3+）
+     * 获取安全的随机字节（8.3 基线直接使用 Random\Randomizer）
      *
-     * 8.3+ 优先使用 Random\Randomizer，8.2 降级为 random_bytes。
+     * 8.3+ 优先使用 Random\Randomizer，旧版降级为 random_bytes。
      *
      * @throws \Exception 在熵源不可用时抛出
      */

@@ -335,7 +335,7 @@ Messaging::server('ws://0.0.0.0:8080', [
 
 | 维度 | 策略 |
 |---|---|
-| 单进程 | PHP 8.2+ 无锁 stream；UDP/CoAP 单机 10w+ QPS |
+| 单进程 | PHP 8.3+ 无锁 stream；UDP/CoAP 单机 10w+ QPS |
 | 多 Worker | `kode/process` 接管，零侵入 |
 | 跨节点 | Redis Pub/Sub 背板 |
 | 协程 | `kode/fibers` 协程化阻塞调用 |
@@ -345,9 +345,9 @@ Messaging::server('ws://0.0.0.0:8080', [
 
 | PHP 版本 | 启用特性 | 关闭特性（保持兼容） |
 |---|---|---|
-| 8.2 | readonly class、DNF types、true/false/null standalone | typed class const、property hooks、pipe operator |
+| 8.3（基线） | typed class const、`#[\Override]`、json_validate、Randomizer | property hooks、pipe operator |
 | 8.3 | typed const、`#[\Override]`、`Random\Randomizer` | property hooks、pipe operator |
 | 8.4 | property hooks、asymmetric visibility、`#[\Deprecated]` | pipe operator |
 | 8.5 | pipe operator `\|>`、persistent cURL | — |
 
-所有 8.3+ 特性均通过 `Support\PhpCompat::isPhp8X()` 运行时判断，**包内代码在 8.2 下完全可运行**。
+所有 8.4+ 特性均通过 `Support\PhpCompat::isPhp84()` 运行时判断，**包内代码在 8.3 下完全可运行**。

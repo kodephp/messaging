@@ -1,6 +1,6 @@
 <?php
 /**
- * PHP-CS-Fixer 配置（PER-CS / PSR-12 风格，PHP 8.2+）
+ * PHP-CS-Fixer 配置（PER-CS / PSR-12 风格，PHP 8.3+）
  */
 declare(strict_types=1);
 

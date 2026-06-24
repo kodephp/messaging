@@ -10,7 +10,7 @@ use Kode\Messaging\Support\IdGenerator;
 /**
  * 协议无关消息体（不可变）
  *
- * readonly class 是 PHP 8.2+ 特性；不允许修改属性。
+ * readonly class 是 PHP 8.2+ 特性（8.3 基线已含）；不允许修改属性。
  * 修改必须通过 with*() 方法返回新对象。
  */
 final readonly class Message implements MessageInterface

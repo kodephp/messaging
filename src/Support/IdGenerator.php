@@ -22,7 +22,7 @@ final class IdGenerator
         }
         self::$initialized = true;
         // 4 字节随机前缀，避免多节点 ID 冲突
-        // 8.3+ 使用 Random\Randomizer，8.2 降级为 random_bytes
+        // 8.3 基线直接使用 Random\Randomizer
         self::$prefix = bin2hex(PhpCompat::randomBytes(4));
     }
 

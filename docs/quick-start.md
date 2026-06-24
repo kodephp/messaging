@@ -6,7 +6,7 @@
 
 | 项 | 最低 | 推荐 |
 |---|---|---|
-| PHP | 8.2 | 8.3 / 8.4 |
+| PHP | 8.3 | 8.4 |
 | 扩展 | 无强制 | `ext-sockets`、`ext-openssl`、`ext-pcntl` |
 | 协程（可选） | `kode/fibers` | `kode/fibers` |
 | Composer | 2.x | 2.x |

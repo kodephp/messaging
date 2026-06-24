@@ -82,7 +82,7 @@
 
 ## PHP 版本
 
-- **最低**：PHP 8.2
+- **最低**：PHP 8.3
 - **推荐**：PHP 8.3 / 8.4
 - **已验证**：PHP 8.5（开发分支）
 - 新特性（enum、readonly、property hooks、pipe operator）在运行时做兼容降级

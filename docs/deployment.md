@@ -11,7 +11,7 @@
 | CPU | 1 核 | 4 核+ |
 | 内存 | 512 MB | 1 GB+ / Worker |
 | 文件句柄 | `ulimit -n 65535` | 同上 |
-| PHP | 8.2 | 8.3 / 8.4 |
+| PHP | 8.3 | 8.4 |
 | Composer | 2.x | 2.x |
 | 操作系统 | Linux（任意） | Ubuntu 22.04+ / Debian 12+ / Rocky 9+ |
 

@@ -1,11 +1,11 @@
 # kode/messaging
 
-**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.2+ | PSR 合规 | 可插拔适配器**
+**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.3+ | PSR 合规 | 可插拔适配器**
 
-[![PHP Version](https://img.shields.io/badge/PHP-8.2+-777BB4?style=flat-square&logo=php)](https://php.net)
+[![PHP Version](https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
-[![Version](https://img.shields.io/badge/version-2.4.0-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue?style=flat-square)](CHANGELOG.md)
 
 ## 简介
 
@@ -251,9 +251,9 @@ echo Kode::runtime(); // 'swoole' | 'swow' | 'workerman' | 'plain'
 | HTTP 客户端 | `kode/http-client` | 长轮询回退 |
 | 鉴权 | `kode/jwt` | JWT 鉴权中间件 |
 
-## PHP 8.2 / 8.3 / 8.4 / 8.5 兼容
+## PHP 8.3 / 8.4 / 8.5 兼容
 
-- **最低**：PHP 8.2
+- **最低**：PHP 8.3
 - **推荐**：PHP 8.3 / 8.4
 - **已验证**：PHP 8.5
 
@@ -261,23 +261,23 @@ echo Kode::runtime(); // 'swoole' | 'swow' | 'workerman' | 'plain'
 
 | 特性 | 用法 | 版本 | 降级方案 |
 |---|---|---|---|
-| `readonly class` | 不可变消息体 | ≥ 8.2 | — |
+| `readonly class` | 不可变消息体 | ≥ 8.2（基线已含） | — |
 | `enum` | 协议状态机 | ≥ 8.1 | — |
 | `Fibers` | 协程 | ≥ 8.1 | — |
 | `json_validate()` | JSON 快速校验 | ≥ 8.3 | `json_decode` + `json_last_error` |
 | `Random\Randomizer` | 安全随机 | ≥ 8.3 | `random_bytes()` |
 | typed class constants | 协议常量 | ≥ 8.3 | 普通 `const`（当前使用） |
-| `#[\Override]` | 覆盖标记 | ≥ 8.3 | 静默忽略（8.2 安全） |
+| `#[\Override]` | 覆盖标记 | ≥ 8.3（基线） | — |
 | property hooks | 连接属性 | ≥ 8.4 | 传统 getter/setter |
 | pipe operator `\|>` | 链式构造 | ≥ 8.5 | `Kode::pipe()` foreach 模拟 |
 
 ```php
 use Kode\Messaging\Kode;
 
-// JSON 校验（8.3+ 用 json_validate，8.2 降级）
+// JSON 校验（8.3 基线直接用 json_validate）
 Kode::jsonValidate('{"ok":true}'); // bool
 
-// 安全随机（8.3+ 用 Randomizer，8.2 降级）
+// 安全随机（8.3 基线直接用 Randomizer）
 Kode::randomBytes(16); // string
 
 // 运行时环境检测
@@ -333,3 +333,9 @@ Kode::inCoroutine();   // bool
 ## 许可证
 
 Apache-2.0
+
+
+1. 最低是PHP8.3+版本。相关的文档都要更新。
+2. 本包做好安全性，便捷开发，mqtt3+、5+版本实现相关功能。
+3. 相关服务端、客户端等 健壮性 架构规划和代码实现。
+4. 修补优化升级增强功能。

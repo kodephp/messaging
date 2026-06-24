@@ -270,9 +270,9 @@ final class RuntimeDetector
     }
 
     /**
-     * 安全的 JSON 校验（兼容 8.2 和 8.3+）
+     * 安全的 JSON 校验（8.3 基线直接使用 json_validate）
      *
-     * 8.3+ 使用 json_validate()，8.2 降级为 json_decode + json_last_error。
+     * 8.3+ 使用 json_validate()，旧版降级为 json_decode + json_last_error。
      *
      * @param string $json 待校验的 JSON 字符串
      * @return bool 是否为合法 JSON
@@ -287,9 +287,9 @@ final class RuntimeDetector
     }
 
     /**
-     * 获取安全的随机字节（兼容 8.2 和 8.3+）
+     * 获取安全的随机字节（8.3 基线直接使用 Random\Randomizer）
      *
-     * 8.3+ 优先使用 Random\Randomizer，8.2 降级为 random_bytes。
+     * 8.3+ 优先使用 Random\Randomizer，旧版降级为 random_bytes。
      *
      * @param int $length 字节长度
      * @return string 随机字节串

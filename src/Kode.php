@@ -59,7 +59,7 @@ final class Kode
     }
 
     /**
-     * 安全的 JSON 校验（兼容 8.2 和 8.3+）
+     * 安全的 JSON 校验（8.3 基线直接使用 json_validate）
      */
     public static function jsonValidate(string $json): bool
     {
@@ -67,7 +67,7 @@ final class Kode
     }
 
     /**
-     * 获取安全的随机字节（兼容 8.2 和 8.3+）
+     * 获取安全的随机字节（8.3 基线直接使用 Random\Randomizer）
      *
      * @throws \Exception 在熵源不可用时抛出
      */

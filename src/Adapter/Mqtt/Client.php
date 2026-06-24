@@ -9,7 +9,9 @@ use Kode\Messaging\Adapter\Mqtt\Packet\Ack;
 use Kode\Messaging\Adapter\Mqtt\Packet\Codec;
 use Kode\Messaging\Adapter\Mqtt\Packet\Connect;
 use Kode\Messaging\Adapter\Mqtt\Packet\PacketType;
+use Kode\Messaging\Adapter\Mqtt\Packet\Properties;
 use Kode\Messaging\Adapter\Mqtt\Packet\Publish;
+use Kode\Messaging\Adapter\Mqtt\Packet\ReasonCode;
 use Kode\Messaging\Adapter\Mqtt\Packet\Subscribe;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
@@ -70,6 +72,28 @@ class Client extends AbstractAdapter
 
         $clientId = (string)($config['client_id'] ?? ('kode-' . bin2hex(random_bytes(4))));
         $will = $config['will'] ?? null;
+        $version = $this->version();
+
+        // MQTT 5.0: 构建 CONNECT Properties
+        $connectProperties = [];
+        if ($version === '5.0') {
+            if (isset($config['session_expiry_interval'])) {
+                $connectProperties[Properties::SESSION_EXPIRY_INTERVAL] = (int)$config['session_expiry_interval'];
+            }
+            if (isset($config['receive_maximum'])) {
+                $connectProperties[Properties::RECEIVE_MAXIMUM] = (int)$config['receive_maximum'];
+            }
+            if (isset($config['maximum_packet_size'])) {
+                $connectProperties[Properties::MAXIMUM_PACKET_SIZE] = (int)$config['maximum_packet_size'];
+            }
+            if (isset($config['topic_alias_maximum'])) {
+                $connectProperties[Properties::TOPIC_ALIAS_MAXIMUM] = (int)$config['topic_alias_maximum'];
+            }
+            if (isset($config['user_properties'])) {
+                $connectProperties[Properties::USER_PROPERTY] = $config['user_properties'];
+            }
+        }
+
         $connectPacket = Connect::encode(
             $clientId,
             $config['username'] ?? null,
@@ -77,12 +101,13 @@ class Client extends AbstractAdapter
             (int)($config['keepalive'] ?? 60),
             (bool)($config['clean_session'] ?? true),
             $will,
-            $this->version(),
+            $version,
+            $connectProperties,
         );
         @fwrite($this->stream, $connectPacket);
 
-        // 等待 CONNACK
-        $this->expectConnack();
+        // 等待 CONNACK（5.0 时解析 properties）
+        $this->expectConnack($version);
 
         $this->conn = new MqttConnection(
             MqttConnection::generateId('mqtt'),
@@ -90,12 +115,6 @@ class Client extends AbstractAdapter
             stream_socket_get_name($this->stream, true) ?: "{$host}:{$port}",
             $this->stream,
         );
-        $this->conn->setOnConnect(function () {
-            // 自动重连后重新订阅
-            foreach ($this->pendingSubs as $sub) {
-                $this->sendSubscribe($sub[0] ?? []);
-            }
-        });
 
         return $this->conn;
     }
@@ -180,32 +199,96 @@ class Client extends AbstractAdapter
         }
     }
 
-    private function expectConnack(): void
+    /**
+     * 等待并解析 CONNACK。
+     *
+     * 3.1.1: Acknowledge Flags (1) + Return Code (1)
+     * 5.0:   Acknowledge Flags (1) + Reason Code (1) + Properties (变长)
+     *
+     * @throws MqttException 连接失败或 CONNACK 错误
+     */
+    private function expectConnack(string $version = '3.1.1'): void
     {
         stream_set_timeout($this->stream, 5);
         $buf = '';
         $deadline = microtime(true) + 5;
+
+        // 先读取固定头（至少 2 字节：type + remaining length）
         while (microtime(true) < $deadline) {
-            $chunk = @fread($this->stream, 4);
+            $chunk = @fread($this->stream, 4096);
             if ($chunk === false || $chunk === '') {
                 usleep(10_000);
                 continue;
             }
             $buf .= $chunk;
-            if (strlen($buf) >= 4) {
+            if (strlen($buf) >= 2) {
                 break;
             }
         }
-        if (strlen($buf) < 4) {
+        if (strlen($buf) < 2) {
             throw MqttException::connectFailed('CONNACK 超时');
         }
+
+        // 解析固定头
         $type = (ord($buf[0]) >> 4) & 0x0F;
         if ($type !== PacketType::CONNACK) {
             throw MqttException::malformedPacket('期望 CONNACK，得到类型 ' . $type);
         }
-        $ack = Ack::decode(PacketType::CONNACK, substr($buf, 2));
-        if (($ack['return_code'] ?? 0) !== 0) {
-            throw MqttException::authenticationFailed(['return_code' => $ack['return_code']]);
+
+        $offset = 1;
+        $remainingLen = Codec::decodeRemainingLength($buf, $offset);
+
+        // 确保包体完整
+        $needed = $offset + $remainingLen;
+        while (strlen($buf) < $needed && microtime(true) < $deadline) {
+            $chunk = @fread($this->stream, 4096);
+            if ($chunk === false || $chunk === '') {
+                usleep(10_000);
+                continue;
+            }
+            $buf .= $chunk;
+        }
+        if (strlen($buf) < $needed) {
+            throw MqttException::connectFailed('CONNACK 包体不完整');
+        }
+
+        $body = substr($buf, $offset, $remainingLen);
+        $bodyOffset = 0;
+
+        // Acknowledge Flags
+        $ackFlags = ord($body[$bodyOffset++]);
+        $sessionPresent = ($ackFlags & 0x01) !== 0;
+
+        // Return Code / Reason Code
+        $code = ord($body[$bodyOffset++]);
+
+        // MQTT 5.0: 解析 Properties
+        $connackProperties = [];
+        if ($version === '5.0' && $bodyOffset < strlen($body)) {
+            $connackProperties = Properties::decode($body, $bodyOffset);
+        }
+
+        // 检查连接是否成功
+        $isSuccess = $version === '5.0'
+            ? ReasonCode::isSuccess($code)
+            : $code === 0;
+
+        if (!$isSuccess) {
+            $description = $version === '5.0'
+                ? ReasonCode::description($code)
+                : match ($code) {
+                    1 => ' unacceptable protocol version',
+                    2 => 'identifier rejected',
+                    3 => 'server unavailable',
+                    4 => 'bad username or password',
+                    5 => 'not authorized',
+                    default => "unknown ({$code})",
+                };
+            throw MqttException::connectFailed("CONNACK 拒绝: {$description}", [
+                'code'       => $code,
+                'version'    => $version,
+                'properties' => $connackProperties,
+            ]);
         }
     }
 

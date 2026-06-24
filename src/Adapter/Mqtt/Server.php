@@ -7,6 +7,8 @@ namespace Kode\Messaging\Adapter\Mqtt;
 use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Mqtt\Packet\Codec;
 use Kode\Messaging\Adapter\Mqtt\Packet\PacketType;
+use Kode\Messaging\Adapter\Mqtt\Packet\Properties;
+use Kode\Messaging\Adapter\Mqtt\Packet\ReasonCode;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\MqttException;
@@ -14,9 +16,9 @@ use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
 
 /**
- * MQTT 3.1.1 Broker（服务端）
+ * MQTT 3.1.1 / 5.0 Broker（服务端）
  *
- * 完整实现 MQTT 3.1.1 协议的服务端：
+ * 完整实现 MQTT 3.1.1 和 5.0 协议的服务端：
  *   - CONNECT/CONNACK 握手与客户端 ID 校验
  *   - PUBLISH QoS 0/1/2 完整流程
  *   - SUBSCRIBE/UNSUBSCRIBE 主题通配符（+ / #）
@@ -24,11 +26,13 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  *   - 遗嘱消息（Last Will and Testament）
  *   - Keep Alive 超时检测（1.5x）
  *   - 会话持久化（内存存储，Clean Session = false 时保留订阅与离线消息）
+ *   - MQTT 5.0：Properties、Reason Code、Shared Subscription、Topic Alias
  *
  * 适用：本地开发 / 单元测试 / 嵌入式 IoT 网关。
  * 生产环境大规模部署推荐使用 Mosquitto / EMQX。
  *
  * @see https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
+ * @see https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
  */
 class Server extends AbstractAdapter
 {
@@ -70,6 +74,12 @@ class Server extends AbstractAdapter
     /** @var array<string, int> peer → 下一个出站 Packet ID */
     protected array $nextPacketId = [];
 
+    /** @var array<string, string> peer → MQTT 版本（'3.1.1' 或 '5.0'） */
+    protected array $peerVersions = [];
+
+    /** @var array<string, array<int, mixed>> peer → 5.0 连接属性 */
+    protected array $peerProperties = [];
+
     protected ?ServerBuilder $builder = null;
 
     public static function scheme(): string
@@ -96,9 +106,18 @@ class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_payload'        => 1_048_576, // 1 MiB
-            'allow_anonymous'    => true,
-            'max_client_id_len'  => 65535,
+            'max_payload'              => 1_048_576, // 1 MiB
+            'allow_anonymous'          => true,
+            'max_client_id_len'        => 65535,
+            'supported_versions'       => ['3.1.1', '5.0'],
+            'max_qos'                  => 2,
+            'retain_available'         => true,
+            'wildcard_sub_available'   => true,
+            'sub_id_available'         => true,
+            'shared_sub_available'     => true,
+            'server_keepalive'         => 0,  // 0 = 使用客户端请求的值
+            'max_packet_size'          => 0,  // 0 = 无限制
+            'topic_alias_max'          => 0,  // 0 = 禁用
         ];
     }
 
@@ -234,6 +253,8 @@ class Server extends AbstractAdapter
         $this->keepAlive = [];
         $this->lastActivity = [];
         $this->nextPacketId = [];
+        $this->peerVersions = [];
+        $this->peerProperties = [];
 
         if ($this->socket !== null) {
             @fclose($this->socket);
@@ -312,7 +333,7 @@ class Server extends AbstractAdapter
     // ============================================================
 
     /**
-     * 编码 CONNACK 包。
+     * 编码 CONNACK 包（3.1.1）。
      *
      * @param int  $returnCode     0=接受, 1=版本不支持, 2=ID拒绝, 3=不可用, 4=用户名密码错误, 5=未授权
      * @param bool $sessionPresent 会话存在标志（Clean Session=0 时使用）
@@ -322,6 +343,41 @@ class Server extends AbstractAdapter
         $ackFlags = $sessionPresent ? 0x01 : 0x00;
         $body = chr($ackFlags) . chr($returnCode & 0xFF);
         return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)) . $body;
+    }
+
+    /**
+     * 编码 CONNACK 包（5.0）。
+     *
+     * 5.0 用 Reason Code 替代 Return Code，并增加 Properties 字段。
+     *
+     * @param int                $reasonCode    ReasonCode::SUCCESS 等
+     * @param bool               $sessionPresent 会话存在标志
+     * @param array<int, mixed>  $properties    CONNACK Properties
+     */
+    public static function encodeConnackV5(
+        int $reasonCode = ReasonCode::SUCCESS,
+        bool $sessionPresent = false,
+        array $properties = [],
+    ): string {
+        $ackFlags = $sessionPresent ? 0x01 : 0x00;
+        $body = chr($ackFlags) . chr($reasonCode & 0xFF);
+        $body .= Properties::encode($properties);
+        return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)) . $body;
+    }
+
+    /**
+     * 编码 DISCONNECT 包（5.0，含 Reason Code + Properties）。
+     *
+     * @param int                $reasonCode
+     * @param array<int, mixed>  $properties
+     */
+    public static function encodeDisconnectV5(
+        int $reasonCode = ReasonCode::SUCCESS,
+        array $properties = [],
+    ): string {
+        $body = chr($reasonCode & 0xFF);
+        $body .= Properties::encode($properties);
+        return Codec::encodeFixedHeader(PacketType::DISCONNECT, 0, strlen($body)) . $body;
     }
 
     /**
@@ -408,6 +464,58 @@ class Server extends AbstractAdapter
     public static function encodeDisconnect(): string
     {
         return Codec::encodeFixedHeader(PacketType::DISCONNECT, 0, 0);
+    }
+
+    /**
+     * 编码 PUBACK 包（5.0，含 Reason Code + Properties）。
+     */
+    public static function encodePubackV5(int $packetId, int $reasonCode = ReasonCode::SUCCESS, array $properties = []): string
+    {
+        $body = Codec::encodeUint16($packetId);
+        $body .= chr($reasonCode & 0xFF);
+        if ($properties !== []) {
+            $body .= Properties::encode($properties);
+        }
+        return Codec::encodeFixedHeader(PacketType::PUBACK, 0, strlen($body)) . $body;
+    }
+
+    /**
+     * 编码 PUBREC 包（5.0，含 Reason Code + Properties）。
+     */
+    public static function encodePubrecV5(int $packetId, int $reasonCode = ReasonCode::SUCCESS, array $properties = []): string
+    {
+        $body = Codec::encodeUint16($packetId);
+        $body .= chr($reasonCode & 0xFF);
+        if ($properties !== []) {
+            $body .= Properties::encode($properties);
+        }
+        return Codec::encodeFixedHeader(PacketType::PUBREC, 0, strlen($body)) . $body;
+    }
+
+    /**
+     * 编码 PUBREL 包（5.0，含 Reason Code + Properties）。
+     */
+    public static function encodePubrelV5(int $packetId, int $reasonCode = ReasonCode::SUCCESS, array $properties = []): string
+    {
+        $body = Codec::encodeUint16($packetId);
+        $body .= chr($reasonCode & 0xFF);
+        if ($properties !== []) {
+            $body .= Properties::encode($properties);
+        }
+        return Codec::encodeFixedHeader(PacketType::PUBREL, 0x02, strlen($body)) . $body;
+    }
+
+    /**
+     * 编码 PUBCOMP 包（5.0，含 Reason Code + Properties）。
+     */
+    public static function encodePubcompV5(int $packetId, int $reasonCode = ReasonCode::SUCCESS, array $properties = []): string
+    {
+        $body = Codec::encodeUint16($packetId);
+        $body .= chr($reasonCode & 0xFF);
+        if ($properties !== []) {
+            $body .= Properties::encode($properties);
+        }
+        return Codec::encodeFixedHeader(PacketType::PUBCOMP, 0, strlen($body)) . $body;
     }
 
     // ============================================================
@@ -636,22 +744,39 @@ class Server extends AbstractAdapter
     /**
      * 处理 CONNECT 包：握手、客户端 ID 校验、会话恢复。
      *
+     * 支持 MQTT 3.1.1（level 4）和 5.0（level 5）。
+     *
      * @throws MqttException
      */
     protected function handleConnect(string $peer, string $body): void
     {
         $info = self::decodeConnect($body);
 
-        // 校验协议名与版本
+        // 校验协议名
         if ($info['protocol_name'] !== 'MQTT') {
-            $this->write($peer, self::encodeConnack(1));
-            $this->disconnectClient($peer, true);
+            $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
             return;
         }
 
-        if ($info['protocol_level'] !== 4) {
-            // 3.1.1 的协议级别为 4
-            $this->write($peer, self::encodeConnack(1));
+        $isV5 = $info['protocol_level'] === 5;
+        $isV311 = $info['protocol_level'] === 4;
+
+        // 校验协议版本
+        if (!$isV311 && !$isV5) {
+            // 3.1.1 的协议级别为 4，5.0 为 5
+            $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
+            return;
+        }
+
+        // 检查服务端是否支持该版本
+        $supported = $this->config['supported_versions'] ?? ['3.1.1', '5.0'];
+        $versionStr = $isV5 ? '5.0' : '3.1.1';
+        if (!in_array($versionStr, $supported, true)) {
+            if ($isV5) {
+                $this->write($peer, self::encodeConnackV5(ReasonCode::UNSUPPORTED_PROTOCOL_VERSION));
+            } else {
+                $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
+            }
             $this->disconnectClient($peer, true);
             return;
         }
@@ -660,7 +785,11 @@ class Server extends AbstractAdapter
 
         // 客户端 ID 为空时，Clean Session 必须为 true
         if ($clientId === '' && !$info['clean_session']) {
-            $this->write($peer, self::encodeConnack(2));
+            if ($isV5) {
+                $this->write($peer, self::encodeConnackV5(ReasonCode::CLIENT_IDENTIFIER_NOT_VALID));
+            } else {
+                $this->write($peer, self::encodeConnack(2));
+            }
             $this->disconnectClient($peer, true);
             return;
         }
@@ -673,7 +802,11 @@ class Server extends AbstractAdapter
         // 鉴权（简化版：allow_anonymous 控制是否允许匿名）
         $allowAnonymous = (bool)($this->config['allow_anonymous'] ?? true);
         if (!$allowAnonymous && $info['username'] === null) {
-            $this->write($peer, self::encodeConnack(5));
+            if ($isV5) {
+                $this->write($peer, self::encodeConnackV5(ReasonCode::NOT_AUTHORIZED));
+            } else {
+                $this->write($peer, self::encodeConnack(5));
+            }
             $this->disconnectClient($peer, true);
             return;
         }
@@ -692,8 +825,8 @@ class Server extends AbstractAdapter
         } else {
             // 创建新会话
             $this->sessions[$clientId] = [
-                'subscriptions'    => [],
-                'pendingOutbound'  => [],
+                'subscriptions'      => [],
+                'pendingOutbound'    => [],
                 'pendingInboundQos2' => [],
             ];
         }
@@ -701,29 +834,46 @@ class Server extends AbstractAdapter
         // 记录 clientId 映射
         $this->clientIds[$clientId] = $peer;
 
+        // 记录协议版本
+        $this->peerVersions[$peer] = $versionStr;
+        $this->peerProperties[$peer] = $info['properties'];
+
         // 在连接对象上存储元信息
         $conn = $this->connections[$peer] ?? null;
         if ($conn !== null) {
             $conn->setAttribute('mqtt.client_id', $clientId);
             $conn->setAttribute('mqtt.clean_session', $info['clean_session']);
+            $conn->setAttribute('mqtt.version', $versionStr);
         }
 
-        // 存储 Keep Alive
-        $this->keepAlive[$peer] = $info['keepalive'];
+        // 存储 Keep Alive（5.0: 服务端可覆盖）
+        $keepalive = $info['keepalive'];
+        $serverKeepalive = (int)($this->config['server_keepalive'] ?? 0);
+        if ($serverKeepalive > 0) {
+            $keepalive = $serverKeepalive;
+        }
+        $this->keepAlive[$peer] = $keepalive;
         $this->lastActivity[$peer] = time();
 
         // 存储遗嘱消息
         if ($info['will_flag']) {
             $this->willMessages[$peer] = [
-                'topic'   => $info['will_topic'] ?? '',
-                'payload' => $info['will_payload'] ?? '',
-                'qos'     => $info['will_qos'],
-                'retain'  => $info['will_retain'],
+                'topic'      => $info['will_topic'] ?? '',
+                'payload'    => $info['will_payload'] ?? '',
+                'qos'        => $info['will_qos'],
+                'retain'     => $info['will_retain'],
+                'properties' => $info['will_properties'] ?? [],
             ];
         }
 
         // 发送 CONNACK
-        $this->write($peer, self::encodeConnack(0, $sessionPresent));
+        if ($isV5) {
+            // 构建 5.0 CONNACK Properties
+            $connackProps = $this->buildConnackProperties($clientId);
+            $this->write($peer, self::encodeConnackV5(ReasonCode::SUCCESS, $sessionPresent, $connackProps));
+        } else {
+            $this->write($peer, self::encodeConnack(0, $sessionPresent));
+        }
 
         // 投递离线消息（非 Clean Session 恢复时）
         if ($sessionPresent && $conn !== null) {
@@ -737,7 +887,90 @@ class Server extends AbstractAdapter
     }
 
     /**
+     * 构建 MQTT 5.0 CONNACK Properties。
+     *
+     * @return array<int, mixed>
+     */
+    protected function buildConnackProperties(string $clientId): array
+    {
+        $props = [];
+
+        // 服务端分配的客户端 ID（自动生成时返回）
+        if (str_starts_with($clientId, 'auto-')) {
+            $props[Properties::ASSIGNED_CLIENT_IDENTIFIER] = $clientId;
+        }
+
+        // 最大 QoS
+        $maxQos = (int)($this->config['max_qos'] ?? 2);
+        if ($maxQos < 2) {
+            $props[Properties::MAXIMUM_QOS] = $maxQos;
+        }
+
+        // 保留可用
+        if (!($this->config['retain_available'] ?? true)) {
+            $props[Properties::RETAIN_AVAILABLE] = 0;
+        }
+
+        // 最大包大小
+        $maxPacketSize = (int)($this->config['max_packet_size'] ?? 0);
+        if ($maxPacketSize > 0) {
+            $props[Properties::MAXIMUM_PACKET_SIZE] = $maxPacketSize;
+        }
+
+        // 主题别名最大值
+        $topicAliasMax = (int)($this->config['topic_alias_max'] ?? 0);
+        if ($topicAliasMax > 0) {
+            $props[Properties::TOPIC_ALIAS_MAXIMUM] = $topicAliasMax;
+        }
+
+        // 通配符订阅可用
+        if (!($this->config['wildcard_sub_available'] ?? true)) {
+            $props[Properties::WILDCARD_SUBSCRIPTION_AVAILABLE] = 0;
+        }
+
+        // 订阅标识符可用
+        if (!($this->config['sub_id_available'] ?? true)) {
+            $props[Properties::SUBSCRIPTION_IDENTIFIER_AVAILABLE] = 0;
+        }
+
+        // 共享订阅可用
+        if (!($this->config['shared_sub_available'] ?? true)) {
+            $props[Properties::SHARED_SUBSCRIPTION_AVAILABLE] = 0;
+        }
+
+        // 服务端 Keep Alive 覆盖
+        $serverKeepalive = (int)($this->config['server_keepalive'] ?? 0);
+        if ($serverKeepalive > 0) {
+            $props[Properties::SERVER_KEEP_ALIVE] = $serverKeepalive;
+        }
+
+        return $props;
+    }
+
+    /**
+     * 发送 CONNACK 并断开连接（版本不匹配等场景）。
+     */
+    protected function sendConnackAndDisconnect(string $peer, int $returnCode, bool $sessionPresent, int $protocolLevel): void
+    {
+        if ($protocolLevel === 5) {
+            $reasonCode = match ($returnCode) {
+                1 => ReasonCode::UNSUPPORTED_PROTOCOL_VERSION,
+                2 => ReasonCode::CLIENT_IDENTIFIER_NOT_VALID,
+                4 => ReasonCode::BAD_USERNAME_OR_PASSWORD,
+                5 => ReasonCode::NOT_AUTHORIZED,
+                default => ReasonCode::UNSPECIFIED_ERROR,
+            };
+            $this->write($peer, self::encodeConnackV5($reasonCode, $sessionPresent));
+        } else {
+            $this->write($peer, self::encodeConnack($returnCode, $sessionPresent));
+        }
+        $this->disconnectClient($peer, true);
+    }
+
+    /**
      * 处理 PUBLISH 包：路由到订阅者，处理 QoS 确认。
+     *
+     * 支持 3.1.1 和 5.0（5.0 时解析 PUBLISH Properties）。
      *
      * @param int $flags 固定头标志位
      * @throws MqttException
@@ -754,6 +987,13 @@ class Server extends AbstractAdapter
         if ($qos > 0) {
             $packetId = Codec::decodeUint16($body, $offset);
         }
+
+        // MQTT 5.0: PUBLISH Properties
+        $publishProperties = [];
+        if ($this->isV5($peer)) {
+            $publishProperties = Properties::decode($body, $offset);
+        }
+
         $payload = substr($body, $offset);
 
         // 构造协议无关消息
@@ -769,13 +1009,18 @@ class Server extends AbstractAdapter
                 'remote_address' => $conn?->remoteAddress(),
                 'packet_id'      => $packetId,
                 'dup'            => $dup,
+                'properties'     => $publishProperties,
             ],
         );
         $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $msg]);
 
         // QoS 1：回复 PUBACK
         if ($qos === 1) {
-            $this->write($peer, self::encodePuback($packetId));
+            if ($this->isV5($peer)) {
+                $this->write($peer, $this->encodePubackV5($packetId, ReasonCode::SUCCESS));
+            } else {
+                $this->write($peer, self::encodePuback($packetId));
+            }
         }
 
         // QoS 2：回复 PUBREC，等待 PUBREL
@@ -784,7 +1029,11 @@ class Server extends AbstractAdapter
             if ($clientId !== null) {
                 $this->sessions[$clientId]['pendingInboundQos2'][$packetId] = true;
             }
-            $this->write($peer, self::encodePubrec($packetId));
+            if ($this->isV5($peer)) {
+                $this->write($peer, $this->encodePubrecV5($packetId, ReasonCode::SUCCESS));
+            } else {
+                $this->write($peer, self::encodePubrec($packetId));
+            }
         }
 
         // 保留消息处理
@@ -798,7 +1047,7 @@ class Server extends AbstractAdapter
         }
 
         // 路由到订阅者
-        $this->publishToSubscribers($topic, $payload, $qos, $retain);
+        $this->publishToSubscribers($topic, $payload, $qos, $retain, $publishProperties);
     }
 
     /**
@@ -829,7 +1078,11 @@ class Server extends AbstractAdapter
     {
         $offset = 0;
         $packetId = Codec::decodeUint16($body, $offset);
-        $this->write($peer, self::encodePubrel($packetId));
+        if ($this->isV5($peer)) {
+            $this->write($peer, self::encodePubrelV5($packetId, ReasonCode::SUCCESS));
+        } else {
+            $this->write($peer, self::encodePubrel($packetId));
+        }
     }
 
     /**
@@ -849,7 +1102,11 @@ class Server extends AbstractAdapter
             }
         }
 
-        $this->write($peer, self::encodePubcomp($packetId));
+        if ($this->isV5($peer)) {
+            $this->write($peer, self::encodePubcompV5($packetId, ReasonCode::SUCCESS));
+        } else {
+            $this->write($peer, self::encodePubcomp($packetId));
+        }
     }
 
     /**
@@ -932,12 +1189,13 @@ class Server extends AbstractAdapter
     /**
      * 将消息路由到所有匹配的订阅者。
      *
-     * @param string $topic   发布主题
-     * @param string $payload 消息载荷
-     * @param int    $qos     消息 QoS
-     * @param bool   $retain  是否保留消息
+     * @param string             $topic   发布主题
+     * @param string             $payload 消息载荷
+     * @param int                $qos     消息 QoS
+     * @param bool               $retain  是否保留消息
+     * @param array<int, mixed>  $properties MQTT 5.0 PUBLISH Properties
      */
-    protected function publishToSubscribers(string $topic, string $payload, int $qos, bool $retain): void
+    protected function publishToSubscribers(string $topic, string $payload, int $qos, bool $retain, array $properties = []): void
     {
         // 本地投递
         foreach ($this->sessions as $clientId => $session) {
@@ -955,7 +1213,7 @@ class Server extends AbstractAdapter
                 if (self::matchTopic($filter, $topic)) {
                     // 实际投递 QoS = min(发布 QoS, 订阅 QoS)
                     $deliverQos = min($qos, $subQos);
-                    $this->sendPublish($peer, $topic, $payload, $deliverQos, false);
+                    $this->sendPublish($peer, $topic, $payload, $deliverQos, false, $properties);
                     break; // 每个客户端只投递一次（即使匹配多个过滤器）
                 }
             }
@@ -1018,13 +1276,14 @@ class Server extends AbstractAdapter
     /**
      * 向指定客户端发送 PUBLISH 包。
      *
-     * @param string $peer     客户端地址
-     * @param string $topic    主题
-     * @param string $payload  载荷
-     * @param int    $qos      投递 QoS
-     * @param bool   $retain   是否为保留消息投递
+     * @param string             $peer     客户端地址
+     * @param string             $topic    主题
+     * @param string             $payload  载荷
+     * @param int                $qos      投递 QoS
+     * @param bool               $retain   是否为保留消息投递
+     * @param array<int, mixed>  $properties MQTT 5.0 PUBLISH Properties（仅 5.0 客户端）
      */
-    protected function sendPublish(string $peer, string $topic, string $payload, int $qos, bool $retain): void
+    protected function sendPublish(string $peer, string $topic, string $payload, int $qos, bool $retain, array $properties = []): void
     {
         $packetId = 0;
         if ($qos > 0) {
@@ -1046,6 +1305,12 @@ class Server extends AbstractAdapter
         if ($qos > 0) {
             $varHeader .= Codec::encodeUint16($packetId);
         }
+
+        // MQTT 5.0: PUBLISH Properties
+        if ($this->isV5($peer)) {
+            $varHeader .= Properties::encode($properties);
+        }
+
         $body = $varHeader . $payload;
         $packet = Codec::encodeFixedHeader(PacketType::PUBLISH, $flags, strlen($body)) . $body;
 
@@ -1177,6 +1442,8 @@ class Server extends AbstractAdapter
         unset($this->keepAlive[$peer]);
         unset($this->lastActivity[$peer]);
         unset($this->nextPacketId[$peer]);
+        unset($this->peerVersions[$peer]);
+        unset($this->peerProperties[$peer]);
     }
 
     /**
@@ -1216,6 +1483,14 @@ class Server extends AbstractAdapter
             }
         }
         return null;
+    }
+
+    /**
+     * 判断 peer 是否使用 MQTT 5.0。
+     */
+    protected function isV5(string $peer): bool
+    {
+        return ($this->peerVersions[$peer] ?? '3.1.1') === '5.0';
     }
 
     /**
@@ -1291,7 +1566,7 @@ class Server extends AbstractAdapter
                 $this->retainedMessages[$topic] = ['payload' => $payload, 'qos' => $qos];
             }
         }
-        $this->publishToSubscribers($topic, $payload, $qos, $retain);
+        $this->publishToSubscribers($topic, $payload, $qos, $retain, []);
     }
 
     /**
