@@ -765,7 +765,8 @@ function doRelease(array $opts, array $args): void
     $cFile    = $root . '/composer.json';
     $clFile   = $root . '/CHANGELOG.md';
 
-    foreach ([$vFile, $cFile, $clFile] as $f) {
+    // Version.php 与 composer.json 为发布必需；CHANGELOG.md 已弃用（项目采用纯 README 文档），缺失则跳过。
+    foreach ([$vFile, $cFile] as $f) {
         if (!is_file($f)) {
             fwrite(STDERR, "缺少文件: $f\n");
             exit(1);
@@ -875,14 +876,12 @@ function writeVersionFile(string $file, int $major, int $minor, int $patch, stri
 }
 
 /**
- * 更新 composer.json 中的 version 字段。
+ * composer.json 不再包含 version 字段（VCS 发布最佳实践：版本由 git tag + src/Support/Version.php 决定）。
+ * 此处不再写入 version，避免重新引入会导致 Packagist 告警的字段。
  */
 function writeComposerVersion(string $file, string $version): void
 {
-    $json = (string)file_get_contents($file);
-    $new  = preg_replace('/"version"\s*:\s*"[^"]*"/', '"version": "' . $version . '"', $json);
-    file_put_contents($file, $new);
-    fwrite(STDOUT, "✓ 已更新 $file → $version\n");
+    fwrite(STDOUT, "• composer.json 不含 version 字段（由 git tag v$version + src/Support/Version.php 决定），跳过写入\n");
 }
 
 /**
@@ -893,6 +892,10 @@ function writeComposerVersion(string $file, string $version): void
  */
 function bumpChangelog(string $file, string $version, ?string $message): void
 {
+    if (!is_file($file)) {
+        fwrite(STDOUT, "• CHANGELOG.md 不存在，跳过（项目采用纯 README 文档）\n");
+        return;
+    }
     $content = (string)file_get_contents($file);
 
     // 1. 检测是否已存在该版本段

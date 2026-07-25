@@ -5,7 +5,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
-[![Version](https://img.shields.io/badge/version-3.0.2-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/packagist/v/kode/messaging?style=flat-square)](https://packagist.org/packages/kode/messaging)
 
 ## 简介
 
