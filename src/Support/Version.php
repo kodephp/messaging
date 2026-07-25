@@ -10,8 +10,8 @@ namespace Kode\Messaging\Support;
 final class Version
 {
     public const MAJOR = 3;
-    public const MINOR = 0;
-    public const PATCH = 3;
+    public const MINOR = 1;
+    public const PATCH = 0;
     public const PRE_RELEASE = '';
 
     public static function get(): string

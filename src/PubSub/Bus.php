@@ -20,6 +20,9 @@ abstract class Bus implements BusInterface
     /** @var array<string, array{id: string, topic: string, handler: callable, options: array<string, mixed>}> */
     protected array $subscribers = [];
 
+    /** @var array<string, string> 已编译的主题匹配正则缓存（按 pattern 维度） */
+    private array $patternCache = [];
+
     public function __construct(
         protected array $config = [],
         protected LoggerInterface $logger = new NullLogger(),
@@ -83,11 +86,40 @@ abstract class Bus implements BusInterface
         return (bool)preg_match($regex, $topic);
     }
 
+    /**
+     * 编译主题模式为正则，并按 pattern 缓存结果。
+     *
+     * 原实现每次匹配都重新执行 preg_quote + str_replace，在
+     * 「大量订阅者 × 高频发布」场景下，每个订阅者每次发布都会重复编译，
+     * 产生可观的正则编译开销。按 pattern 维度缓存后，后续匹配仅执行 preg_match。
+     */
     private function patternToRegex(string $pattern): string
     {
-        $escaped = preg_quote($pattern, '#');
-        $regex = str_replace(['\\*', '\\#'], ['[^/]+', '.*'], $escaped);
-        return '#^' . $regex . '$#';
+        if (!isset($this->patternCache[$pattern])) {
+            $escaped = preg_quote($pattern, '#');
+            $regex = str_replace(['\\*', '\\#'], ['[^/]+', '.*'], $escaped);
+            $this->patternCache[$pattern] = '#^' . $regex . '$#';
+        }
+        return $this->patternCache[$pattern];
+    }
+
+    /**
+     * 当前订阅者数量（可观测性）。
+     */
+    public function subscriberCount(): int
+    {
+        return count($this->subscribers);
+    }
+
+    /**
+     * 当前订阅去重后的主题数量（可观测性）。
+     */
+    public function topicCount(): int
+    {
+        if ($this->subscribers === []) {
+            return 0;
+        }
+        return count(array_unique(array_column($this->subscribers, 'topic')));
     }
 
     /**

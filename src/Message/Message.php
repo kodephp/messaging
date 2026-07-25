@@ -132,6 +132,52 @@ final readonly class Message implements MessageInterface
     }
 
     /**
+     * 返回带新请求头的消息（不可变副本）。
+     */
+    public function withHeader(string $key, string $value): self
+    {
+        $headers = $this->headers;
+        $headers[$key] = $value;
+        return new self(
+            $this->messageId,
+            $this->eventName,
+            $this->topic,
+            $this->body,
+            $this->rawBytes,
+            $headers,
+            $this->qos,
+            $this->binary,
+            $this->retain,
+            $this->proto,
+            $this->timestamp,
+            $this->context,
+        );
+    }
+
+    /**
+     * 返回带新上下文字段的消息（不可变副本）。
+     */
+    public function withContext(string $key, mixed $value): self
+    {
+        $context = $this->context;
+        $context[$key] = $value;
+        return new self(
+            $this->messageId,
+            $this->eventName,
+            $this->topic,
+            $this->body,
+            $this->rawBytes,
+            $this->headers,
+            $this->qos,
+            $this->binary,
+            $this->retain,
+            $this->proto,
+            $this->timestamp,
+            $context,
+        );
+    }
+
+    /**
      * 工厂：从原始字节创建。
      */
     public static function fromRaw(
