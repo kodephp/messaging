@@ -149,7 +149,6 @@ final class Messaging
                 'wss'    => 'ws',
                 'mqtts'  => 'mqtt',
                 'https'  => 'sse',
-                default  => $scheme,
             };
         }
         $query = [];

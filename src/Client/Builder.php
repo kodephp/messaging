@@ -71,6 +71,17 @@ final class Builder
         return $this->logger ??= new NullLogger();
     }
 
+    public function withEventDispatcher(Dispatcher $dispatcher): self
+    {
+        $this->dispatcher = $dispatcher;
+        return $this;
+    }
+
+    public function eventDispatcher(): ?Dispatcher
+    {
+        return $this->dispatcher;
+    }
+
     public function withReconnect(int $maxAttempts = 5, int $delayMs = 1000): self
     {
         $this->reconnect = true;
@@ -150,11 +161,6 @@ final class Builder
         );
         $adapter->boot($merged);
         $this->connection = $adapter->connect($merged);
-        if ($this->connection === null) {
-            throw new \RuntimeException(
-                "kode/messaging: 适配器 {$this->scheme}::connect() 返回 null，连接未建立"
-            );
-        }
         $this->emit('open', ['connection' => $this->connection]);
         return $this->connection;
     }
@@ -252,9 +258,19 @@ final class Builder
 
     private function emit(string $event, array $payload = []): void
     {
+        $eventObj = new \Kode\Messaging\Event\Event($event, $payload);
+
+        if ($this->dispatcher !== null) {
+            try {
+                $this->dispatcher->dispatch($eventObj);
+            } catch (\Throwable $e) {
+                $this->logger()->error('client event dispatch error', ['event' => $event, 'error' => $e->getMessage()]);
+            }
+        }
+
         foreach ($this->listeners[$event] ?? [] as $listener) {
             try {
-                $listener(new \Kode\Messaging\Event\Event($event, $payload));
+                $listener($eventObj);
             } catch (\Throwable $e) {
                 $this->logger()->error('client listener error', ['event' => $event, 'error' => $e->getMessage()]);
             }

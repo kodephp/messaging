@@ -95,7 +95,7 @@ final class Handshake
         if (!isset($config['expected_accept']) || $headers['sec-websocket-accept'] !== $config['expected_accept']) {
             throw WebSocketException::handshakeFailed('Sec-WebSocket-Accept 不匹配', [
                 'expected' => $config['expected_accept'] ?? null,
-                'got'      => $headers['sec-websocket-accept'] ?? null,
+                'got'      => $headers['sec-websocket-accept'],
             ]);
         }
 

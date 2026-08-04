@@ -14,12 +14,31 @@ use Kode\Messaging\Exception\WebSocketException;
  */
 final class Frame
 {
+    /** 控制帧（close/ping/pong）载荷上限（RFC 6455 §5.5） */
+    public const MAX_CONTROL_PAYLOAD = 125;
+
     public function __construct(
         public readonly bool $fin,
         public readonly int $opcode,
         public readonly string $payload,
         public readonly bool $masked = false,
     ) {
+    }
+
+    /**
+     * 应用 4 字节掩码（RFC 6455 §5.3）。
+     *
+     * 掩码是对称运算，编码与解码共用同一实现。
+     * str_pad 一次性生成与 payload 等长的掩码流；
+     * 原实现 str_repeat 过量分配后再 substr 截断，会多出一整份载荷拷贝
+     * （大帧场景下峰值内存约为载荷的 3 倍，现降为 2 倍）。
+     */
+    public static function applyMask(string $payload, string $mask): string
+    {
+        if ($payload === '' || $mask === '') {
+            return $payload;
+        }
+        return $payload ^ str_pad('', strlen($payload), $mask);
     }
 
     /**
@@ -45,9 +64,7 @@ final class Frame
 
         if ($masked) {
             $mask = random_bytes(4);
-            $maskedPayload = $payload ^ str_repeat($mask, intdiv($len, 4) + 1);
-            $maskedPayload = substr($maskedPayload, 0, $len);
-            return $header . $mask . $maskedPayload;
+            return $header . $mask . self::applyMask($payload, $mask);
         }
 
         return $header . $payload;
@@ -55,8 +72,11 @@ final class Frame
 
     /**
      * 从字节流中解码一帧（不处理跨帧合并）。
+     *
+     * @param int|null $maxPayload 载荷上限（字节）；超过则抛异常。
+     *                             null = 不限制（保持向后兼容），生产环境建议显式传入以防内存耗尽攻击。
      */
-    public static function decode(string $data, bool $mustMask = true): self
+    public static function decode(string $data, bool $mustMask = true, ?int $maxPayload = null): self
     {
         if (strlen($data) < 2) {
             throw WebSocketException::invalidFrame('帧过短', ['len' => strlen($data)]);
@@ -88,7 +108,26 @@ final class Frame
                 throw WebSocketException::invalidFrame('64 位长度字段缺失', []);
             }
             $len = unpack('J', substr($data, 2, 8))[1];
+            // RFC 6455 §5.2：64 位长度最高有效位必须为 0；PHP 下溢出会变成负数
+            if ($len < 0) {
+                throw WebSocketException::invalidFrame('64 位长度非法（最高位必须为 0）', []);
+            }
             $offset = 10;
+        }
+
+        // 控制帧约束（RFC 6455 §5.5）：不可分片，且载荷 ≤ 125 字节
+        if ($opcode >= 0x8) {
+            if (!$fin) {
+                throw WebSocketException::invalidFrame('控制帧不可分片', ['opcode' => $opcode]);
+            }
+            if ($len > self::MAX_CONTROL_PAYLOAD) {
+                throw WebSocketException::invalidFrame('控制帧载荷超过 125 字节', ['len' => $len]);
+            }
+        }
+
+        // 载荷上限保护：在分配内存之前拒绝超大帧
+        if ($maxPayload !== null && $len > $maxPayload) {
+            throw WebSocketException::invalidFrame('帧载荷超过上限', ['len' => $len, 'max' => $maxPayload]);
         }
 
         $mask = '';
@@ -106,8 +145,7 @@ final class Frame
 
         $payload = substr($data, $offset, $len);
         if ($masked) {
-            $payload = $payload ^ str_repeat($mask, intdiv($len, 4) + 1);
-            $payload = substr($payload, 0, $len);
+            $payload = self::applyMask($payload, $mask);
         }
 
         return new self($fin, $opcode, $payload, $masked);
@@ -130,6 +168,10 @@ final class Frame
 
     public static function close(int $code = 1000, string $reason = ''): self
     {
+        // 控制帧载荷上限 125 字节，其中 2 字节为状态码；超长 reason 截断，避免生成非法帧
+        if (strlen($reason) > self::MAX_CONTROL_PAYLOAD - 2) {
+            $reason = substr($reason, 0, self::MAX_CONTROL_PAYLOAD - 2);
+        }
         $payload = pack('n', $code) . $reason;
         return new self(true, OpCode::CLOSE, $payload);
     }

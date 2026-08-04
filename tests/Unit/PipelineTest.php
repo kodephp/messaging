@@ -27,18 +27,21 @@ final class PipelineTest extends TestCase
      */
     private function recordingMiddleware(string $name, array &$log): MiddlewareInterface
     {
-        return new class ($name, $log) implements MiddlewareInterface {
+        $append = function (string $entry) use (&$log): void {
+            $log[] = $entry;
+        };
+        return new class ($name, $append) implements MiddlewareInterface {
             public function __construct(
                 private string $name,
-                private array &$log,
+                private \Closure $append,
             ) {
             }
 
             public function process(MessageInterface $message, callable $next): MessageInterface
             {
-                $this->log[] = 'in:' . $this->name;
+                ($this->append)('in:' . $this->name);
                 $result = $next($message);
-                $this->log[] = 'out:' . $this->name;
+                ($this->append)('out:' . $this->name);
                 return $result;
             }
         };

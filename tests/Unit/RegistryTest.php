@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Tests\Unit;
 
 use Kode\Messaging\Adapter\Registry;
+use Kode\Messaging\Adapter\Udp\Client as UdpClient;
 use Kode\Messaging\Messaging;
 use PHPUnit\Framework\TestCase;
 
@@ -17,15 +18,15 @@ final class RegistryTest extends TestCase
 
     public function testRegisterAndFind(): void
     {
-        Registry::register('foo', \stdClass::class);
-        $this->assertSame(\stdClass::class, Registry::find('foo'));
+        Registry::register('foo', UdpClient::class);
+        $this->assertSame(UdpClient::class, Registry::find('foo'));
     }
 
     public function testSchemeIsCaseInsensitive(): void
     {
-        Registry::register('WS', \stdClass::class);
-        $this->assertSame(\stdClass::class, Registry::find('ws'));
-        $this->assertSame(\stdClass::class, Registry::find('WS'));
+        Registry::register('WS', UdpClient::class);
+        $this->assertSame(UdpClient::class, Registry::find('ws'));
+        $this->assertSame(UdpClient::class, Registry::find('WS'));
     }
 
     public function testNormalizeScheme(): void

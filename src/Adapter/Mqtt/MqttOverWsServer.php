@@ -328,8 +328,7 @@ class MqttOverWsServer extends Server
 
         // 解 mask
         if ($masked && $payload !== '') {
-            $payload = $payload ^ str_repeat($mask, intdiv($payloadLen, 4) + 1);
-            $payload = substr($payload, 0, $payloadLen);
+            $payload = Frame::applyMask($payload, $mask);
         }
 
         // 从缓冲区移除已消费的字节

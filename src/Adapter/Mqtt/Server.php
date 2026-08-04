@@ -14,6 +14,7 @@ use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\MqttException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use Kode\Messaging\Support\TopicMatcher;
 
 /**
  * MQTT 3.1.1 / 5.0 Broker（服务端）
@@ -280,52 +281,16 @@ class Server extends AbstractAdapter
      * 支持通配符：
      *   - `+` 匹配恰好一个层级
      *   - `#` 匹配零个或多个层级（必须位于末尾）
+     *   - 通配符不匹配 `$` 开头的系统主题（§4.7.2）
+     *
+     * 实现已抽取到 {@see TopicMatcher}（带过滤器切分缓存），此处保留为兼容入口。
      *
      * @param string $filter 订阅过滤器（如 `sport/+/temperature`）
      * @param string $topic  发布主题名（如 `sport/tennis/temperature`）
      */
     public static function matchTopic(string $filter, string $topic): bool
     {
-        // 完全匹配（无通配符）
-        if ($filter === $topic) {
-            return true;
-        }
-
-        $filterParts = explode('/', $filter);
-        $topicParts = explode('/', $topic);
-
-        $i = 0;
-        $filterLen = count($filterParts);
-        $topicLen = count($topicParts);
-
-        while ($i < $filterLen) {
-            $f = $filterParts[$i];
-
-            // `#` 通配符：匹配剩余所有层级（包括零层）
-            if ($f === '#') {
-                // `#` 必须是最后一个 token
-                return $i === $filterLen - 1;
-            }
-
-            // `+` 通配符：匹配恰好一个层级
-            if ($f === '+') {
-                // topic 必须还有对应层级
-                if ($i >= $topicLen) {
-                    return false;
-                }
-                $i++;
-                continue;
-            }
-
-            // 精确匹配当前层级
-            if ($i >= $topicLen || $f !== $topicParts[$i]) {
-                return false;
-            }
-            $i++;
-        }
-
-        // 过滤器遍历完毕，topic 也必须恰好遍历完毕
-        return $i === $topicLen;
+        return TopicMatcher::matches($filter, $topic);
     }
 
     // ============================================================
@@ -1197,6 +1162,9 @@ class Server extends AbstractAdapter
      */
     protected function publishToSubscribers(string $topic, string $payload, int $qos, bool $retain, array $properties = []): void
     {
+        // 主题层级只切分一次，在「所有会话 × 所有过滤器」的匹配循环中复用
+        $topicParts = TopicMatcher::split($topic);
+
         // 本地投递
         foreach ($this->sessions as $clientId => $session) {
             $peer = $this->clientIds[$clientId] ?? null;
@@ -1210,7 +1178,7 @@ class Server extends AbstractAdapter
             }
 
             foreach ($session['subscriptions'] as $filter => $subQos) {
-                if (self::matchTopic($filter, $topic)) {
+                if ($filter === $topic || TopicMatcher::matchesParts((string)$filter, $topicParts)) {
                     // 实际投递 QoS = min(发布 QoS, 订阅 QoS)
                     $deliverQos = min($qos, $subQos);
                     $this->sendPublish($peer, $topic, $payload, $deliverQos, false, $properties);
@@ -1254,6 +1222,7 @@ class Server extends AbstractAdapter
         }
 
         // 仅本地投递，不再转发回总线（避免循环）
+        $topicParts = TopicMatcher::split($topic);
         foreach ($this->sessions as $clientId => $session) {
             $peer = $this->clientIds[$clientId] ?? null;
             if ($peer === null) {
@@ -1264,7 +1233,7 @@ class Server extends AbstractAdapter
                 continue;
             }
             foreach ($session['subscriptions'] as $filter => $subQos) {
-                if (self::matchTopic($filter, $topic)) {
+                if ($filter === $topic || TopicMatcher::matchesParts((string)$filter, $topicParts)) {
                     $deliverQos = min($qos, $subQos);
                     $this->sendPublish($peer, $topic, $payload, $deliverQos, false);
                     break;

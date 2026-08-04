@@ -107,8 +107,8 @@
         "test:integration": "phpunit --testsuite=integration",
         "test:feature": "phpunit --testsuite=feature",
         "coverage": "phpunit --coverage-html build/coverage",
-        "analyse": "phpstan analyse src tests --level=5",
-        "analyse:baseline": "phpstan analyse src tests --generate-baseline phpstan-baseline.neon",
+        "analyse": "phpstan analyse src tests --level=5 --memory-limit=1G",
+        "analyse:baseline": "phpstan analyse src tests --generate-baseline phpstan-baseline.neon --memory-limit=1G",
         "fix": "php-cs-fixer fix",
         "fix:diff": "php-cs-fixer fix --dry-run --diff",
         "ci": [

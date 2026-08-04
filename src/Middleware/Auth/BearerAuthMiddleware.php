@@ -21,11 +21,13 @@ use Kode\Messaging\Exception\MessagingException;
  */
 final class BearerAuthMiddleware implements MiddlewareInterface
 {
-    /** @var callable(string): bool|string */
+    /** @var callable $validator */
     private $validator;
 
     /**
-     * @param callable(string): bool|string|AuthenticatorInterface $validator
+     * 接受返回 bool 或用户标识（string）的 callable，或 AuthenticatorInterface 实例。
+     *
+     * @param callable|AuthenticatorInterface $validator
      */
     public function __construct(callable|AuthenticatorInterface $validator)
     {

@@ -187,7 +187,7 @@ final class Server extends AbstractAdapter
         $now = time();
         foreach ($this->connections as $key => $conn) {
             $meta = @stream_get_meta_data($conn->stream());
-            if ($meta === false || !empty($meta['timed_out'])) {
+            if (!empty($meta['timed_out'])) {
                 $this->removeConnection($conn);
                 continue;
             }

@@ -169,7 +169,7 @@ final class Server extends AbstractAdapter
             if ($frame === null) {
                 // 检查连接是否还活着
                 $meta = @stream_get_meta_data($conn->stream());
-                if ($meta === false || !empty($meta['timed_out'])) {
+                if (!empty($meta['timed_out'])) {
                     $this->removeConnection($conn);
                 }
                 continue;

@@ -8,7 +8,6 @@ use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\AdapterInterface;
 use Kode\Messaging\Contract\AuthenticatorInterface;
 use Kode\Messaging\Contract\MiddlewareInterface;
-use Kode\Messaging\Contract\RouterInterface;
 use Kode\Messaging\Event\Dispatcher;
 use Kode\Messaging\Exception\AdapterNotFoundException;
 use Kode\Messaging\Middleware\Pipeline;
@@ -237,36 +236,47 @@ final class Builder
      * 初始化集群消息总线。
      *
      * 根据配置选择 RedisBus（跨节点）或 ChannelBus（单节点多 Worker）。
+     * 任一驱动初始化失败都降级为单节点模式，不影响服务启动。
      */
     private function initClusterBus(AdapterInterface $adapter): void
     {
         $clusterConfig = $this->globalConfig['cluster'] ?? [];
         $driver = $clusterConfig['driver'] ?? 'redis';
+        $logger = $this->logger ?? \Kode\Messaging\Messaging::logger();
 
-        if ($driver === 'redis') {
-            $redisConfig = $this->globalConfig['redis'] ?? [];
-            $redis = $redisConfig['host'] ?? '127.0.0.1';
-            $port = $redisConfig['port'] ?? 6379;
-            $prefix = $redisConfig['prefix'] ?? 'kode:messaging:';
-
-            try {
+        try {
+            if ($driver === 'channel') {
+                $bus = new \Kode\Messaging\PubSub\ChannelBus(
+                    $clusterConfig['channel'] ?? [],
+                    $logger,
+                );
+                $target = 'channel';
+            } else {
+                $redisConfig = $this->globalConfig['redis'] ?? [];
+                $host = $redisConfig['host'] ?? '127.0.0.1';
+                $port = $redisConfig['port'] ?? 6379;
                 $bus = new \Kode\Messaging\PubSub\RedisBus([
-                    'host' => $redis,
-                    'port' => $port,
-                    'prefix' => $prefix,
-                ]);
-                if ($adapter instanceof \Kode\Messaging\Adapter\AbstractAdapter) {
-                    $adapter->setBus($bus);
-                }
-                $this->logger->info('集群总线已启用（Redis）', [
-                    'node_id' => $this->nodeId,
-                    'redis' => "{$redis}:{$port}",
-                ]);
-            } catch (\Throwable $e) {
-                $this->logger->warning('Redis 总线初始化失败，降级为单节点模式', [
-                    'error' => $e->getMessage(),
-                ]);
+                    'host'   => $host,
+                    'port'   => $port,
+                    'prefix' => $redisConfig['prefix'] ?? 'kode:messaging:',
+                ], $logger);
+                $target = "{$host}:{$port}";
             }
+
+            if ($adapter instanceof \Kode\Messaging\Adapter\AbstractAdapter) {
+                $adapter->setBus($bus);
+            }
+            $logger->info('集群总线已启用', [
+                'driver'  => $driver,
+                'node_id' => $this->nodeId,
+                'target'  => $target,
+            ]);
+        } catch (\Throwable $e) {
+            // 原实现在未注入 logger 时会因 null->warning() 直接致命错误
+            $logger->warning('集群总线初始化失败，降级为单节点模式', [
+                'driver' => $driver,
+                'error'  => $e->getMessage(),
+            ]);
         }
     }
 

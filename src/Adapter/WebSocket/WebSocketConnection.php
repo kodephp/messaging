@@ -7,6 +7,8 @@ namespace Kode\Messaging\Adapter\WebSocket;
 use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
 use Kode\Messaging\Exception\WebSocketException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * WebSocket 连接（服务端 / 客户端共用基类）
@@ -18,15 +20,24 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
 
     protected int $lastPongAt;
 
+    protected LoggerInterface $logger;
+
     public function __construct(
         string $connId,
         string $protocol,
         string $remoteAddress,
         $stream,
+        ?LoggerInterface $logger = null,
     ) {
         parent::__construct($connId, $protocol, $remoteAddress);
         $this->stream = $stream;
         $this->lastPongAt = time();
+        $this->logger = $logger ?? new NullLogger();
+    }
+
+    public function logger(): LoggerInterface
+    {
+        return $this->logger;
     }
 
     /**
@@ -70,8 +81,7 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
             return null;
         }
         if ($masked) {
-            $payload = $payload ^ str_repeat($mask, intdiv($len, 4) + 1);
-            $payload = substr($payload, 0, $len);
+            $payload = Frame::applyMask($payload, $mask);
         }
         $first = ord($header[0]);
         return new Frame(

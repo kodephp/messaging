@@ -18,13 +18,11 @@ parameters:
         - '#Strict comparison using !== between .* and .* will always evaluate to false#'
         # 构造函数兼容父类签名，未使用参数
         - '#Constructor of class.*has an unused parameter#'
-        # 可选依赖（Workerman / Swoole / Swow）未安装时的类型解析
-        - '#Class Workerman\\.*not found#'
-        - '#Class Swoole\\.*not found#'
-        - '#Class Swow\\.*not found#'
-        - '#invalid type Workerman\\#'
-        - '#invalid type Swoole\\#'
-        - '#invalid type Swow\\#'
-        - '#on an unknown class Workerman\\#'
-        - '#on an unknown class Swoole\\#'
-        - '#on an unknown class Swow\\#'
+        # 可选依赖（Predis / Kode\Process / Swoole / Swow / Workerman）未安装时的类型解析
+        # 覆盖 PHPStan 实际报出的多种措辞
+        - '#has (unknown class|invalid return type) (Predis|Swoole|Swow|Workerman|Kode\\Process)\\#i'
+        - '#Instantiated class (Predis|Swoole|Swow|Workerman|Kode\\Process)\\.*not found#i'
+        - '#on an unknown class (Predis|Swoole|Swow|Workerman|Kode\\Process)\\#i'
+        - '#Call to (method|static method) .* on an unknown class (Predis|Swoole|Swow|Workerman|Kode\\Process)\\#i'
+        - '#Class (Predis|Swoole|Swow|Workerman|Kode\\Process)\\.*not found#i'
+        - '#invalid type (Predis|Swoole|Swow|Workerman|Kode\\Process)\\#i'

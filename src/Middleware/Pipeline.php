@@ -22,7 +22,7 @@ use Kode\Messaging\Contract\MiddlewareInterface;
  */
 final class Pipeline
 {
-    /** @var list<MiddlewareInterface|object{callable}|callable> */
+    /** @var list<MiddlewareInterface|callable> */
     private array $middlewares = [];
 
     /** @var ?\Closure 已编译的洋葱链（首次 process() 构建，中间件不变则复用） */

@@ -10,7 +10,7 @@ namespace Kode\Messaging\Support;
 final class Version
 {
     public const MAJOR = 3;
-    public const MINOR = 1;
+    public const MINOR = 2;
     public const PATCH = 0;
     public const PRE_RELEASE = '';
 

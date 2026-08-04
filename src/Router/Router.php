@@ -19,15 +19,27 @@ use Kode\Messaging\Router\Match\RegexMatcher;
  *  - 前缀匹配 (chat.*)
  *  - 通配符 (chat.#)
  *  - 正则
+ *
+ * 性能说明：通配符 / 正则的 Matcher 在 on() 注册阶段编译一次并缓存。
+ * 原实现每分发一条消息都会为每个 pattern 新建 Matcher 对象并重新编译正则，
+ * 在「多路由 × 高频消息」下开销随消息量线性放大。
  */
 final class Router
 {
     /** @var array<string, callable> 精确匹配 */
     private array $exact = [];
-    /** @var array<string, callable> 前缀/通配符匹配 */
+
+    /** @var array<string, array{matcher: MatcherInterface, handler: callable}> 前缀/通配符匹配（Matcher 已编译） */
     private array $patterns = [];
+
     /** @var array<string, callable> 正则匹配 */
     private array $regex = [];
+
+    /** @var callable|null 未命中任何路由时的兜底处理器 */
+    private $fallbackHandler = null;
+
+    /** @var callable|null handler 抛异常时的回调：fn(\Throwable, ConnectionInterface, MessageInterface): void */
+    private $errorHandler = null;
 
     public function on(string $pattern, callable $handler): self
     {
@@ -36,7 +48,11 @@ final class Router
             return $this;
         }
         if (str_contains($pattern, '*') || str_contains($pattern, '#')) {
-            $this->patterns[$pattern] = $handler;
+            // 注册期编译一次，分发期直接复用
+            $this->patterns[$pattern] = [
+                'matcher' => $this->buildMatcher($pattern),
+                'handler' => $handler,
+            ];
             return $this;
         }
         $this->exact[$pattern] = $handler;
@@ -44,27 +60,81 @@ final class Router
     }
 
     /**
-     * 分发消息。
+     * 移除一条路由（按注册时的 pattern 原样传入）。
      */
-    public function dispatch(ConnectionInterface $conn, MessageInterface $message): void
+    public function off(string $pattern): self
+    {
+        unset($this->exact[$pattern], $this->patterns[$pattern], $this->regex[$pattern]);
+        return $this;
+    }
+
+    /**
+     * 未命中任何路由时的兜底处理器（传 null 取消）。
+     */
+    public function fallback(?callable $handler): self
+    {
+        $this->fallbackHandler = $handler;
+        return $this;
+    }
+
+    /**
+     * handler 抛异常时的回调（传 null 恢复静默）。
+     *
+     * @param (callable(\Throwable, ConnectionInterface, MessageInterface): void)|null $handler
+     */
+    public function onError(?callable $handler): self
+    {
+        $this->errorHandler = $handler;
+        return $this;
+    }
+
+    /**
+     * 是否已注册该 pattern。
+     */
+    public function has(string $pattern): bool
+    {
+        return isset($this->exact[$pattern])
+            || isset($this->patterns[$pattern])
+            || isset($this->regex[$pattern]);
+    }
+
+    /**
+     * 已注册的 pattern 列表（精确 → 通配 → 正则）。
+     *
+     * @return list<string>
+     */
+    public function patterns(): array
+    {
+        return [
+            ...array_keys($this->exact),
+            ...array_keys($this->patterns),
+            ...array_keys($this->regex),
+        ];
+    }
+
+    /**
+     * 分发消息。
+     *
+     * @return bool 是否命中了某条路由（兜底 handler 不计为命中）
+     */
+    public function dispatch(ConnectionInterface $conn, MessageInterface $message): bool
     {
         $key = $message->event() ?? $message->topic() ?? '';
         if ($key === '') {
-            return;
+            return false;
         }
 
         // 1. 精确
         if (isset($this->exact[$key])) {
             $this->call($this->exact[$key], $conn, $message);
-            return;
+            return true;
         }
 
-        // 2. 通配符
-        foreach ($this->patterns as $pattern => $handler) {
-            $matcher = $this->buildMatcher($pattern);
-            if ($matcher->match($key)) {
-                $this->call($handler, $conn, $message);
-                return;
+        // 2. 通配符（Matcher 已在注册期编译）
+        foreach ($this->patterns as $entry) {
+            if ($entry['matcher']->match($key)) {
+                $this->call($entry['handler'], $conn, $message);
+                return true;
             }
         }
 
@@ -72,9 +142,15 @@ final class Router
         foreach ($this->regex as $pattern => $handler) {
             if ((bool)preg_match($pattern, $key)) {
                 $this->call($handler, $conn, $message);
-                return;
+                return true;
             }
         }
+
+        // 4. 兜底
+        if ($this->fallbackHandler !== null) {
+            $this->call($this->fallbackHandler, $conn, $message);
+        }
+        return false;
     }
 
     private function buildMatcher(string $pattern): MatcherInterface
@@ -96,7 +172,10 @@ final class Router
         try {
             $handler($conn, $message);
         } catch (\Throwable $e) {
-            // 静默或派发 error.middleware 事件
+            if ($this->errorHandler !== null) {
+                ($this->errorHandler)($e, $conn, $message);
+            }
+            // 未注册 onError 时保持静默，避免单个 handler 异常拖垮整条连接
         }
     }
 

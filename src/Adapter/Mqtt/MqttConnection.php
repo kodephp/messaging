@@ -6,6 +6,7 @@ namespace Kode\Messaging\Adapter\Mqtt;
 
 use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
 use Kode\Messaging\Message\Message as Msg;
+use Kode\Messaging\Support\TopicMatcher;
 
 /**
  * MQTT 客户端连接
@@ -82,12 +83,15 @@ class MqttConnection extends WebSocketConnection
         }
     }
 
+    /**
+     * 主题过滤器匹配（MQTT 标准语义）。
+     *
+     * 修复：原实现把 `*` 当作单级通配符（`preg_quote` 会转义 `+`），
+     * 导致以 MQTT 标准过滤器 `a/+/b` 订阅时，客户端本地回调永远匹配不上，
+     * 消息虽从 Broker 收到却不会触发 handler。现统一走 {@see TopicMatcher}。
+     */
     private function match(string $filter, string $topic): bool
     {
-        if ($filter === $topic) {
-            return true;
-        }
-        $regex = '#^' . str_replace(['\\*', '\\#'], ['[^/]+', '.*'], preg_quote($filter, '#')) . '$#';
-        return (bool)preg_match($regex, $topic);
+        return TopicMatcher::matches($filter, $topic);
     }
 }
