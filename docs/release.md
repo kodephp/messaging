@@ -260,7 +260,7 @@ git push origin :refs/tags/v2.1.0
 - [ ] 工作区干净（`git status`）
 - [ ] 当前在 `main` 分支
 - [ ] `composer validate --strict` 通过
-- [ ] `vendor/bin/phpunit` 110/110 通过
+- [ ] `vendor/bin/phpunit` 307/307 通过
 - [ ] `php bin/messaging self-check` 通过
 - [ ] `php-cs-fixer fix --dry-run` 通过
 - [ ] `phpstan analyse` 通过

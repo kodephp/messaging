@@ -135,10 +135,7 @@ final class LongPollingClientConnection extends LongPollingConnection
 
         while (! $this->stop) {
             try {
-                $msg = $this->doOnce();
-                if ($msg !== null) {
-                    $this->dispatch($msg);
-                }
+                $this->dispatch($this->doOnce());
                 $retries = 0;
             } catch (Throwable $e) {
                 $retries++;

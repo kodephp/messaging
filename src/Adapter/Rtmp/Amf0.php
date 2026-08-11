@@ -123,7 +123,7 @@ final class Amf0
         if (strlen($b) < $o + 2) {
             throw RtmpException::amfError('AMF0 String 长度截断');
         }
-        $len = unpack('n', substr($b, $o, 2))[1];
+        $len = (int) unpack('n', substr($b, $o, 2))[1];
         $o += 2;
         if (strlen($b) < $o + $len) {
             throw RtmpException::amfError('AMF0 String 内容截断');
@@ -139,7 +139,7 @@ final class Amf0
         if (strlen($b) < $o + 4) {
             throw RtmpException::amfError('AMF0 LongString 长度截断');
         }
-        $len = unpack('N', substr($b, $o, 4))[1];
+        $len = (int) unpack('N', substr($b, $o, 4))[1];
         $o += 4;
         if (strlen($b) < $o + $len) {
             throw RtmpException::amfError('AMF0 LongString 内容截断');
@@ -161,7 +161,7 @@ final class Amf0
             if (strlen($b) < $o + 2) {
                 throw RtmpException::amfError('AMF0 Object 键长度截断');
             }
-            $klen = unpack('n', substr($b, $o, 2))[1];
+            $klen = (int) unpack('n', substr($b, $o, 2))[1];
             $o += 2;
             if ($klen === 0) {
                 if (strlen($b) < $o + 1) {
@@ -189,7 +189,7 @@ final class Amf0
         if (strlen($b) < $o + 4) {
             throw RtmpException::amfError('AMF0 StrictArray 长度截断');
         }
-        $count = unpack('N', substr($b, $o, 4))[1];
+        $count = (int) unpack('N', substr($b, $o, 4))[1];
         $o += 4;
         $arr = [];
         for ($i = 0; $i < $count; $i++) {

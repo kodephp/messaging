@@ -2,7 +2,7 @@
     "name": "kode/messaging",
     "description": "统一消息层，封装 **11 种长连接 / 实时消息协议**（WebSocket、SSE、MQTT、UDP、Long-Polling、CoAP、NATS、STOMP、gRPC Streaming、WebTransport、RTMP），提供**一致的 API**、**协议无关的消息抽象**和**可插拔的扩展点**",
     "type": "library",
-    "license": "MIT",
+    "license": "Apache-2.0",
     "keywords": [
         "messaging",
         "websocket",
@@ -51,9 +51,9 @@
         "psr/log": "^2.0|^3.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.5|^11.0",
-        "phpstan/phpstan": "^1.10",
-        "friendsofphp/php-cs-fixer": "^3.40"
+        "phpunit/phpunit": "^12.0",
+        "phpstan/phpstan": "^2.0",
+        "friendsofphp/php-cs-fixer": "^3.95"
     },
     "suggest": {
         "ext-sockets": "使用 ext-sockets 传输层以获得更高性能（推荐生产环境）",
@@ -106,7 +106,7 @@
         "test:unit": "phpunit --testsuite=unit",
         "test:integration": "phpunit --testsuite=integration",
         "test:feature": "phpunit --testsuite=feature",
-        "coverage": "phpunit --coverage-html build/coverage",
+        "coverage": "phpunit --coverage-html build/coverage --coverage-text=build/coverage.txt --coverage-clover build/logs/clover.xml",
         "analyse": "phpstan analyse src tests --level=5 --memory-limit=1G",
         "analyse:baseline": "phpstan analyse src tests --generate-baseline phpstan-baseline.neon --memory-limit=1G",
         "fix": "php-cs-fixer fix",

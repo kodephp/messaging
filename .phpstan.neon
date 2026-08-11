@@ -18,6 +18,9 @@ parameters:
         - '#Strict comparison using !== between .* and .* will always evaluate to false#'
         # 构造函数兼容父类签名，未使用参数
         - '#Constructor of class.*has an unused parameter#'
+        # 协程 Transport 的 select() 实现不会失败，但必须保留接口契约的 array|false
+        # （TransportInterface::select 与 stream_select 语义对齐，StreamTransport 会返回 false）
+        - '#Method Kode\\Messaging\\Transport\\(Swoole|Swow)Transport::select\(\) never returns false#'
         # 可选依赖（Predis / Kode\Process / Swoole / Swow / Workerman）未安装时的类型解析
         # 覆盖 PHPStan 实际报出的多种措辞
         - '#has (unknown class|invalid return type) (Predis|Swoole|Swow|Workerman|Kode\\Process)\\#i'

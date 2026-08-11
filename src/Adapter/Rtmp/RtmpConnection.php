@@ -114,8 +114,8 @@ class RtmpConnection extends WebSocketConnection
                 $mh = array_merge($state, $mh);
             }
             // 读取 body
-            $remaining = $mh['messageLength'] - strlen($state['buffer'] ?? '');
-            $toRead = min($remaining, $this->chunkSizeIn);
+            $remaining = (int) $mh['messageLength'] - strlen($state['buffer'] ?? '');
+            $toRead = (int) min($remaining, $this->chunkSizeIn);
             if (strlen($buffer) < $offset + $toRead) {
                 // 不够，留给下次
                 break;

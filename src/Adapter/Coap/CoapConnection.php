@@ -51,9 +51,7 @@ class CoapConnection extends Connection
         if ($payload !== '') {
             $optList[] = ['number' => CoapOption::CONTENT_FORMAT, 'value' => $this->uintOption($contentFormat)];
         }
-        if ($accept !== null) {
-            $optList[] = ['number' => CoapOption::ACCEPT, 'value' => $this->uintOption((int) $accept)];
-        }
+        $optList[] = ['number' => CoapOption::ACCEPT, 'value' => $this->uintOption((int) $accept)];
         foreach ($options['extra'] ?? [] as $k => $v) {
             $optList[] = ['number' => (int) $k, 'value' => (string) $v];
         }

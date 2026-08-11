@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  PHPUnit 10/11 配置文件
+  PHPUnit 12 配置文件
   kode/messaging - 统一消息层测试
+
+  注意：此处不声明 <coverage><report>，否则在缺少覆盖率驱动
+  （Xdebug / PCOV）的环境下 PHPUnit 12 会拒绝执行测试。
+  覆盖率报告改由 `composer coverage` 通过 CLI 参数按需生成。
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
@@ -38,14 +42,6 @@
             <directory>src</directory>
         </include>
     </source>
-
-    <coverage>
-        <report>
-            <html outputDirectory="build/coverage"/>
-            <text outputFile="build/coverage.txt"/>
-            <clover outputFile="build/logs/clover.xml"/>
-        </report>
-    </coverage>
 
     <php>
         <ini name="error_reporting" value="-1"/>

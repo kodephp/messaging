@@ -89,7 +89,7 @@ final class Codec
         if (strlen($data) < $offset + 2) {
             throw MqttException::malformedPacket('String 长度缺失');
         }
-        $len = unpack('n', substr($data, $offset, 2))[1];
+        $len = (int) unpack('n', substr($data, $offset, 2))[1];
         $offset += 2;
         if (strlen($data) < $offset + $len) {
             throw MqttException::malformedPacket('String 内容截断');
@@ -113,7 +113,7 @@ final class Codec
      */
     public static function decodeUint16(string $data, int &$offset): int
     {
-        $v = unpack('n', substr($data, $offset, 2))[1];
+        $v = (int) unpack('n', substr($data, $offset, 2))[1];
         $offset += 2;
 
         return $v;

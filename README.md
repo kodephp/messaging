@@ -3,7 +3,7 @@
 **统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.3+ | PSR 合规 | 可插拔适配器**
 
 [![PHP Version](https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat-square&logo=php)](https://php.net)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
 [![Version](https://img.shields.io/packagist/v/kode/messaging?style=flat-square)](https://packagist.org/packages/kode/messaging)
 
@@ -332,7 +332,7 @@ Kode::inCoroutine();   // bool
 
 ## 许可证
 
-MIT
+Apache-2.0
 
 
 1. 最低是PHP8.3+版本。相关的文档都要更新。

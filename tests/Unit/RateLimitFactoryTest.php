@@ -8,6 +8,7 @@ use Kode\Limiting\Algorithm\RateLimiterInterface;
 use Kode\Limiting\Store\ApcuStore;
 use Kode\Messaging\Exception\MessagingException;
 use Kode\Messaging\Middleware\RateLimit\RateLimitFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -34,9 +35,7 @@ final class RateLimitFactoryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider algorithmProvider
-     */
+    #[DataProvider('algorithmProvider')]
     public function test_create_with_memory_store_for_each_algorithm(string $driver): void
     {
         $limiter = RateLimitFactory::create([
