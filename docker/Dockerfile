@@ -53,7 +53,7 @@ FROM php:8.3-cli-alpine AS runtime
 LABEL org.opencontainers.image.title="kode/messaging" \
       org.opencontainers.image.description="Unified long-connection/real-time messaging library for PHP 8.2+" \
       org.opencontainers.image.source="https://github.com/kodephp/messaging" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.licenses="MIT"
 
 # 运行时必要扩展（与 builder 保持一致）
 RUN apk add --no-cache \

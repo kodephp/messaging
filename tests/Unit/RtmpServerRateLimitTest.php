@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Tests\Unit;
 
 use Kode\Limiting\Algorithm\RateLimiterInterface;
+use Kode\Limiting\DTO\LimiterResult;
 use Kode\Messaging\Adapter\Rtmp\Amf0;
 use Kode\Messaging\Adapter\Rtmp\RtmpConnection;
 use Kode\Messaging\Adapter\Rtmp\Server;
@@ -202,8 +203,18 @@ final class RtmpServerRateLimitTest extends TestCase
                 $this->keys[] = $key;
                 return false;
             }
+            public function check(string $key, int $tokens = 1): LimiterResult
+            {
+                return LimiterResult::denied(60.0, 1, 0.0);
+            }
+            public function consume(string $key, int $tokens = 1): LimiterResult
+            {
+                $this->keys[] = $key;
+                return LimiterResult::denied(60.0, 1, 0.0);
+            }
             public function getRemaining(string $key): float { return 0.0; }
             public function getWaitTime(string $key): float { return 60.0; }
+            public function getCapacity(): int { return 1; }
             public function reset(string $key): void { $this->keys = []; }
         };
         $server->setRateLimiters(null, $limiter);
@@ -307,8 +318,17 @@ final class RtmpServerRateLimitTest extends TestCase
     {
         return new class implements RateLimiterInterface {
             public function allow(string $key, int $tokens = 1): bool { return true; }
+            public function check(string $key, int $tokens = 1): LimiterResult
+            {
+                return LimiterResult::allowed(INF, 1, 0.0);
+            }
+            public function consume(string $key, int $tokens = 1): LimiterResult
+            {
+                return LimiterResult::allowed(INF, 1, 0.0);
+            }
             public function getRemaining(string $key): float { return INF; }
             public function getWaitTime(string $key): float { return 0.0; }
+            public function getCapacity(): int { return 1; }
             public function reset(string $key): void {}
         };
     }
@@ -317,8 +337,17 @@ final class RtmpServerRateLimitTest extends TestCase
     {
         return new class implements RateLimiterInterface {
             public function allow(string $key, int $tokens = 1): bool { return false; }
+            public function check(string $key, int $tokens = 1): LimiterResult
+            {
+                return LimiterResult::denied(60.0, 1, 0.0);
+            }
+            public function consume(string $key, int $tokens = 1): LimiterResult
+            {
+                return LimiterResult::denied(60.0, 1, 0.0);
+            }
             public function getRemaining(string $key): float { return 0.0; }
             public function getWaitTime(string $key): float { return 60.0; }
+            public function getCapacity(): int { return 1; }
             public function reset(string $key): void {}
         };
     }

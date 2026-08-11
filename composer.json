@@ -2,7 +2,7 @@
     "name": "kode/messaging",
     "description": "统一消息层，封装 **11 种长连接 / 实时消息协议**（WebSocket、SSE、MQTT、UDP、Long-Polling、CoAP、NATS、STOMP、gRPC Streaming、WebTransport、RTMP），提供**一致的 API**、**协议无关的消息抽象**和**可插拔的扩展点**",
     "type": "library",
-    "license": "Apache-2.0",
+    "license": "MIT",
     "keywords": [
         "messaging",
         "websocket",
@@ -47,7 +47,7 @@
         "php": ">=8.3",
         "ext-json": "*",
         "ext-mbstring": "*",
-        "kode/limiting": "^1.7",
+        "kode/limiting": "^2.0",
         "psr/log": "^2.0|^3.0"
     },
     "require-dev": {
