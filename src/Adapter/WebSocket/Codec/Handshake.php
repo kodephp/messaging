@@ -42,6 +42,7 @@ final class Handshake
             $req .= "{$k}: {$v}\r\n";
         }
         $req .= "\r\n";
+
         return $req;
     }
 
@@ -50,7 +51,7 @@ final class Handshake
      */
     public static function acceptKey(string $clientKey): string
     {
-        return base64_encode(sha1($clientKey . self::GUID, true));
+        return base64_encode(sha1($clientKey.self::GUID, true));
     }
 
     /**
@@ -66,7 +67,7 @@ final class Handshake
     ): array {
         $lines = explode("\r\n", $rawRequest);
         $requestLine = array_shift($lines) ?? '';
-        if (!preg_match('#^HTTP/1\.[01]\s+101#', $requestLine)) {
+        if (! preg_match('#^HTTP/1\.[01]\s+101#', $requestLine)) {
             throw WebSocketException::handshakeFailed('无效的状态行', ['line' => $requestLine]);
         }
 
@@ -86,32 +87,31 @@ final class Handshake
         if (($headers['upgrade'] ?? '') !== 'websocket') {
             throw WebSocketException::handshakeFailed('Upgrade 头缺失');
         }
-        if (!preg_match('/\bUpgrade\b/i', $headers['connection'] ?? '')) {
+        if (! preg_match('/\bUpgrade\b/i', $headers['connection'] ?? '')) {
             throw WebSocketException::handshakeFailed('Connection 头缺失 Upgrade');
         }
-        if (!isset($headers['sec-websocket-accept'])) {
+        if (! isset($headers['sec-websocket-accept'])) {
             throw WebSocketException::handshakeFailed('Sec-WebSocket-Accept 缺失');
         }
-        if (!isset($config['expected_accept']) || $headers['sec-websocket-accept'] !== $config['expected_accept']) {
+        if (! isset($config['expected_accept']) || $headers['sec-websocket-accept'] !== $config['expected_accept']) {
             throw WebSocketException::handshakeFailed('Sec-WebSocket-Accept 不匹配', [
                 'expected' => $config['expected_accept'] ?? null,
-                'got'      => $headers['sec-websocket-accept'],
+                'got' => $headers['sec-websocket-accept'],
             ]);
         }
 
         return [
-            'accept'      => $headers['sec-websocket-accept'],
+            'accept' => $headers['sec-websocket-accept'],
             'subprotocol' => $headers['sec-websocket-protocol'] ?? null,
-            'host'        => $headers['host'] ?? '',
-            'path'        => '',
-            'origin'      => $headers['origin'] ?? null,
+            'host' => $headers['host'] ?? '',
+            'path' => '',
+            'origin' => $headers['origin'] ?? null,
         ];
     }
 
     /**
      * 校验客户端握手并构造服务端响应。
      *
-     * @param string $rawRequest
      * @param array<string, mixed> $config
      * @return string 服务端响应原文
      */
@@ -119,7 +119,7 @@ final class Handshake
     {
         $lines = explode("\r\n", $rawRequest);
         $requestLine = array_shift($lines) ?? '';
-        if (!preg_match('#^GET\s+(\S+)\s+HTTP/1\.[01]#', $requestLine, $m)) {
+        if (! preg_match('#^GET\s+(\S+)\s+HTTP/1\.[01]#', $requestLine, $m)) {
             throw WebSocketException::handshakeFailed('无效的请求行', ['line' => $requestLine]);
         }
         $path = $m[1];
@@ -141,10 +141,10 @@ final class Handshake
         if (($headers['upgrade'] ?? '') !== 'websocket') {
             throw WebSocketException::handshakeFailed('Upgrade 头必须为 websocket');
         }
-        if (!preg_match('/\bUpgrade\b/i', $headers['connection'] ?? '')) {
+        if (! preg_match('/\bUpgrade\b/i', $headers['connection'] ?? '')) {
             throw WebSocketException::handshakeFailed('Connection 头必须包含 Upgrade');
         }
-        if (!isset($headers['sec-websocket-key'])) {
+        if (! isset($headers['sec-websocket-key'])) {
             throw WebSocketException::handshakeFailed('Sec-WebSocket-Key 缺失');
         }
         if (($headers['sec-websocket-version'] ?? '') !== '13') {
@@ -154,7 +154,7 @@ final class Handshake
         // Origin 校验
         $allowed = $config['allowed_origins'] ?? ['*'];
         $origin = $headers['origin'] ?? null;
-        if (!in_array('*', $allowed, true) && $origin !== null && !in_array($origin, $allowed, true)) {
+        if (! in_array('*', $allowed, true) && $origin !== null && ! in_array($origin, $allowed, true)) {
             throw WebSocketException::originNotAllowed($origin);
         }
 

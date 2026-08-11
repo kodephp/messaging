@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\LongPolling;
 
+use function hexdec;
+
 use Kode\Messaging\Exception\LongPollingException;
 use Kode\Messaging\Message\Message as Msg;
+use LogicException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Throwable;
 
 /**
  * Long-Polling 客户端连接
@@ -17,16 +21,17 @@ use Psr\Log\NullLogger;
  */
 final class LongPollingClientConnection extends LongPollingConnection
 {
-    /** @var callable(Msg):void|null */
+    /** @var null|callable(Msg):void */
     private $messageHandler = null;
 
-    /** @var callable(\Throwable):void|null */
+    /** @var null|callable(Throwable):void */
     private $errorHandler = null;
 
     private bool $stop = false;
 
     /** @var array<string, mixed> */
     private array $config;
+
     private LoggerInterface $logger;
 
     /**
@@ -50,6 +55,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function onMessage(callable $handler): self
     {
         $this->messageHandler = $handler;
+
         return $this;
     }
 
@@ -59,6 +65,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function onError(callable $handler): self
     {
         $this->errorHandler = $handler;
+
         return $this;
     }
 
@@ -68,6 +75,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function setMethod(string $method): self
     {
         $this->config['method'] = strtoupper($method);
+
         return $this;
     }
 
@@ -77,6 +85,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function setHeader(string $name, string $value): self
     {
         $this->config['headers'][$name] = $value;
+
         return $this;
     }
 
@@ -89,6 +98,7 @@ final class LongPollingClientConnection extends LongPollingConnection
         if ($contentType !== null) {
             $this->config['headers']['Content-Type'] = $contentType;
         }
+
         return $this;
     }
 
@@ -98,17 +108,19 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function setPath(string $path): self
     {
         $this->config['path'] = $path;
+
         return $this;
     }
 
     /**
      * 设置查询参数。
      *
-     * @param array<string, string|int> $query
+     * @param array<string, int|string> $query
      */
     public function setQuery(array $query): self
     {
         $this->config['query'] = array_map('strval', $query);
+
         return $this;
     }
 
@@ -118,23 +130,23 @@ final class LongPollingClientConnection extends LongPollingConnection
     public function poll(): void
     {
         $retries = 0;
-        $maxRetries = (int)($this->config['max_retries'] ?? 0);
-        $delay = (int)($this->config['retry_delay_ms'] ?? 1_000);
+        $maxRetries = (int) ($this->config['max_retries'] ?? 0);
+        $delay = (int) ($this->config['retry_delay_ms'] ?? 1_000);
 
-        while (!$this->stop) {
+        while (! $this->stop) {
             try {
                 $msg = $this->doOnce();
                 if ($msg !== null) {
                     $this->dispatch($msg);
                 }
                 $retries = 0;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $retries++;
                 $this->logger->warning('long-polling poll error', ['error' => $e->getMessage()]);
                 if ($this->errorHandler !== null) {
                     try {
                         ($this->errorHandler)($e);
-                    } catch (\Throwable) {
+                    } catch (Throwable) {
                     }
                 }
                 if ($maxRetries > 0 && $retries >= $maxRetries) {
@@ -165,7 +177,7 @@ final class LongPollingClientConnection extends LongPollingConnection
 
     public function isOpen(): bool
     {
-        return !$this->stop && $this->open;
+        return ! $this->stop && $this->open;
     }
 
     /**
@@ -173,7 +185,7 @@ final class LongPollingClientConnection extends LongPollingConnection
      */
     public function send(mixed $payload, array $options = []): bool
     {
-        throw new \LogicException('LongPolling 客户端连接不支持 send()，请使用 withBody()');
+        throw new LogicException('LongPolling 客户端连接不支持 send()，请使用 withBody()');
     }
 
     /**
@@ -183,24 +195,24 @@ final class LongPollingClientConnection extends LongPollingConnection
     {
         $errno = 0;
         $errstr = '';
-        $remote = ($this->config['tls'] ?? false ? 'tls' : 'tcp') . '://'
-            . $this->config['host'] . ':' . $this->config['port'];
+        $remote = ($this->config['tls'] ?? false ? 'tls' : 'tcp').'://'
+            .$this->config['host'].':'.$this->config['port'];
         $socket = @stream_socket_client(
             $remote,
             $errno,
             $errstr,
-            (float)($this->config['read_timeout'] ?? 30),
+            (float) ($this->config['read_timeout'] ?? 30),
         );
         if ($socket === false) {
             throw LongPollingException::listenFailed(
-                (string)$this->config['host'],
-                (int)$this->config['port'],
-                (string)$errstr,
+                (string) $this->config['host'],
+                (int) $this->config['port'],
+                (string) $errstr,
             );
         }
 
         try {
-            stream_set_timeout($socket, (int)($this->config['read_timeout'] ?? 30));
+            stream_set_timeout($socket, (int) ($this->config['read_timeout'] ?? 30));
             $this->writeRequest($socket);
 
             $response = $this->readResponse($socket);
@@ -216,7 +228,7 @@ final class LongPollingClientConnection extends LongPollingConnection
                 'long-polling',
                 topic: $this->config['query']['topic'] ?? null,
                 context: [
-                    'status'  => $status,
+                    'status' => $status,
                     'headers' => $headers,
                 ],
             )->withPayload($payload);
@@ -227,24 +239,24 @@ final class LongPollingClientConnection extends LongPollingConnection
 
     private function writeRequest($socket): void
     {
-        $method = (string)($this->config['method'] ?? 'GET');
-        $path = (string)($this->config['path'] ?? '/');
-        $query = (array)($this->config['query'] ?? []);
+        $method = (string) ($this->config['method'] ?? 'GET');
+        $path = (string) ($this->config['path'] ?? '/');
+        $query = (array) ($this->config['query'] ?? []);
         $queryString = http_build_query($query);
-        $target = $path . ($queryString !== '' ? '?' . $queryString : '');
+        $target = $path.($queryString !== '' ? '?'.$queryString : '');
 
-        $body = (string)($this->config['body'] ?? '');
-        $headers = (array)($this->config['headers'] ?? []);
+        $body = (string) ($this->config['body'] ?? '');
+        $headers = (array) ($this->config['headers'] ?? []);
 
-        $hostHeader = $this->config['host'] . ':' . $this->config['port'];
+        $hostHeader = $this->config['host'].':'.$this->config['port'];
         $defaultHeaders = [
-            'Host'         => $hostHeader,
-            'User-Agent'   => 'kode-messaging/1.0',
-            'Accept'       => 'application/json',
-            'Connection'   => 'close',
+            'Host' => $hostHeader,
+            'User-Agent' => 'kode-messaging/1.0',
+            'Accept' => 'application/json',
+            'Connection' => 'close',
         ];
         if ($body !== '') {
-            $defaultHeaders['Content-Length'] = (string)strlen($body);
+            $defaultHeaders['Content-Length'] = (string) strlen($body);
         }
         $headers = array_replace($defaultHeaders, $headers);
 
@@ -252,7 +264,7 @@ final class LongPollingClientConnection extends LongPollingConnection
         foreach ($headers as $k => $v) {
             $packet .= "{$k}: {$v}\r\n";
         }
-        $packet .= "\r\n" . $body;
+        $packet .= "\r\n".$body;
 
         $bytes = @fwrite($socket, $packet);
         if ($bytes === false) {
@@ -266,7 +278,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     private function readResponse($socket): array
     {
         $headerBuf = '';
-        while (!feof($socket)) {
+        while (! feof($socket)) {
             $line = fgets($socket, 4096);
             if ($line === false) {
                 break;
@@ -281,7 +293,7 @@ final class LongPollingClientConnection extends LongPollingConnection
         $statusLine = array_shift($lines) ?: '';
         $status = 200;
         if (preg_match('#HTTP/\d+\.\d+ (\d+)#', $statusLine, $m)) {
-            $status = (int)$m[1];
+            $status = (int) $m[1];
         }
 
         $headers = [];
@@ -301,9 +313,9 @@ final class LongPollingClientConnection extends LongPollingConnection
         if (isset($headers['transfer-encoding']) && stripos($headers['transfer-encoding'], 'chunked') !== false) {
             $body = $this->readChunked($socket);
         } else {
-            $contentLength = (int)($headers['content-length'] ?? 0);
+            $contentLength = (int) ($headers['content-length'] ?? 0);
             $remaining = $contentLength;
-            while ($remaining > 0 && !feof($socket)) {
+            while ($remaining > 0 && ! feof($socket)) {
                 $chunk = fread($socket, min($remaining, 8192));
                 if ($chunk === false || $chunk === '') {
                     break;
@@ -314,9 +326,9 @@ final class LongPollingClientConnection extends LongPollingConnection
         }
 
         return [
-            'status'  => $status,
+            'status' => $status,
             'headers' => $headers,
-            'body'    => $body,
+            'body' => $body,
         ];
     }
 
@@ -326,7 +338,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     private function readChunked($socket): string
     {
         $body = '';
-        while (!feof($socket)) {
+        while (! feof($socket)) {
             $line = fgets($socket, 4096);
             if ($line === false) {
                 break;
@@ -338,9 +350,9 @@ final class LongPollingClientConnection extends LongPollingConnection
             if ($line === '0') {
                 break;
             }
-            $size = (int)\hexdec($line);
+            $size = (int) hexdec($line);
             $remaining = $size;
-            while ($remaining > 0 && !feof($socket)) {
+            while ($remaining > 0 && ! feof($socket)) {
                 $chunk = fread($socket, min($remaining, 8192));
                 if ($chunk === false || $chunk === '') {
                     break;
@@ -351,6 +363,7 @@ final class LongPollingClientConnection extends LongPollingConnection
             // 读 \r\n
             fgets($socket, 4);
         }
+
         return $body;
     }
 
@@ -362,10 +375,11 @@ final class LongPollingClientConnection extends LongPollingConnection
         if (stripos($contentType, 'application/json') !== false) {
             try {
                 return json_decode($body, true, 32, JSON_THROW_ON_ERROR);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 return $body;
             }
         }
+
         return $body;
     }
 
@@ -374,7 +388,7 @@ final class LongPollingClientConnection extends LongPollingConnection
         if ($this->messageHandler !== null) {
             try {
                 ($this->messageHandler)($msg);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->error('long-polling handler error', ['error' => $e->getMessage()]);
             }
         }

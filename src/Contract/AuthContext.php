@@ -16,8 +16,7 @@ final class AuthContext
         public readonly ?string $userId = null,
         public readonly array $scopes = [],
         public readonly array $attributes = [],
-    ) {
-    }
+    ) {}
 
     public function hasScope(string $scope): bool
     {
@@ -30,8 +29,8 @@ final class AuthContext
     public function toArray(): array
     {
         return [
-            'userId'     => $this->userId,
-            'scopes'     => $this->scopes,
+            'userId' => $this->userId,
+            'scopes' => $this->scopes,
             'attributes' => $this->attributes,
         ];
     }

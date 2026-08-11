@@ -7,6 +7,7 @@ namespace Kode\Messaging\Adapter\Sse;
 use Kode\Messaging\Message\Message as Msg;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Throwable;
 
 /**
  * SSE 客户端连接（接收服务端推送）
@@ -37,7 +38,7 @@ final class SseClientConnection extends SseConnection
         $event = null;
         $data = [];
         $id = null;
-        while (!feof($this->stream)) {
+        while (! feof($this->stream)) {
             $line = @fgets($this->stream);
             if ($line === false) {
                 break;
@@ -54,7 +55,7 @@ final class SseClientConnection extends SseConnection
                     if ($event !== null && isset($this->handlers[$event])) {
                         try {
                             ($this->handlers[$event])($msg);
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('sse handler error', ['error' => $e->getMessage()]);
                         }
                     }

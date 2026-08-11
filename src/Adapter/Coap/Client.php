@@ -8,6 +8,7 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\CoapException;
+use LogicException;
 
 /**
  * CoAP 客户端
@@ -21,8 +22,10 @@ use Kode\Messaging\Exception\CoapException;
 final class Client extends AbstractAdapter
 {
     private ?CoapConnection $conn = null;
-    /** @var resource|null */
+
+    /** @var null|resource */
     private $socket = null;
+
     private ?string $peer = null;
 
     public static function scheme(): string
@@ -38,7 +41,7 @@ final class Client extends AbstractAdapter
     public function connect(array $config): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 5683);
+        $port = (int) ($config['port'] ?? 5683);
         $this->peer = "{$host}:{$port}";
 
         $errno = 0;
@@ -51,7 +54,7 @@ final class Client extends AbstractAdapter
             STREAM_CLIENT_CONNECT,
         );
         if ($this->socket === false) {
-            throw CoapException::bindFailed($host, $port, (string)$errstr);
+            throw CoapException::bindFailed($host, $port, (string) $errstr);
         }
         stream_set_timeout($this->socket, 1);
 
@@ -63,12 +66,13 @@ final class Client extends AbstractAdapter
             $this->peer,
             reliable: $config['reliable'] ?? true,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('CoAP Client 不支持 listen()');
+        throw new LogicException('CoAP Client 不支持 listen()');
     }
 
     public function run(): void

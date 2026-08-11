@@ -21,7 +21,7 @@ final class CoapType
             self::NON => 'NON',
             self::ACK => 'ACK',
             self::RST => 'RST',
-            default   => "TYPE({$type})",
+            default => "TYPE({$type})",
         };
     }
 }

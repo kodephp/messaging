@@ -30,7 +30,7 @@ final class SwooleTransport implements TransportInterface
      */
     public function __construct()
     {
-        if (!class_exists(SwooleSocket::class)) {
+        if (! class_exists(SwooleSocket::class)) {
             throw TransportException::openFailed(
                 'swoole',
                 'ext-swoole 未加载或 \Swoole\Coroutine\Socket 类不存在',
@@ -56,7 +56,7 @@ final class SwooleTransport implements TransportInterface
         $socket = new SwooleSocket($domain, $type, $proto);
         $socket->setOption(SOL_SOCKET, SO_REUSEADDR, 1);
 
-        if (!$socket->bind($host, $port)) {
+        if (! $socket->bind($host, $port)) {
             throw TransportException::openFailed(
                 "{$protocol}://{$host}:{$port}",
                 $socket->errMsg ?: 'bind 失败',
@@ -65,7 +65,7 @@ final class SwooleTransport implements TransportInterface
         }
 
         // TCP 需要 listen；UDP 不需要
-        if ($protocol !== 'udp' && !$socket->listen(512)) {
+        if ($protocol !== 'udp' && ! $socket->listen(512)) {
             throw TransportException::openFailed(
                 "{$protocol}://{$host}:{$port}",
                 $socket->errMsg ?: 'listen 失败',
@@ -81,7 +81,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $serverSocket 服务端 socket 对象
      *
-     * @return SwooleSocket|false 客户端 socket 对象；无连接返回 false
+     * @return false|SwooleSocket 客户端 socket 对象；无连接返回 false
      */
     public function accept(mixed $serverSocket): mixed
     {
@@ -107,7 +107,7 @@ final class SwooleTransport implements TransportInterface
 
         $socket = new SwooleSocket($domain, $type, $proto);
 
-        if (!$socket->connect($host, $port, $timeout)) {
+        if (! $socket->connect($host, $port, $timeout)) {
             throw TransportException::openFailed(
                 "{$protocol}://{$host}:{$port}",
                 $socket->errMsg ?: 'connect 失败',
@@ -123,8 +123,6 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      * @param int          $length 期望读取的最大字节数
-     *
-     * @return string|false
      */
     public function read(mixed $socket, int $length): string|false
     {
@@ -141,8 +139,6 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      * @param string       $data   待写入数据
-     *
-     * @return int|false
      */
     public function write(mixed $socket, string $data): int|false
     {
@@ -166,8 +162,7 @@ final class SwooleTransport implements TransportInterface
      * 这里采用轮询方式：对每个 socket 以 0 超时尝试 recv 检测可读性。
      *
      * @param array<int, SwooleSocket>      $read
-     * @param array<int, SwooleSocket>|null $write
-     * @param int                           $timeoutMicroseconds
+     * @param null|array<int, SwooleSocket> $write
      *
      * @return array{0: array<int, SwooleSocket>, 1: array<int, SwooleSocket>}|false
      */
@@ -228,14 +223,12 @@ final class SwooleTransport implements TransportInterface
      * {@inheritdoc}
      *
      * @param SwooleSocket $socket socket 对象
-     *
-     * @return string|false
      */
     public function getPeerName(mixed $socket): string|false
     {
         $info = $socket->getpeername();
 
-        if ($info === false || !isset($info['host'], $info['port'])) {
+        if ($info === false || ! isset($info['host'], $info['port'])) {
             return false;
         }
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\LongPolling;
 
+use Throwable;
+
 /**
  * Long-Polling 主题订阅 / 推送中心
  *
@@ -26,9 +28,9 @@ namespace Kode\Messaging\Adapter\LongPolling;
  */
 final class Hub
 {
-    public const DRIVER_MEMORY  = 'memory';
+    public const DRIVER_MEMORY = 'memory';
     public const DRIVER_CHANNEL = 'channel';   // 与 kode/process 协作
-    public const DRIVER_REDIS   = 'redis';     // 跨节点
+    public const DRIVER_REDIS = 'redis';     // 跨节点
 
     private static ?self $default = null;
 
@@ -36,7 +38,8 @@ final class Hub
     private array $subscribers = [];
 
     private string $driver;
-    /** @var callable|null push 实际执行器（跨进程 / 跨节点时由外部注入） */
+
+    /** @var null|callable push 实际执行器（跨进程 / 跨节点时由外部注入） */
     private $dispatcher = null;
 
     public function __construct(string $driver = self::DRIVER_MEMORY)
@@ -80,11 +83,12 @@ final class Hub
      */
     public function unsubscribe(string $topic, ?callable $callback = null): void
     {
-        if (!isset($this->subscribers[$topic])) {
+        if (! isset($this->subscribers[$topic])) {
             return;
         }
         if ($callback === null) {
             unset($this->subscribers[$topic]);
+
             return;
         }
         $this->subscribers[$topic] = array_values(array_filter(
@@ -104,7 +108,7 @@ final class Hub
                 try {
                     $cb($payload);
                     $count++;
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // 静默失败
                 }
             }
@@ -113,9 +117,10 @@ final class Hub
         if ($this->dispatcher !== null) {
             try {
                 ($this->dispatcher)($topic, $payload);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
+
         return $count;
     }
 
@@ -146,6 +151,7 @@ final class Hub
         foreach ($this->subscribers as $list) {
             $sum += count($list);
         }
+
         return $sum;
     }
 }

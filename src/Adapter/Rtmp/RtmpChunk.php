@@ -30,11 +30,11 @@ use Kode\Messaging\Exception\RtmpException;
 final class RtmpChunk
 {
     public const CHUNK_SIZE_DEFAULT = 128;
-    public const CHUNK_SIZE_MAX     = 65536;
+    public const CHUNK_SIZE_MAX = 65536;
 
-    public const FMT_FULL         = 0;
-    public const FMT_SAME_STREAM  = 1;
-    public const FMT_SAME_LENGTH  = 2;
+    public const FMT_FULL = 0;
+    public const FMT_SAME_STREAM = 1;
+    public const FMT_SAME_LENGTH = 2;
     public const FMT_CONTINUATION = 3;
 
     /**
@@ -47,15 +47,16 @@ final class RtmpChunk
             return chr(($fmt << 6) | $csid);
         }
         if ($csid < 320) {
-            return chr(($fmt << 6) | 0) . chr($csid - 64);
+            return chr(($fmt << 6) | 0).chr($csid - 64);
         }
-        return chr(($fmt << 6) | 1) . pack('n', $csid - 64);
+
+        return chr(($fmt << 6) | 1).pack('n', $csid - 64);
     }
 
     /**
      * 解码 chunk basic header。
      *
-     * @return array{fmt:int, csid:int, consumed:int}|null
+     * @return null|array{fmt:int, csid:int, consumed:int}
      */
     public static function decodeBasicHeader(string $buffer, int $offset = 0): ?array
     {
@@ -70,6 +71,7 @@ final class RtmpChunk
                 return null;
             }
             $csid = 64 + ord($buffer[$offset + 1]);
+
             return ['fmt' => $fmt, 'csid' => $csid, 'consumed' => 2];
         }
         if ($csid === 1) {
@@ -77,8 +79,10 @@ final class RtmpChunk
                 return null;
             }
             $csid = 64 + unpack('n', substr($buffer, $offset + 1, 2))[1];
+
             return ['fmt' => $fmt, 'csid' => $csid, 'consumed' => 3];
         }
+
         return ['fmt' => $fmt, 'csid' => $csid, 'consumed' => 1];
     }
 
@@ -112,22 +116,23 @@ final class RtmpChunk
         if ($useExt) {
             $buf .= pack('N', $timestamp & 0xFFFFFFFF);
         }
+
         return $buf;
     }
 
     /**
      * 解码 message header（需要外部维持 fmt 上下文）。
      *
-     * @return array{timestamp:int, messageLength:int, messageType:int, messageStreamId:int, consumed:int}|null
+     * @return null|array{timestamp:int, messageLength:int, messageType:int, messageStreamId:int, consumed:int}
      */
     public static function decodeMessageHeader(int $fmt, string $buffer, int $offset = 0): ?array
     {
         $size = match (true) {
-            $fmt === self::FMT_FULL         => 11,
-            $fmt === self::FMT_SAME_STREAM  => 7,
-            $fmt === self::FMT_SAME_LENGTH  => 3,
+            $fmt === self::FMT_FULL => 11,
+            $fmt === self::FMT_SAME_STREAM => 7,
+            $fmt === self::FMT_SAME_LENGTH => 3,
             $fmt === self::FMT_CONTINUATION => 0,
-            default => throw RtmpException::chunkError('未知 fmt: ' . $fmt),
+            default => throw RtmpException::chunkError('未知 fmt: '.$fmt),
         };
         if (strlen($buffer) < $offset + $size) {
             return null;
@@ -160,12 +165,13 @@ final class RtmpChunk
             $p += 4;
             $consumed += 4;
         }
+
         return [
-            'timestamp'       => $timestamp,
-            'messageLength'   => $messageLength,
-            'messageType'     => $messageType,
+            'timestamp' => $timestamp,
+            'messageLength' => $messageLength,
+            'messageType' => $messageType,
             'messageStreamId' => $messageStreamId,
-            'consumed'        => $consumed,
+            'consumed' => $consumed,
         ];
     }
 
@@ -177,23 +183,25 @@ final class RtmpChunk
         // S0
         $s0 = "\x03";
         // S1：1536 字节（time 4 + zero 4 + random 1528）
-        $s1 = pack('N', (int)(microtime(true) * 1000) & 0xFFFFFFFF)
-            . pack('N', 0)
-            . random_bytes(1528);
+        $s1 = pack('N', (int) (microtime(true) * 1000) & 0xFFFFFFFF)
+            .pack('N', 0)
+            .random_bytes(1528);
         // S2：echo C1
-        $s2 = substr($c1 . str_repeat("\x00", 1536), 0, 1536);
-        return $s0 . $s1 . $s2;
+        $s2 = substr($c1.str_repeat("\x00", 1536), 0, 1536);
+
+        return $s0.$s1.$s2;
     }
 
     private static function encodeUint24(int $v): string
     {
-        return chr(($v >> 16) & 0xFF) . chr(($v >> 8) & 0xFF) . chr($v & 0xFF);
+        return chr(($v >> 16) & 0xFF).chr(($v >> 8) & 0xFF).chr($v & 0xFF);
     }
 
     private static function decodeUint24(string $b, int &$o): int
     {
         $v = (ord($b[$o]) << 16) | (ord($b[$o + 1]) << 8) | ord($b[$o + 2]);
         $o += 3;
+
         return $v;
     }
 }

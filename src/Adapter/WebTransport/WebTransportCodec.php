@@ -32,9 +32,9 @@ final class WebTransportCodec
     {
         $lines = [
             "CONNECT {$path} HTTP/1.1",
-            'Host: ' . ($headers['host'] ?? 'localhost'),
+            'Host: '.($headers['host'] ?? 'localhost'),
         ];
-        $lines[] = self::ENABLE_WT_OVER_H2 . ': 1';
+        $lines[] = self::ENABLE_WT_OVER_H2.': 1';
         foreach ($headers as $k => $v) {
             $lk = strtolower($k);
             if (in_array($lk, ['host', 'connection'], true)) {
@@ -42,13 +42,14 @@ final class WebTransportCodec
             }
             $lines[] = "{$k}: {$v}";
         }
-        return implode("\r\n", $lines) . "\r\n\r\n";
+
+        return implode("\r\n", $lines)."\r\n\r\n";
     }
 
     /**
      * 解码 CONNECT 响应状态行与头部。
      *
-     * @return array{status: int, reason: string, headers: array<string, string>}|null
+     * @return null|array{status: int, reason: string, headers: array<string, string>}
      */
     public static function decodeConnectResponse(string $raw): ?array
     {
@@ -58,7 +59,7 @@ final class WebTransportCodec
         }
         $headerPart = substr($raw, 0, $headerEnd);
         $lines = explode("\r\n", $headerPart);
-        if ($lines === [] || !preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
+        if ($lines === [] || ! preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
             throw WebTransportException::handshakeFailed('无效的 HTTP 响应');
         }
         $headers = [];
@@ -72,9 +73,10 @@ final class WebTransportCodec
             $val = trim(substr($line, $pos + 1));
             $headers[$key] = $val;
         }
+
         return [
-            'status'  => (int)$m[1],
-            'reason'  => $m[2] ?? '',
+            'status' => (int) $m[1],
+            'reason' => $m[2] ?? '',
             'headers' => $headers,
         ];
     }
@@ -84,23 +86,24 @@ final class WebTransportCodec
      */
     public static function encodeDatagram(string $payload, bool $reliable = false): string
     {
-        return ($reliable ? "\x01" : "\x00") . $payload;
+        return ($reliable ? "\x01" : "\x00").$payload;
     }
 
     /**
      * 解析一个 Datagram。
      *
-     * @return array{reliable: bool, payload: string}|null
+     * @return null|array{reliable: bool, payload: string}
      */
     public static function decodeDatagram(string $datagram): ?array
     {
-        if (strlen($datagram) < 1) {
+        if ($datagram === '') {
             return null;
         }
         $tag = ord($datagram[0]);
+
         return [
             'reliable' => ($tag & 0x01) !== 0,
-            'payload'  => substr($datagram, 1),
+            'payload' => substr($datagram, 1),
         ];
     }
 }

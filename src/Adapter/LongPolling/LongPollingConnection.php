@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\LongPolling;
 
 use Kode\Messaging\Connection\Connection;
-use Kode\Messaging\Exception\LongPollingException;
+use Throwable;
 
 /**
  * Long-Polling 连接
@@ -23,6 +23,7 @@ class LongPollingConnection extends Connection
     private array $headers;
 
     private int $statusCode = 200;
+
     private string $statusText = 'OK';
 
     private bool $responded = false;
@@ -38,26 +39,26 @@ class LongPollingConnection extends Connection
         $this->headers = array_replace([
             'Content-Type' => 'application/json; charset=utf-8',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Connection'   => 'close',
+            'Connection' => 'close',
             'X-Connection-Id' => $connId,
         ], $headers);
     }
 
     public function send(mixed $payload, array $options = []): bool
     {
-        if (!$this->open || $this->responded) {
+        if (! $this->open || $this->responded) {
             return false;
         }
 
         $data = $this->encode($payload, $options);
-        $code = (int)($options['status'] ?? $this->statusCode);
-        $text = (string)($options['status_text'] ?? $this->statusText);
+        $code = (int) ($options['status'] ?? $this->statusCode);
+        $text = (string) ($options['status_text'] ?? $this->statusText);
 
         $headers = $this->headers;
         if (isset($options['headers']) && is_array($options['headers'])) {
             $headers = array_replace($headers, $options['headers']);
         }
-        $headers['Content-Length'] = (string)strlen($data);
+        $headers['Content-Length'] = (string) strlen($data);
 
         $packet = "HTTP/1.1 {$code} {$text}\r\n";
         foreach ($headers as $k => $v) {
@@ -68,9 +69,11 @@ class LongPollingConnection extends Connection
         $bytes = @fwrite($this->socket, $packet);
         if ($bytes === false) {
             $this->close(0, 'response write failed');
+
             return false;
         }
         $this->responded = true;
+
         return true;
     }
 
@@ -94,7 +97,7 @@ class LongPollingConnection extends Connection
         foreach ($this->closeCallbacks as $cb) {
             try {
                 $cb(null);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
         $this->closeCallbacks = [];
@@ -104,13 +107,14 @@ class LongPollingConnection extends Connection
     {
         if ($this->responded) {
             $this->terminate();
+
             return;
         }
 
         // 未响应就关闭，发送空响应
         try {
             $this->send('', ['status' => 204, 'status_text' => 'No Content']);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             $this->terminate();
         }
     }
@@ -133,14 +137,16 @@ class LongPollingConnection extends Connection
         }
         if (is_array($payload) || is_object($payload)) {
             $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
-            if (!empty($options['throw_on_error'])) {
+            if (! empty($options['throw_on_error'])) {
                 $flags |= JSON_THROW_ON_ERROR;
             }
-            return (string)json_encode($payload, $flags);
+
+            return (string) json_encode($payload, $flags);
         }
         if ($payload === null) {
             return '';
         }
-        return (string)$payload;
+
+        return (string) $payload;
     }
 }

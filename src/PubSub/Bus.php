@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\PubSub;
 
-use Kode\Messaging\Contract\AcknowledgeInterface;
 use Kode\Messaging\Contract\BusInterface;
 use Kode\Messaging\Support\IdGenerator;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Throwable;
 
 /**
  * Pub/Sub 抽象基类
@@ -26,19 +26,19 @@ abstract class Bus implements BusInterface
     public function __construct(
         protected array $config = [],
         protected LoggerInterface $logger = new NullLogger(),
-    ) {
-    }
+    ) {}
 
     public function subscribe(string $topic, callable $handler, array $options = []): string
     {
         $id = IdGenerator::next('sub');
         $this->subscribers[$id] = [
-            'id'      => $id,
-            'topic'   => $topic,
+            'id' => $id,
+            'topic' => $topic,
             'handler' => $handler,
             'options' => $options,
         ];
         $this->onSubscribe($topic, $options);
+
         return $id;
     }
 
@@ -63,11 +63,11 @@ abstract class Bus implements BusInterface
                 try {
                     $ack = new SimpleAck();
                     ($sub['handler'])($payload, $ack);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $this->logger->error('pubsub handler error', [
-                        'topic'  => $topic,
+                        'topic' => $topic,
                         'sub_id' => $sub['id'],
-                        'error'  => $e->getMessage(),
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
@@ -83,7 +83,8 @@ abstract class Bus implements BusInterface
             return true;
         }
         $regex = $this->patternToRegex($pattern);
-        return (bool)preg_match($regex, $topic);
+
+        return (bool) preg_match($regex, $topic);
     }
 
     /**
@@ -95,11 +96,12 @@ abstract class Bus implements BusInterface
      */
     private function patternToRegex(string $pattern): string
     {
-        if (!isset($this->patternCache[$pattern])) {
+        if (! isset($this->patternCache[$pattern])) {
             $escaped = preg_quote($pattern, '#');
             $regex = str_replace(['\\*', '\\#'], ['[^/]+', '.*'], $escaped);
-            $this->patternCache[$pattern] = '#^' . $regex . '$#';
+            $this->patternCache[$pattern] = '#^'.$regex.'$#';
         }
+
         return $this->patternCache[$pattern];
     }
 
@@ -119,6 +121,7 @@ abstract class Bus implements BusInterface
         if ($this->subscribers === []) {
             return 0;
         }
+
         return count(array_unique(array_column($this->subscribers, 'topic')));
     }
 

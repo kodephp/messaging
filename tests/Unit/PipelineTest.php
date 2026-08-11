@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Tests\Unit;
 
+use Closure;
 use Kode\Messaging\Contract\MessageInterface;
 use Kode\Messaging\Contract\MiddlewareInterface;
 use Kode\Messaging\Message\Message;
@@ -30,18 +31,19 @@ final class PipelineTest extends TestCase
         $append = function (string $entry) use (&$log): void {
             $log[] = $entry;
         };
+
         return new class ($name, $append) implements MiddlewareInterface {
             public function __construct(
                 private string $name,
-                private \Closure $append,
-            ) {
-            }
+                private Closure $append,
+            ) {}
 
             public function process(MessageInterface $message, callable $next): MessageInterface
             {
-                ($this->append)('in:' . $this->name);
+                ($this->append)('in:'.$this->name);
                 $result = $next($message);
-                ($this->append)('out:' . $this->name);
+                ($this->append)('out:'.$this->name);
+
                 return $result;
             }
         };
@@ -54,7 +56,7 @@ final class PipelineTest extends TestCase
 
     // ===================== 洋葱顺序（MiddlewareInterface） =====================
 
-    public function testOnionOrderWithMiddlewareObjects(): void
+    public function test_onion_order_with_middleware_objects(): void
     {
         $log = [];
         $pipeline = new Pipeline();
@@ -65,6 +67,7 @@ final class PipelineTest extends TestCase
 
         $pipeline->process($this->makeMessage(), function (MessageInterface $msg) use (&$log): MessageInterface {
             $log[] = 'handler';
+
             return $msg;
         });
 
@@ -76,15 +79,16 @@ final class PipelineTest extends TestCase
 
     // ===================== 洋葱顺序（callable 中间件） =====================
 
-    public function testOnionOrderWithCallableMiddlewares(): void
+    public function test_onion_order_with_callable_middlewares(): void
     {
         $log = [];
 
         $mw = function (string $name) use (&$log): callable {
             return function (MessageInterface $msg, callable $next) use ($name, &$log): MessageInterface {
-                $log[] = 'in:' . $name;
+                $log[] = 'in:'.$name;
                 $result = $next($msg);
-                $log[] = 'out:' . $name;
+                $log[] = 'out:'.$name;
+
                 return $result;
             };
         };
@@ -95,6 +99,7 @@ final class PipelineTest extends TestCase
 
         $pipeline->process($this->makeMessage(), function (MessageInterface $msg) use (&$log): MessageInterface {
             $log[] = 'handler';
+
             return $msg;
         });
 
@@ -103,7 +108,7 @@ final class PipelineTest extends TestCase
 
     // ===================== 懒编译：复用链、切换末端 handler =====================
 
-    public function testLazyCompileReusesChainAcrossHandlers(): void
+    public function test_lazy_compile_reuses_chain_across_handlers(): void
     {
         $log = [];
         $pipeline = new Pipeline();
@@ -114,12 +119,14 @@ final class PipelineTest extends TestCase
         // 第一次 process，使用 handler#1
         $pipeline->process($this->makeMessage(), function (MessageInterface $msg) use (&$log): MessageInterface {
             $log[] = 'h1';
+
             return $msg;
         });
 
         // 第二次 process，使用 handler#2（链应被复用，中间件各再跑一次）
         $pipeline->process($this->makeMessage(), function (MessageInterface $msg) use (&$log): MessageInterface {
             $log[] = 'h2';
+
             return $msg;
         });
 
@@ -134,17 +141,17 @@ final class PipelineTest extends TestCase
 
     // ===================== push() 失效并重建 =====================
 
-    public function testPushInvalidatesCompiledChain(): void
+    public function test_push_invalidates_compiled_chain(): void
     {
         $log = [];
         $pipeline = new Pipeline();
 
         $pipeline->push($this->recordingMiddleware('A', $log));
-        $pipeline->process($this->makeMessage(), fn (MessageInterface $msg): MessageInterface => $msg);
+        $pipeline->process($this->makeMessage(), fn(MessageInterface $msg): MessageInterface => $msg);
 
         // 追加新中间件后，下一次 process 必须包含它
         $pipeline->push($this->recordingMiddleware('B', $log));
-        $pipeline->process($this->makeMessage(), fn (MessageInterface $msg): MessageInterface => $msg);
+        $pipeline->process($this->makeMessage(), fn(MessageInterface $msg): MessageInterface => $msg);
 
         $this->assertSame(
             [
@@ -157,7 +164,7 @@ final class PipelineTest extends TestCase
 
     // ===================== 空管道：直接调用 handler =====================
 
-    public function testEmptyPipelineInvokesHandlerDirectly(): void
+    public function test_empty_pipeline_invokes_handler_directly(): void
     {
         $log = [];
         $pipeline = new Pipeline();
@@ -166,6 +173,7 @@ final class PipelineTest extends TestCase
             $this->makeMessage(),
             function (MessageInterface $msg) use (&$log): MessageInterface {
                 $log[] = 'handler';
+
                 return $msg;
             },
         );
@@ -176,7 +184,7 @@ final class PipelineTest extends TestCase
 
     // ===================== count =====================
 
-    public function testCountReflectsMiddlewares(): void
+    public function test_count_reflects_middlewares(): void
     {
         $log = [];
         $pipeline = new Pipeline();

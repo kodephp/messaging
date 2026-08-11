@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Mqtt\Packet;
 
+use InvalidArgumentException;
 use Kode\Messaging\Exception\MqttException;
 
 /**
@@ -22,7 +23,8 @@ final class Codec
     public static function encodeFixedHeader(int $type, int $flags, int $remainingLength): string
     {
         $byte0 = (($type & 0x0F) << 4) | ($flags & 0x0F);
-        return chr($byte0) . self::encodeRemainingLength($remainingLength);
+
+        return chr($byte0).self::encodeRemainingLength($remainingLength);
     }
 
     /**
@@ -31,7 +33,7 @@ final class Codec
     public static function encodeRemainingLength(int $length): string
     {
         if ($length < 0) {
-            throw new \InvalidArgumentException('Remaining length cannot be negative');
+            throw new InvalidArgumentException('Remaining length cannot be negative');
         }
         $output = '';
         do {
@@ -42,6 +44,7 @@ final class Codec
             }
             $output .= chr($byte);
         } while ($length > 0);
+
         return $output;
     }
 
@@ -64,6 +67,7 @@ final class Codec
                 throw MqttException::malformedPacket('Remaining length 非法');
             }
         } while (($byte & 0x80) !== 0);
+
         return $value;
     }
 
@@ -73,7 +77,8 @@ final class Codec
     public static function encodeString(string $s): string
     {
         $bytes = $s;
-        return pack('n', strlen($bytes)) . $bytes;
+
+        return pack('n', strlen($bytes)).$bytes;
     }
 
     /**
@@ -91,6 +96,7 @@ final class Codec
         }
         $str = substr($data, $offset, $len);
         $offset += $len;
+
         return $str;
     }
 
@@ -109,6 +115,7 @@ final class Codec
     {
         $v = unpack('n', substr($data, $offset, 2))[1];
         $offset += 2;
+
         return $v;
     }
 
@@ -123,7 +130,8 @@ final class Codec
     public static function decodeUint8(string $data, int &$offset): int
     {
         $v = ord($data[$offset]);
-        $offset += 1;
+        ++$offset;
+
         return $v;
     }
 
@@ -132,7 +140,7 @@ final class Codec
      */
     public static function encodeBinary(string $data): string
     {
-        return pack('n', strlen($data)) . $data;
+        return pack('n', strlen($data)).$data;
     }
 
     public static function decodeBinary(string $data, int &$offset): string

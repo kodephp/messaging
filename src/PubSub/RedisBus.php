@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\PubSub;
 
 use Kode\Messaging\Exception\MessagingException;
+use Redis;
 
 /**
  * 基于 Redis 的跨节点 Pub/Sub 总线
@@ -21,7 +22,7 @@ use Kode\Messaging\Exception\MessagingException;
  */
 final class RedisBus extends Bus
 {
-    /** @var \Redis|\Predis\Client|null */
+    /** @var null|\Predis\Client|Redis */
     private $redis = null;
 
     /** @var array<int, callable> */
@@ -40,7 +41,7 @@ final class RedisBus extends Bus
 
     public function publish(string $topic, array $payload, array $options = []): void
     {
-        $channel = $this->config['prefix'] . $topic;
+        $channel = $this->config['prefix'].$topic;
         $message = json_encode(
             ['topic' => $topic, 'payload' => $payload, 'time' => microtime(true)],
             JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
@@ -50,10 +51,10 @@ final class RedisBus extends Bus
 
     protected function onSubscribe(string $topic, array $options): void
     {
-        $channel = $this->config['prefix'] . $topic;
+        $channel = $this->config['prefix'].$topic;
         // 每个总线实例一个 loop
-        $this->loops[] = function () use ($channel, $topic) {
-            $this->redis->subscribe([$channel], function (\Redis $r, string $chan, string $msg) use ($topic) {
+        $this->loops[] = function () use ($channel, $topic): void {
+            $this->redis->subscribe([$channel], function (Redis $r, string $chan, string $msg) use ($topic): void {
                 $decoded = json_decode($msg, true);
                 if (is_array($decoded) && isset($decoded['payload']) && is_array($decoded['payload'])) {
                     $this->dispatch($decoded['topic'] ?? $topic, $decoded['payload']);
@@ -77,28 +78,30 @@ final class RedisBus extends Bus
         }
     }
 
-    private function createRedisClient(): \Redis|\Predis\Client
+    private function createRedisClient(): Redis|\Predis\Client
     {
         $host = $this->config['host'] ?? '127.0.0.1';
-        $port = (int)($this->config['port'] ?? 6379);
-        $db   = (int)($this->config['db'] ?? 0);
+        $port = (int) ($this->config['port'] ?? 6379);
+        $db = (int) ($this->config['db'] ?? 0);
 
-        if (class_exists(\Redis::class) && extension_loaded('redis')) {
-            $r = new \Redis();
+        if (class_exists(Redis::class) && extension_loaded('redis')) {
+            $r = new Redis();
             $r->connect($host, $port, 2.0);
             if ($db > 0) {
                 $r->select($db);
             }
+
             return $r;
         }
         if (class_exists(\Predis\Client::class)) {
             return new \Predis\Client([
                 'scheme' => 'tcp',
-                'host'   => $host,
-                'port'   => $port,
+                'host' => $host,
+                'port' => $port,
                 'database' => $db,
             ]);
         }
+
         throw new MessagingException(
             'RedisBus 需要 ext-redis 或 predis/predis 扩展',
             5008,

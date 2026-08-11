@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Mqtt;
 
+use Kode\Messaging\Adapter\Mqtt\Packet\Codec as MqttCodec;
+use Kode\Messaging\Adapter\Mqtt\Packet\PacketType;
 use Kode\Messaging\Adapter\Registry;
+use Kode\Messaging\Adapter\WebSocket\ClientConnection;
 use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\Handshake;
 use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
-use Kode\Messaging\Adapter\WebSocket\ClientConnection;
-use Kode\Messaging\Adapter\Mqtt\Packet\Codec as MqttCodec;
-use Kode\Messaging\Adapter\Mqtt\Packet\PacketType;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\MqttException;
 
@@ -46,7 +46,6 @@ class MqttOverWsClient extends Client
      * 连接到 MQTT over WebSocket 服务端。
      *
      * @param array $config 配置（host, port, client_id, username, password, keep_alive, will_*）
-     * @return ConnectionInterface
      * @throws MqttException 连接或握手失败时抛出
      */
     public function connect(array $config = []): ConnectionInterface
@@ -60,14 +59,14 @@ class MqttOverWsClient extends Client
         // 1. 建立 TCP 连接
         $errno = 0;
         $errstr = '';
-        $remote = ($tls ? 'tls://' : 'tcp://') . "{$host}:{$port}";
+        $remote = ($tls ? 'tls://' : 'tcp://')."{$host}:{$port}";
         $stream = @stream_socket_client($remote, $errno, $errstr, $timeout);
         if ($stream === false) {
             throw MqttException::serverError("WebSocket 连接失败: {$errstr}", [
                 'host' => $host, 'port' => $port, 'errno' => $errno,
             ]);
         }
-        stream_set_timeout($stream, (int)$timeout);
+        stream_set_timeout($stream, (int) $timeout);
 
         // 2. WebSocket 握手（携带 Sec-WebSocket-Protocol: mqtt）
         $request = Handshake::clientRequest(
@@ -80,19 +79,20 @@ class MqttOverWsClient extends Client
 
         // 读取握手响应
         $response = '';
-        while (!feof($stream)) {
+        while (! feof($stream)) {
             $chunk = fread($stream, 8192);
             if ($chunk === false || $chunk === '') {
                 break;
             }
             $response .= $chunk;
-            if (strpos($response, "\r\n\r\n") !== false) {
+            if (str_contains($response, "\r\n\r\n")) {
                 break;
             }
         }
 
-        if (!str_starts_with($response, 'HTTP/1.1 101')) {
+        if (! str_starts_with($response, 'HTTP/1.1 101')) {
             fclose($stream);
+
             throw MqttException::serverError('WebSocket 握手失败: 非 101 响应', [
                 'response' => substr($response, 0, 200),
             ]);
@@ -140,7 +140,7 @@ class MqttOverWsClient extends Client
     /**
      * 从 WebSocket 帧中读取一个 MQTT 包。
      *
-     * @return string|null MQTT 包原始字节，超时返回 null
+     * @return null|string MQTT 包原始字节，超时返回 null
      */
     protected function readMqttPacket(ClientConnection $conn, float $timeout = 5.0): ?string
     {
@@ -176,11 +176,11 @@ class MqttOverWsClient extends Client
      */
     private function buildConnectPacket(array $config): string
     {
-        $clientId = $config['client_id'] ?? 'auto-' . bin2hex(random_bytes(4));
-        $keepAlive = (int)($config['keep_alive'] ?? 60);
+        $clientId = $config['client_id'] ?? 'auto-'.bin2hex(random_bytes(4));
+        $keepAlive = (int) ($config['keep_alive'] ?? 60);
         $username = $config['username'] ?? null;
         $password = $config['password'] ?? null;
-        $cleanSession = (bool)($config['clean_session'] ?? true);
+        $cleanSession = (bool) ($config['clean_session'] ?? true);
 
         // 可变头
         $variableHeader = MqttCodec::encodeString('MQTT'); // 协议名
@@ -224,6 +224,6 @@ class MqttOverWsClient extends Client
         $fixedHeader = chr(PacketType::CONNECT << 4);
         $fixedHeader .= MqttCodec::encodeRemainingLength($remainingLength);
 
-        return $fixedHeader . $variableHeader . $payload;
+        return $fixedHeader.$variableHeader.$payload;
     }
 }

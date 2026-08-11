@@ -102,31 +102,31 @@ final class Properties
      * 用于编码时确定写入方式。
      */
     private const TYPE_MAP = [
-        self::PAYLOAD_FORMAT_INDICATOR          => 'byte',
-        self::MESSAGE_EXPIRY_INTERVAL           => 'uint32',
-        self::CONTENT_TYPE                      => 'string',
-        self::RESPONSE_TOPIC                    => 'string',
-        self::CORRELATION_DATA                  => 'binary',
-        self::SUBSCRIPTION_IDENTIFIER            => 'varint',
-        self::SESSION_EXPIRY_INTERVAL           => 'uint32',
-        self::ASSIGNED_CLIENT_IDENTIFIER        => 'string',
-        self::SERVER_KEEP_ALIVE                 => 'uint16',
-        self::AUTHENTICATION_METHOD             => 'string',
-        self::AUTHENTICATION_DATA               => 'binary',
-        self::REQUEST_PROBLEM_INFORMATION       => 'byte',
-        self::REQUEST_RESPONSE_INFORMATION      => 'byte',
-        self::SERVER_REFERENCE                  => 'string',
-        self::REASON_STRING                     => 'string',
-        self::RECEIVE_MAXIMUM                   => 'uint16',
-        self::TOPIC_ALIAS_MAXIMUM               => 'uint16',
-        self::TOPIC_ALIAS                       => 'uint16',
-        self::MAXIMUM_QOS                       => 'byte',
-        self::RETAIN_AVAILABLE                  => 'byte',
-        self::USER_PROPERTY                     => 'string_pair',
-        self::MAXIMUM_PACKET_SIZE               => 'uint32',
-        self::WILDCARD_SUBSCRIPTION_AVAILABLE   => 'byte',
+        self::PAYLOAD_FORMAT_INDICATOR => 'byte',
+        self::MESSAGE_EXPIRY_INTERVAL => 'uint32',
+        self::CONTENT_TYPE => 'string',
+        self::RESPONSE_TOPIC => 'string',
+        self::CORRELATION_DATA => 'binary',
+        self::SUBSCRIPTION_IDENTIFIER => 'varint',
+        self::SESSION_EXPIRY_INTERVAL => 'uint32',
+        self::ASSIGNED_CLIENT_IDENTIFIER => 'string',
+        self::SERVER_KEEP_ALIVE => 'uint16',
+        self::AUTHENTICATION_METHOD => 'string',
+        self::AUTHENTICATION_DATA => 'binary',
+        self::REQUEST_PROBLEM_INFORMATION => 'byte',
+        self::REQUEST_RESPONSE_INFORMATION => 'byte',
+        self::SERVER_REFERENCE => 'string',
+        self::REASON_STRING => 'string',
+        self::RECEIVE_MAXIMUM => 'uint16',
+        self::TOPIC_ALIAS_MAXIMUM => 'uint16',
+        self::TOPIC_ALIAS => 'uint16',
+        self::MAXIMUM_QOS => 'byte',
+        self::RETAIN_AVAILABLE => 'byte',
+        self::USER_PROPERTY => 'string_pair',
+        self::MAXIMUM_PACKET_SIZE => 'uint32',
+        self::WILDCARD_SUBSCRIPTION_AVAILABLE => 'byte',
         self::SUBSCRIPTION_IDENTIFIER_AVAILABLE => 'byte',
-        self::SHARED_SUBSCRIPTION_AVAILABLE     => 'byte',
+        self::SHARED_SUBSCRIPTION_AVAILABLE => 'byte',
     ];
 
     /**
@@ -166,13 +166,13 @@ final class Properties
                 if ($type === 'string_pair') {
                     foreach ($value as $pair) {
                         $body .= Codec::encodeRemainingLength($id);
-                        $body .= Codec::encodeString((string)$pair[0]);
-                        $body .= Codec::encodeString((string)$pair[1]);
+                        $body .= Codec::encodeString((string) $pair[0]);
+                        $body .= Codec::encodeString((string) $pair[1]);
                     }
                 } else { // varint (SUBSCRIPTION_IDENTIFIER)
                     foreach ($value as $v) {
                         $body .= Codec::encodeRemainingLength($id);
-                        $body .= Codec::encodeRemainingLength((int)$v);
+                        $body .= Codec::encodeRemainingLength((int) $v);
                     }
                 }
                 continue;
@@ -180,17 +180,17 @@ final class Properties
 
             $body .= Codec::encodeRemainingLength($id);
             $body .= match ($type) {
-                'byte'        => Codec::encodeUint8((int)$value),
-                'uint16'      => Codec::encodeUint16((int)$value),
-                'uint32'      => pack('N', (int)$value),
-                'varint'      => Codec::encodeRemainingLength((int)$value),
-                'string'      => Codec::encodeString((string)$value),
-                'binary'      => Codec::encodeBinary((string)$value),
-                'string_pair' => Codec::encodeString((string)$value[0]) . Codec::encodeString((string)$value[1]),
+                'byte' => Codec::encodeUint8((int) $value),
+                'uint16' => Codec::encodeUint16((int) $value),
+                'uint32' => pack('N', (int) $value),
+                'varint' => Codec::encodeRemainingLength((int) $value),
+                'string' => Codec::encodeString((string) $value),
+                'binary' => Codec::encodeBinary((string) $value),
+                'string_pair' => Codec::encodeString((string) $value[0]).Codec::encodeString((string) $value[1]),
             };
         }
 
-        return Codec::encodeRemainingLength(strlen($body)) . $body;
+        return Codec::encodeRemainingLength(strlen($body)).$body;
     }
 
     /**
@@ -225,18 +225,18 @@ final class Properties
             }
 
             $value = match ($type) {
-                'byte'        => Codec::decodeUint8($data, $offset),
-                'uint16'      => Codec::decodeUint16($data, $offset),
-                'uint32'      => self::decodeUint32($data, $offset),
-                'varint'      => Codec::decodeRemainingLength($data, $offset),
-                'string'      => Codec::decodeString($data, $offset),
-                'binary'      => Codec::decodeBinary($data, $offset),
+                'byte' => Codec::decodeUint8($data, $offset),
+                'uint16' => Codec::decodeUint16($data, $offset),
+                'uint32' => self::decodeUint32($data, $offset),
+                'varint' => Codec::decodeRemainingLength($data, $offset),
+                'string' => Codec::decodeString($data, $offset),
+                'binary' => Codec::decodeBinary($data, $offset),
                 'string_pair' => [Codec::decodeString($data, $offset), Codec::decodeString($data, $offset)],
             };
 
             // 可重复属性以 list 累积
             if (in_array($id, self::REPEATABLE, true)) {
-                if (!isset($result[$id])) {
+                if (! isset($result[$id])) {
                     $result[$id] = [];
                 }
                 $result[$id][] = $value;
@@ -258,6 +258,7 @@ final class Properties
         }
         $v = unpack('N', substr($data, $offset, 4))[1];
         $offset += 4;
+
         return $v;
     }
 }

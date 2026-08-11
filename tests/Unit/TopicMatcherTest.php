@@ -26,13 +26,13 @@ final class TopicMatcherTest extends TestCase
         TopicMatcher::clearCache();
     }
 
-    public function testExactMatch(): void
+    public function test_exact_match(): void
     {
         $this->assertTrue(TopicMatcher::matches('a/b', 'a/b'));
         $this->assertFalse(TopicMatcher::matches('a/b', 'a/c'));
     }
 
-    public function testSingleLevelWildcard(): void
+    public function test_single_level_wildcard(): void
     {
         $this->assertTrue(TopicMatcher::matches('sport/+/player', 'sport/tennis/player'));
         $this->assertFalse(TopicMatcher::matches('sport/+/player', 'sport/tennis/player/1'));
@@ -41,7 +41,7 @@ final class TopicMatcherTest extends TestCase
         $this->assertFalse(TopicMatcher::matches('+', 'sport/tennis'));
     }
 
-    public function testMultiLevelWildcard(): void
+    public function test_multi_level_wildcard(): void
     {
         $this->assertTrue(TopicMatcher::matches('sport/#', 'sport'));
         $this->assertTrue(TopicMatcher::matches('sport/#', 'sport/tennis/player/1'));
@@ -49,7 +49,7 @@ final class TopicMatcherTest extends TestCase
         $this->assertTrue(TopicMatcher::matches('#', 'a/b/c'));
     }
 
-    public function testDollarTopicsAreNotMatchedByLeadingWildcard(): void
+    public function test_dollar_topics_are_not_matched_by_leading_wildcard(): void
     {
         // MQTT §4.7.2：# 与 + 不匹配以 $ 开头的主题
         $this->assertFalse(TopicMatcher::matches('#', '$SYS/broker/uptime'));
@@ -59,7 +59,7 @@ final class TopicMatcherTest extends TestCase
         $this->assertTrue(TopicMatcher::matches('$SYS/broker/+', '$SYS/broker/uptime'));
     }
 
-    public function testMatchesPartsEqualsMatches(): void
+    public function test_matches_parts_equals_matches(): void
     {
         $cases = [
             ['sport/+/player', 'sport/tennis/player'],
@@ -77,7 +77,7 @@ final class TopicMatcherTest extends TestCase
         }
     }
 
-    public function testCacheDoesNotChangeResult(): void
+    public function test_cache_does_not_change_result(): void
     {
         for ($i = 0; $i < 3; $i++) {
             $this->assertTrue(TopicMatcher::matches('a/+/c', 'a/b/c'));
@@ -87,7 +87,7 @@ final class TopicMatcherTest extends TestCase
         $this->assertTrue(TopicMatcher::matches('a/+/c', 'a/b/c'));
     }
 
-    public function testIsValidFilter(): void
+    public function test_is_valid_filter(): void
     {
         $this->assertTrue(TopicMatcher::isValidFilter('a/b'));
         $this->assertTrue(TopicMatcher::isValidFilter('a/+/b'));
@@ -99,7 +99,7 @@ final class TopicMatcherTest extends TestCase
         $this->assertFalse(TopicMatcher::isValidFilter('a/b+/c'));
     }
 
-    public function testServerMatchTopicDelegates(): void
+    public function test_server_match_topic_delegates(): void
     {
         $this->assertTrue(MqttServer::matchTopic('sport/+/player', 'sport/tennis/player'));
         $this->assertTrue(MqttServer::matchTopic('sport/#', 'sport'));

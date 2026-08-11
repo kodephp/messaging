@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\WebTransport;
 
 use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
-use Kode\Messaging\Exception\WebTransportException;
 use Kode\Messaging\Message\Message as Msg;
+use Throwable;
 
 /**
  * WebTransport 会话（HTTP/2-fallback 传输）
@@ -22,12 +22,15 @@ use Kode\Messaging\Message\Message as Msg;
  */
 class WebTransportConnection extends WebSocketConnection
 {
-    /** @var callable(string $payload, array $meta): void */
+    /** @var callable(string, array): void */
     protected $onBidirectional = null;
-    /** @var callable(string $payload, array $meta): void */
+
+    /** @var callable(string, array): void */
     protected $onUnidirectional = null;
-    /** @var callable(string $payload, array $meta): void */
+
+    /** @var callable(string, array): void */
     protected $onDatagram = null;
+
     /** @var list<string> 待发单向流队列 */
     protected array $outboundUnidi = [];
 
@@ -59,24 +62,25 @@ class WebTransportConnection extends WebSocketConnection
     public function sendDatagram(string $payload, bool $reliable = false): bool
     {
         $encoded = WebTransportCodec::encodeDatagram($payload, $reliable);
+
         return $this->send($encoded, ['binary' => true, 'wt.frame' => 'dgram']);
     }
 
     public function dispatchFrame(array $frame, array $context = []): void
     {
-        $kind = (string)($context['wt.frame'] ?? '');
+        $kind = (string) ($context['wt.frame'] ?? '');
         $payload = $frame['payload'] ?? '';
         $msg = Msg::of(
             $payload,
             'webtransport',
             context: [
-                'connection_id'  => $this->connId,
+                'connection_id' => $this->connId,
                 'remote_address' => $this->remoteAddress,
-                'wt_frame'       => $kind,
+                'wt_frame' => $kind,
             ],
         );
         $handler = match ($kind) {
-            'bidi'  => $this->onBidirectional,
+            'bidi' => $this->onBidirectional,
             'unidi' => $this->onUnidirectional,
             'dgram' => $this->onDatagram,
             default => null,
@@ -84,7 +88,7 @@ class WebTransportConnection extends WebSocketConnection
         if ($handler !== null) {
             try {
                 $handler($payload, $msg->context());
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }

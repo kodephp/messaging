@@ -23,13 +23,9 @@ final class NoSubscribeAdapter extends AbstractAdapter
         return 'test-1.0';
     }
 
-    public function listen(string $host, int $port): void
-    {
-    }
+    public function listen(string $host, int $port): void {}
 
-    public function run(): void
-    {
-    }
+    public function run(): void {}
 
     public function connect(array $config): ConnectionInterface
     {

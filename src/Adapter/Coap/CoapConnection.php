@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\Coap;
 
 use Kode\Messaging\Connection\Connection;
-use Kode\Messaging\Exception\CoapException;
+
+use function strlen;
+
+use Throwable;
 
 /**
  * CoAP 连接
@@ -49,17 +52,17 @@ class CoapConnection extends Connection
             $optList[] = ['number' => CoapOption::CONTENT_FORMAT, 'value' => $this->uintOption($contentFormat)];
         }
         if ($accept !== null) {
-            $optList[] = ['number' => CoapOption::ACCEPT, 'value' => $this->uintOption((int)$accept)];
+            $optList[] = ['number' => CoapOption::ACCEPT, 'value' => $this->uintOption((int) $accept)];
         }
         foreach ($options['extra'] ?? [] as $k => $v) {
-            $optList[] = ['number' => (int)$k, 'value' => (string)$v];
+            $optList[] = ['number' => (int) $k, 'value' => (string) $v];
         }
         // 按 number 升序
         usort($optList, fn($a, $b) => $a['number'] <=> $b['number']);
 
         $packet = new CoapPacket(
             type: $type,
-            tokenLength: \strlen($token),
+            tokenLength: strlen($token),
             code: $code,
             messageId: $mid,
             token: $token,
@@ -75,31 +78,34 @@ class CoapConnection extends Connection
      */
     public function sendPacket(CoapPacket $packet): int
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return 0;
         }
         $data = $packet->encode();
         $bytes = @stream_socket_sendto($this->socket, $data, 0, $this->peer);
         if ($bytes === false) {
             $this->close(0, 'send failed');
+
             return 0;
         }
         $this->attrs['__last_mid'] = $packet->messageId;
+
         return $packet->messageId;
     }
 
     public function send(mixed $payload, array $options = []): bool
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return false;
         }
         // send() 默认是 CON GET（向后兼容）
-        $code = (float)($options['code'] ?? CoapCode::GET);
-        $path = (string)($options['path'] ?? '/');
-        $body = is_string($payload) ? $payload : (string)json_encode(
+        $code = (float) ($options['code'] ?? CoapCode::GET);
+        $path = (string) ($options['path'] ?? '/');
+        $body = is_string($payload) ? $payload : (string) json_encode(
             $payload,
             JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         );
+
         return $this->sendRequest($code, $path, $body, $options) > 0;
     }
 
@@ -109,7 +115,7 @@ class CoapConnection extends Connection
         foreach ($this->closeCallbacks as $cb) {
             try {
                 $cb(null);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
         $this->closeCallbacks = [];
@@ -126,6 +132,7 @@ class CoapConnection extends Connection
         if ($value < 65536) {
             return pack('n', $value);
         }
+
         return substr(pack('N', $value), -4);
     }
 

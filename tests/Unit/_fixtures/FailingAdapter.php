@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kode\Messaging\Tests\Unit\_fixtures;
 
 use Kode\Messaging\Adapter\AbstractAdapter;
-use Kode\Messaging\Connection\Connection;
 use Kode\Messaging\Contract\ConnectionInterface;
+use RuntimeException;
 
 /**
  * 测试用：connect() 抛异常的适配器
@@ -25,16 +25,12 @@ final class FailingAdapter extends AbstractAdapter
         return 'test-1.0';
     }
 
-    public function listen(string $host, int $port): void
-    {
-    }
+    public function listen(string $host, int $port): void {}
 
-    public function run(): void
-    {
-    }
+    public function run(): void {}
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \RuntimeException('mock connect failure');
+        throw new RuntimeException('mock connect failure');
     }
 }

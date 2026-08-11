@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class CoapExceptionTest extends TestCase
 {
-    public function testBindFailed(): void
+    public function test_bind_failed(): void
     {
         $ex = CoapException::bindFailed('127.0.0.1', 5683, 'permission denied');
         $this->assertSame(7001, $ex->getCode());
@@ -17,7 +17,7 @@ final class CoapExceptionTest extends TestCase
         $this->assertSame('permission denied', $ex->context()['reason']);
     }
 
-    public function testFromResponseCode(): void
+    public function test_from_response_code(): void
     {
         $client = CoapException::fromResponseCode(4.04, 'Not Found');
         $this->assertSame(404, $client->getCode());
@@ -29,7 +29,7 @@ final class CoapExceptionTest extends TestCase
         $this->assertStringContainsString('服务端错误', $server->getMessage());
     }
 
-    public function testTokenMismatch(): void
+    public function test_token_mismatch(): void
     {
         $ex = CoapException::tokenMismatch(2, 4);
         $this->assertSame(7004, $ex->getCode());
@@ -37,7 +37,7 @@ final class CoapExceptionTest extends TestCase
         $this->assertSame(4, $ex->context()['actual']);
     }
 
-    public function testRetransmitExhausted(): void
+    public function test_retransmit_exhausted(): void
     {
         $ex = CoapException::retransmitExhausted(4, 2_000);
         $this->assertSame(7006, $ex->getCode());
@@ -45,7 +45,7 @@ final class CoapExceptionTest extends TestCase
         $this->assertSame(2_000, $ex->context()['timeout_ms']);
     }
 
-    public function testPacketParseFailed(): void
+    public function test_packet_parse_failed(): void
     {
         $ex = CoapException::packetParseFailed('invalid header', ['offset' => 4]);
         $this->assertSame(7002, $ex->getCode());

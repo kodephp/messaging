@@ -17,17 +17,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class LongPollingPushTest extends TestCase
 {
-    public function testHubPushDeliversToSubscribers(): void
+    public function test_hub_push_delivers_to_subscribers(): void
     {
         $hub = new Hub();
         $received = [];
-        $hub->subscribe('orders', function ($payload) use (&$received) {
+        $hub->subscribe('orders', function ($payload) use (&$received): void {
             $received[] = $payload;
         });
-        $hub->subscribe('orders', function ($payload) use (&$received) {
+        $hub->subscribe('orders', function ($payload) use (&$received): void {
             $received[] = ['b' => $payload];
         });
-        $hub->subscribe('users', function ($payload) use (&$received) {
+        $hub->subscribe('users', function ($payload) use (&$received): void {
             $received[] = $payload;
         });
 
@@ -38,23 +38,27 @@ final class LongPollingPushTest extends TestCase
         $this->assertCount(3, $received);
     }
 
-    public function testHubCrossProcessDispatch(): void
+    public function test_hub_cross_process_dispatch(): void
     {
         $hubA = new Hub(Hub::DRIVER_CHANNEL);
         $hubB = new Hub(Hub::DRIVER_CHANNEL);
 
         // 模拟外部分发器：把推送写入"总线"，另一个 hub 在其推时收到
         $bus = [];
-        $hubA->setDispatcher(function (string $topic, $payload) use (&$bus) {
+        $hubA->setDispatcher(function (string $topic, $payload) use (&$bus): void {
             $bus[] = ['topic' => $topic, 'payload' => $payload];
         });
-        $hubB->setDispatcher(function (string $topic, $payload) use (&$bus) {
+        $hubB->setDispatcher(function (string $topic, $payload) use (&$bus): void {
             $bus[] = ['fromB' => true, 'topic' => $topic, 'payload' => $payload];
         });
 
         $localReceived = 0;
-        $hubA->subscribe('sync', function () use (&$localReceived) { $localReceived++; });
-        $hubB->subscribe('sync', function () use (&$localReceived) { $localReceived++; });
+        $hubA->subscribe('sync', function () use (&$localReceived): void {
+            $localReceived++;
+        });
+        $hubB->subscribe('sync', function () use (&$localReceived): void {
+            $localReceived++;
+        });
 
         $hubA->push('sync', 'data');
         $hubB->push('sync', 'data');

@@ -30,8 +30,6 @@ interface MessageInterface
 
     /**
      * 业务载荷（已解码）。可任意类型。
-     *
-     * @return mixed
      */
     public function payload(): mixed;
 
@@ -81,8 +79,6 @@ interface MessageInterface
 
     /**
      * 返回携带新 payload 的新 Message 对象。
-     *
-     * @param mixed $payload
      */
     public function withPayload(mixed $payload): self;
 

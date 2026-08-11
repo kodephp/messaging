@@ -10,6 +10,8 @@ use Kode\Messaging\Adapter\WebSocket\Codec\Handshake;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\WebSocketException;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+
 /**
  * WebSocket 服务端适配器（纯 PHP stream）
  *
@@ -18,7 +20,7 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $serverSocket = null;
 
     /** @var array<int, WebSocketConnection> */
@@ -44,13 +46,13 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_frame_size'      => 1_048_576,
-            'max_connections'     => 10_000,
-            'allowed_origins'     => ['*'],
-            'heartbeat_interval'  => 30,
-            'heartbeat_timeout'   => 60,
-            'handshake_timeout'   => 10,
-            'subprotocols'        => [],
+            'max_frame_size' => 1_048_576,
+            'max_connections' => 10_000,
+            'allowed_origins' => ['*'],
+            'heartbeat_interval' => 30,
+            'heartbeat_timeout' => 60,
+            'handshake_timeout' => 10,
+            'subprotocols' => [],
         ];
     }
 
@@ -78,7 +80,7 @@ final class Server extends AbstractAdapter
     public function run(): void
     {
         $this->running = true;
-        $maxConn = (int)($this->config['max_connections'] ?? 10_000);
+        $maxConn = (int) ($this->config['max_connections'] ?? 10_000);
 
         while ($this->running) {
             // 1. accept 新连接
@@ -105,29 +107,31 @@ final class Server extends AbstractAdapter
 
     private function handshake($socket): void
     {
-        stream_set_timeout($socket, (int)($this->config['handshake_timeout'] ?? 10));
+        stream_set_timeout($socket, (int) ($this->config['handshake_timeout'] ?? 10));
         $buf = '';
-        $deadline = microtime(true) + (int)($this->config['handshake_timeout'] ?? 10);
-        while (strpos($buf, "\r\n\r\n") === false && microtime(true) < $deadline) {
+        $deadline = microtime(true) + (int) ($this->config['handshake_timeout'] ?? 10);
+        while (! str_contains($buf, "\r\n\r\n") && microtime(true) < $deadline) {
             $chunk = fread($socket, 2048);
             if ($chunk === false || $chunk === '') {
                 break;
             }
             $buf .= $chunk;
         }
-        if (strpos($buf, "\r\n\r\n") === false) {
+        if (! str_contains($buf, "\r\n\r\n")) {
             @fclose($socket);
+
             return;
         }
 
         try {
             $response = Handshake::serverResponse($buf, [
                 'allowed_origins' => $this->config['allowed_origins'] ?? ['*'],
-                'subprotocols'    => $this->config['subprotocols'] ?? [],
+                'subprotocols' => $this->config['subprotocols'] ?? [],
             ]);
         } catch (WebSocketException $e) {
             $this->logger->warning('WebSocket handshake failed', ['error' => $e->getMessage()]);
             @fclose($socket);
+
             return;
         }
 
@@ -139,7 +143,7 @@ final class Server extends AbstractAdapter
             stream_socket_get_name($socket, true) ?: 'unknown',
             $socket,
         );
-        $this->connections[(int)$socket] = $conn;
+        $this->connections[(int) $socket] = $conn;
         $this->emit('connection.open', ['connection' => $conn]);
     }
 
@@ -160,7 +164,7 @@ final class Server extends AbstractAdapter
             return;
         }
         foreach ($read as $stream) {
-            $key = (int)$stream;
+            $key = (int) $stream;
             $conn = $this->connections[$key] ?? null;
             if ($conn === null) {
                 continue;
@@ -169,7 +173,7 @@ final class Server extends AbstractAdapter
             if ($frame === null) {
                 // 检查连接是否还活着
                 $meta = @stream_get_meta_data($conn->stream());
-                if (!empty($meta['timed_out'])) {
+                if (! empty($meta['timed_out'])) {
                     $this->removeConnection($conn);
                 }
                 continue;
@@ -180,13 +184,13 @@ final class Server extends AbstractAdapter
 
     private function heartbeat(): void
     {
-        $interval = (int)($this->config['heartbeat_interval'] ?? 30);
+        $interval = (int) ($this->config['heartbeat_interval'] ?? 30);
         if ($interval <= 0) {
             return;
         }
         $now = time();
         foreach ($this->connections as $key => $conn) {
-            if (!$conn->isOpen()) {
+            if (! $conn->isOpen()) {
                 unset($this->connections[$key]);
                 continue;
             }
@@ -204,36 +208,47 @@ final class Server extends AbstractAdapter
         $this->builder?->emit($event, $payload);
     }
 
-    public function onFrame(WebSocketConnection $conn, \Kode\Messaging\Adapter\WebSocket\Codec\Frame $frame): void
+    public function onFrame(WebSocketConnection $conn, Codec\Frame $frame): void
     {
-        if ($frame->opcode === \Kode\Messaging\Adapter\WebSocket\Codec\OpCode::PING) {
+        if ($frame->opcode === Codec\OpCode::PING) {
             $conn->sendPong($frame->payload);
+
             return;
         }
-        if ($frame->opcode === \Kode\Messaging\Adapter\WebSocket\Codec\OpCode::PONG) {
+        if ($frame->opcode === Codec\OpCode::PONG) {
             $conn->markPong();
+
             return;
         }
-        if ($frame->opcode === \Kode\Messaging\Adapter\WebSocket\Codec\OpCode::CLOSE) {
+        if ($frame->opcode === Codec\OpCode::CLOSE) {
             $conn->close(1000, 'normal');
+
             return;
         }
-        $isBinary = $frame->opcode === \Kode\Messaging\Adapter\WebSocket\Codec\OpCode::BINARY;
+        $isBinary = $frame->opcode === Codec\OpCode::BINARY;
         $message = \Kode\Messaging\Message\Message::fromRaw(
             $frame->payload,
             'ws',
             headers: [],
             context: [
-                'connection_id'   => $conn->id(),
-                'remote_address'  => $conn->remoteAddress(),
+                'connection_id' => $conn->id(),
+                'remote_address' => $conn->remoteAddress(),
             ],
         );
         if ($isBinary) {
             $message = new \Kode\Messaging\Message\Message(
-                $message->id(), $message->event(), $message->topic(),
-                $message->payload(), $message->raw(), $message->headers(),
-                $message->qos(), true, $message->isRetain(), $message->protocol(),
-                $message->timestamp(), $message->context(),
+                $message->id(),
+                $message->event(),
+                $message->topic(),
+                $message->payload(),
+                $message->raw(),
+                $message->headers(),
+                $message->qos(),
+                true,
+                $message->isRetain(),
+                $message->protocol(),
+                $message->timestamp(),
+                $message->context(),
             );
         }
         $this->emit('message.received', ['connection' => $conn, 'message' => $message]);
@@ -245,6 +260,7 @@ final class Server extends AbstractAdapter
             if ($c === $conn) {
                 unset($this->connections[$key]);
                 $this->emit('connection.close', ['connection' => $conn]);
+
                 return;
             }
         }
@@ -264,7 +280,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config = []): ConnectionInterface
     {
-        throw new \LogicException('Server 适配器不支持 connect()');
+        throw new LogicException('Server 适配器不支持 connect()');
     }
 
     public static function autoRegister(): void

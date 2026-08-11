@@ -22,48 +22,48 @@ declare(strict_types=1);
 use Kode\Messaging\Adapter\Registry;
 
 // CoAP
-Registry::register('coap', \Kode\Messaging\Adapter\Coap\Client::class);
-Registry::register('coap', \Kode\Messaging\Adapter\Coap\Server::class);
+Registry::register('coap', Kode\Messaging\Adapter\Coap\Client::class);
+Registry::register('coap', Kode\Messaging\Adapter\Coap\Server::class);
 
 // gRPC
-Registry::register('grpc', \Kode\Messaging\Adapter\Grpc\Client::class);
-Registry::register('grpc', \Kode\Messaging\Adapter\Grpc\Server::class);
+Registry::register('grpc', Kode\Messaging\Adapter\Grpc\Client::class);
+Registry::register('grpc', Kode\Messaging\Adapter\Grpc\Server::class);
 
 // Long-Polling
-Registry::register('long-polling', \Kode\Messaging\Adapter\LongPolling\Client::class);
-Registry::register('long-polling', \Kode\Messaging\Adapter\LongPolling\Server::class);
+Registry::register('long-polling', Kode\Messaging\Adapter\LongPolling\Client::class);
+Registry::register('long-polling', Kode\Messaging\Adapter\LongPolling\Server::class);
 
 // MQTT
-Registry::register('mqtt', \Kode\Messaging\Adapter\Mqtt\Client::class);
-Registry::register('mqtt', \Kode\Messaging\Adapter\Mqtt\Server::class);
-Registry::register('mqtt+ws', \Kode\Messaging\Adapter\Mqtt\MqttOverWsClient::class);
-Registry::register('mqtt+ws', \Kode\Messaging\Adapter\Mqtt\MqttOverWsServer::class);
-Registry::register('mqtt+wss', \Kode\Messaging\Adapter\Mqtt\MqttOverWsServer::class);
-Registry::register('mqtt+ws-client', \Kode\Messaging\Adapter\Mqtt\MqttOverWsClient::class);
+Registry::register('mqtt', Kode\Messaging\Adapter\Mqtt\Client::class);
+Registry::register('mqtt', Kode\Messaging\Adapter\Mqtt\Server::class);
+Registry::register('mqtt+ws', Kode\Messaging\Adapter\Mqtt\MqttOverWsClient::class);
+Registry::register('mqtt+ws', Kode\Messaging\Adapter\Mqtt\MqttOverWsServer::class);
+Registry::register('mqtt+wss', Kode\Messaging\Adapter\Mqtt\MqttOverWsServer::class);
+Registry::register('mqtt+ws-client', Kode\Messaging\Adapter\Mqtt\MqttOverWsClient::class);
 
 // NATS
-Registry::register('nats', \Kode\Messaging\Adapter\Nats\Client::class);
-Registry::register('nats', \Kode\Messaging\Adapter\Nats\Server::class);
+Registry::register('nats', Kode\Messaging\Adapter\Nats\Client::class);
+Registry::register('nats', Kode\Messaging\Adapter\Nats\Server::class);
 
 // RTMP
-Registry::register('rtmp', \Kode\Messaging\Adapter\Rtmp\Server::class);
+Registry::register('rtmp', Kode\Messaging\Adapter\Rtmp\Server::class);
 
 // SSE
-Registry::register('sse', \Kode\Messaging\Adapter\Sse\Client::class);
-Registry::register('sse', \Kode\Messaging\Adapter\Sse\Server::class);
+Registry::register('sse', Kode\Messaging\Adapter\Sse\Client::class);
+Registry::register('sse', Kode\Messaging\Adapter\Sse\Server::class);
 
 // STOMP
-Registry::register('stomp', \Kode\Messaging\Adapter\Stomp\Client::class);
-Registry::register('stomp', \Kode\Messaging\Adapter\Stomp\Server::class);
+Registry::register('stomp', Kode\Messaging\Adapter\Stomp\Client::class);
+Registry::register('stomp', Kode\Messaging\Adapter\Stomp\Server::class);
 
 // UDP
-Registry::register('udp', \Kode\Messaging\Adapter\Udp\Client::class);
-Registry::register('udp', \Kode\Messaging\Adapter\Udp\Server::class);
+Registry::register('udp', Kode\Messaging\Adapter\Udp\Client::class);
+Registry::register('udp', Kode\Messaging\Adapter\Udp\Server::class);
 
 // WebSocket
-Registry::register('ws', \Kode\Messaging\Adapter\WebSocket\Client::class);
-Registry::register('ws', \Kode\Messaging\Adapter\WebSocket\Server::class);
+Registry::register('ws', Kode\Messaging\Adapter\WebSocket\Client::class);
+Registry::register('ws', Kode\Messaging\Adapter\WebSocket\Server::class);
 
 // WebTransport
-Registry::register('webtransport', \Kode\Messaging\Adapter\WebTransport\Client::class);
-Registry::register('webtransport', \Kode\Messaging\Adapter\WebTransport\Server::class);
+Registry::register('webtransport', Kode\Messaging\Adapter\WebTransport\Client::class);
+Registry::register('webtransport', Kode\Messaging\Adapter\WebTransport\Server::class);

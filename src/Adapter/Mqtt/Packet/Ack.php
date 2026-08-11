@@ -29,6 +29,7 @@ final class Ack
             $ackFlags = ord($body[0]);
             $result['session_present'] = ($ackFlags & 0x01) !== 0;
             $result['return_code'] = ord($body[1]);
+
             return $result;
         }
 
@@ -39,6 +40,7 @@ final class Ack
             while ($offset < strlen($body)) {
                 $result['reason_codes'][] = Codec::decodeUint8($body, $offset);
             }
+
             return $result;
         }
 
@@ -53,6 +55,7 @@ final class Ack
             if ($offset < strlen($body)) {
                 $result['reason_code'] = Codec::decodeUint8($body, $offset);
             }
+
             return $result;
         }
 

@@ -31,7 +31,7 @@ use Kode\Messaging\Exception\MessagingException;
 final class SlidingWindowMiddleware implements MiddlewareInterface
 {
     /**
-     * @param RateLimiterInterface|null $limiter    自定义限流器
+     * @param null|RateLimiterInterface $limiter    自定义限流器
      * @param int                       $capacity   窗口内允许的请求数
      * @param float                     $windowSize 窗口大小（秒）
      * @param string                    $keyPrefix  键前缀
@@ -43,8 +43,7 @@ final class SlidingWindowMiddleware implements MiddlewareInterface
         private readonly float $windowSize = 1.0,
         private readonly string $keyPrefix = 'sw:',
         private readonly string $keyField = 'connection_id',
-    ) {
-    }
+    ) {}
 
     /**
      * 创建内存版滑动窗口中间件（默认）。
@@ -82,6 +81,7 @@ final class SlidingWindowMiddleware implements MiddlewareInterface
             $password,
             $database,
         );
+
         return new self($limiter->build(), $capacity, $windowSize, $keyPrefix, $keyField);
     }
 
@@ -97,29 +97,31 @@ final class SlidingWindowMiddleware implements MiddlewareInterface
     {
         $key = $this->bucketKey($message);
         $limiter = $this->limiter ?? $this->defaultLimiter();
-        if (!$limiter->allow($key, 1)) {
+        if (! $limiter->allow($key, 1)) {
             throw new MessagingException('限流触发（滑动窗口）', 429, [
-                'algorithm'   => 'sliding_window',
-                'bucket'      => $key,
-                'capacity'    => $this->capacity,
+                'algorithm' => 'sliding_window',
+                'bucket' => $key,
+                'capacity' => $this->capacity,
                 'window_size' => $this->windowSize,
-                'wait_time'   => $limiter->getWaitTime($key),
-                'remaining'   => $limiter->getRemaining($key),
+                'wait_time' => $limiter->getWaitTime($key),
+                'remaining' => $limiter->getRemaining($key),
             ]);
         }
+
         return $next($message);
     }
 
     private function defaultLimiter(): RateLimiterInterface
     {
-        $key = $this->capacity . ':' . $this->windowSize;
+        $key = $this->capacity.':'.$this->windowSize;
         static $cache = [];
-        if (!isset($cache[$key])) {
+        if (! isset($cache[$key])) {
             $cache[$key] = \Kode\Limiting\Limiter::slidingWindow(
                 $this->capacity,
                 $this->windowSize,
             )->build();
         }
+
         return $cache[$key];
     }
 
@@ -127,11 +129,12 @@ final class SlidingWindowMiddleware implements MiddlewareInterface
     {
         $ctx = $m->context();
         if (isset($ctx[$this->keyField]) && is_string($ctx[$this->keyField]) && $ctx[$this->keyField] !== '') {
-            return $this->keyPrefix . $ctx[$this->keyField];
+            return $this->keyPrefix.$ctx[$this->keyField];
         }
         if (isset($ctx['remote_address']) && is_string($ctx['remote_address'])) {
-            return $this->keyPrefix . $ctx['remote_address'];
+            return $this->keyPrefix.$ctx['remote_address'];
         }
-        return $this->keyPrefix . '*';
+
+        return $this->keyPrefix.'*';
     }
 }

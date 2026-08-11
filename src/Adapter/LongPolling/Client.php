@@ -7,7 +7,7 @@ namespace Kode\Messaging\Adapter\LongPolling;
 use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
-use Kode\Messaging\Exception\LongPollingException;
+use LogicException;
 
 /**
  * Long-Polling 客户端
@@ -41,27 +41,27 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 80);
+        $port = (int) ($config['port'] ?? 80);
         $path = $config['path'] ?? '/';
-        $tls  = (bool)($config['tls'] ?? false);
+        $tls = (bool) ($config['tls'] ?? false);
         $query = $config['query'] ?? [];
 
         return new LongPollingClientConnection(
             LongPollingConnection::generateId('lp'),
             'long-polling',
-            ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}",
+            ($tls ? 'tls' : 'tcp')."://{$host}:{$port}",
             [
-                'host'   => $host,
-                'port'   => $port,
-                'path'   => $path,
-                'query'  => $query,
-                'tls'    => $tls,
+                'host' => $host,
+                'port' => $port,
+                'path' => $path,
+                'query' => $query,
+                'tls' => $tls,
                 'method' => $config['method'] ?? 'GET',
-                'body'   => $config['body'] ?? '',
+                'body' => $config['body'] ?? '',
                 'headers' => $config['headers'] ?? [],
-                'read_timeout' => (int)($config['read_timeout'] ?? 30),
-                'retry_delay_ms' => (int)($config['retry_delay_ms'] ?? 1_000),
-                'max_retries' => (int)($config['max_retries'] ?? 0),
+                'read_timeout' => (int) ($config['read_timeout'] ?? 30),
+                'retry_delay_ms' => (int) ($config['retry_delay_ms'] ?? 1_000),
+                'max_retries' => (int) ($config['max_retries'] ?? 0),
             ],
             $this->logger,
         );
@@ -69,7 +69,7 @@ final class Client extends AbstractAdapter
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('LongPolling Client 不支持 listen()');
+        throw new LogicException('LongPolling Client 不支持 listen()');
     }
 
     public function run(): void

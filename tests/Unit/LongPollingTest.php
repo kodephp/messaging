@@ -7,6 +7,7 @@ namespace Kode\Messaging\Tests\Unit;
 use Kode\Messaging\Adapter\LongPolling\LongPollingConnection;
 use Kode\Messaging\Exception\LongPollingException;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 /**
  * LongPolling 单元测试（部分）
@@ -15,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class LongPollingTest extends TestCase
 {
-    public function testRequestInvalidException(): void
+    public function test_request_invalid_exception(): void
     {
         $ex = LongPollingException::requestInvalid('bad method', ['method' => 'INVALID']);
         $this->assertSame(6002, $ex->getCode());
@@ -23,26 +24,26 @@ final class LongPollingTest extends TestCase
         $this->assertSame(['method' => 'INVALID'], $ex->context());
     }
 
-    public function testHoldTimeoutException(): void
+    public function test_hold_timeout_exception(): void
     {
         $ex = LongPollingException::holdTimeout(25_000);
         $this->assertSame(6004, $ex->getCode());
         $this->assertStringContainsString('25000', $ex->getMessage());
     }
 
-    public function testQueueOverflowException(): void
+    public function test_queue_overflow_exception(): void
     {
         $ex = LongPollingException::queueOverflow('orders', 1000, 500);
         $this->assertSame(6005, $ex->getCode());
         $this->assertStringContainsString('orders', $ex->getMessage());
     }
 
-    public function testConnectionEncodePayload(): void
+    public function test_connection_encode_payload(): void
     {
         // 验证 LongPollingConnection 的 payload 编码逻辑（通过 reflection）
         $conn = new LongPollingConnection('lp-test', '127.0.0.1:1234', null, []);
 
-        $ref = new \ReflectionClass($conn);
+        $ref = new ReflectionClass($conn);
         $encode = $ref->getMethod('encode');
         $encode->setAccessible(true);
 

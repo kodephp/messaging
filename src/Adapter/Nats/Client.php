@@ -9,6 +9,7 @@ use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\NatsException;
 use Kode\Messaging\Message\Message as Msg;
+use LogicException;
 
 /**
  * NATS 客户端
@@ -24,12 +25,16 @@ use Kode\Messaging\Message\Message as Msg;
  */
 final class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
+
     private ?NatsConnection $conn = null;
+
     private string $buffer = '';
+
     /** @var array<int, array{subject:string, queueGroup:?string}> sid → 订阅 */
     private array $subs = [];
+
     private int $nextSid = 1;
 
     public static function scheme(): string
@@ -45,9 +50,9 @@ final class Client extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'name'        => 'kode-messaging',
-            'pedantic'    => false,
-            'verbose'     => false,
+            'name' => 'kode-messaging',
+            'pedantic' => false,
+            'verbose' => false,
             'ping_interval' => 30,
             'max_payload' => 1_048_576,
         ];
@@ -56,10 +61,10 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 4222);
-        $tls  = (bool)($config['tls'] ?? false);
+        $port = (int) ($config['port'] ?? 4222);
+        $tls = (bool) ($config['tls'] ?? false);
 
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
         $errno = 0;
         $errstr = '';
         $this->stream = @stream_socket_client($remote, $errno, $errstr, 5.0, STREAM_CLIENT_CONNECT);
@@ -73,16 +78,16 @@ final class Client extends AbstractAdapter
         // 等待服务端 INFO
         $info = $this->expectInfo(5.0);
         if (isset($info['max_payload'])) {
-            $this->config['max_payload'] = (int)$info['max_payload'];
+            $this->config['max_payload'] = (int) $info['max_payload'];
         }
 
         // 发送 CONNECT
         fwrite($this->stream, NatsCodec::encodeConnect([
-            'name'     => $this->config['name'],
+            'name' => $this->config['name'],
             'pedantic' => $this->config['pedantic'],
-            'verbose'  => $this->config['verbose'],
+            'verbose' => $this->config['verbose'],
             'protocol' => 1,
-            'echo'     => false,
+            'echo' => false,
         ]));
 
         $this->conn = new NatsConnection(
@@ -91,12 +96,13 @@ final class Client extends AbstractAdapter
             stream_socket_get_name($this->stream, true) ?: "{$host}:{$port}",
             $this->stream,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('NATS Client 不支持 listen()');
+        throw new LogicException('NATS Client 不支持 listen()');
     }
 
     public function run(): void
@@ -110,9 +116,9 @@ final class Client extends AbstractAdapter
     private function readLoop(): void
     {
         $lastPing = microtime(true);
-        $pingInterval = (int)($this->config['ping_interval'] ?? 30);
+        $pingInterval = (int) ($this->config['ping_interval'] ?? 30);
 
-        while (!feof($this->stream)) {
+        while (! feof($this->stream)) {
             $now = microtime(true);
             if ($pingInterval > 0 && $now - $lastPing >= $pingInterval) {
                 @fwrite($this->stream, NatsCodec::encodePing());
@@ -134,15 +140,16 @@ final class Client extends AbstractAdapter
      */
     private function consumeBuffer(): void
     {
-        while (strlen($this->buffer) > 0) {
+        while ($this->buffer !== '') {
             // PUB/MSG/HPUB/HMSG 走"含 payload"解析
             $head = strtoupper(strtok($this->buffer, " \r\n"));
             if (in_array($head, ['PUB', 'MSG', 'HPUB', 'HMSG'], true)) {
                 try {
                     $parsed = NatsCodec::parseWithPayload($this->buffer);
                 } catch (NatsException $e) {
-                    $this->logger->error('NATS 解析错误: ' . $e->getMessage());
+                    $this->logger->error('NATS 解析错误: '.$e->getMessage());
                     $this->buffer = '';
+
                     return;
                 }
                 if ($parsed === null) {
@@ -173,14 +180,14 @@ final class Client extends AbstractAdapter
         $args = $cmd['args'];
         $payload = $cmd['payload'] ?? '';
         match ($op) {
-            'INFO'   => null, // 仅服务端，客户端已收到
-            'MSG'    => $this->handleMsg($args, $payload),
-            'HMSG'   => $this->handleMsg($args, $payload),
-            'PING'   => @fwrite($this->stream, NatsCodec::encodePong()),
-            'PONG'   => null,
-            '+OK'    => null,
-            '-ERR'   => $this->logger->error('NATS -ERR: ' . ($args[0] ?? '')),
-            default  => $this->logger->debug("NATS 未知操作: {$op}"),
+            'INFO' => null, // 仅服务端，客户端已收到
+            'MSG' => $this->handleMsg($args, $payload),
+            'HMSG' => $this->handleMsg($args, $payload),
+            'PING' => @fwrite($this->stream, NatsCodec::encodePong()),
+            'PONG' => null,
+            '+OK' => null,
+            '-ERR' => $this->logger->error('NATS -ERR: '.($args[0] ?? '')),
+            default => $this->logger->debug("NATS 未知操作: {$op}"),
         };
     }
 
@@ -189,11 +196,12 @@ final class Client extends AbstractAdapter
         // MSG <subject> <sid> [reply-to] <#bytes>
         if (count($args) < 2) {
             $this->logger->error('NATS MSG 参数缺失');
+
             return;
         }
-        $subject = (string)$args[0];
-        $sid = (int)$args[1];
-        $replyTo = isset($args[2]) && !ctype_digit((string)$args[2]) ? (string)$args[2] : null;
+        $subject = (string) $args[0];
+        $sid = (int) $args[1];
+        $replyTo = isset($args[2]) && ! ctype_digit((string) $args[2]) ? (string) $args[2] : null;
         $this->conn?->dispatchMessage($subject, $payload, $replyTo, $sid);
     }
 
@@ -205,7 +213,7 @@ final class Client extends AbstractAdapter
     private function expectInfo(float $timeoutSec): array
     {
         $deadline = microtime(true) + $timeoutSec;
-        stream_set_timeout($this->stream, (int)max(1, (int)$timeoutSec));
+        stream_set_timeout($this->stream, (int) max(1, (int) $timeoutSec));
         while (microtime(true) < $deadline) {
             $pos = strpos($this->buffer, NatsCodec::CRLF);
             if ($pos !== false) {
@@ -214,6 +222,7 @@ final class Client extends AbstractAdapter
                 if (str_starts_with($line, 'INFO ')) {
                     $json = trim(substr($line, 5));
                     $info = json_decode($json, true);
+
                     return is_array($info) ? $info : [];
                 }
             }
@@ -224,6 +233,7 @@ final class Client extends AbstractAdapter
             }
             $this->buffer .= $chunk;
         }
+
         return [];
     }
 
@@ -232,7 +242,7 @@ final class Client extends AbstractAdapter
      */
     public function publish(string $subject, string $payload, ?string $replyTo = null): void
     {
-        $max = (int)($this->config['max_payload'] ?? 1_048_576);
+        $max = (int) ($this->config['max_payload'] ?? 1_048_576);
         if (strlen($payload) > $max) {
             throw NatsException::maxPayloadExceeded(strlen($payload), $max);
         }
@@ -251,6 +261,7 @@ final class Client extends AbstractAdapter
         @fwrite($this->stream, NatsCodec::encodeSub($subject, $sid, $queueGroup));
         $this->subs[$sid] = ['subject' => $subject, 'queueGroup' => $queueGroup];
         $this->conn?->addSubjectHandler($subject, $handler);
+
         return $sid;
     }
 
@@ -262,9 +273,9 @@ final class Client extends AbstractAdapter
 
     public function request(string $subject, string $payload, callable $handler, int $timeoutMs = 1000): void
     {
-        $inbox = '_INBOX.' . bin2hex(random_bytes(8));
+        $inbox = '_INBOX.'.bin2hex(random_bytes(8));
         $this->conn?->onReply($inbox, $handler);
-        $this->subscribe($inbox, function () {});
+        $this->subscribe($inbox, function (): void {});
         $this->publish($subject, $payload, $inbox);
     }
 

@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * NATS 客户端发布 / 订阅示例
@@ -10,13 +10,13 @@
  *  - 每秒发布一条 orders.created 消息
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Messaging;
 
 $client = Messaging::client('nats://127.0.0.1:4222');
 
-$client->subscribe('orders.*', function ($subject, $payload) {
+$client->subscribe('orders.*', function ($subject, $payload): void {
     fwrite(STDOUT, "[recv] {$subject} => {$payload}\n");
 });
 

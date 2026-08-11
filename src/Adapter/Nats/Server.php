@@ -10,6 +10,7 @@ use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\NatsException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
 
 /**
  * NATS 简易服务端（嵌入式 Broker）
@@ -32,17 +33,23 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
+
     /** @var array<string, NatsConnection> peer → connection */
     private array $connections = [];
+
     /** @var array<int, array{conn: NatsConnection, subject: string, queueGroup: ?string}> sid → 订阅 */
     private array $subscriptions = [];
+
     /** @var array<string, array<string, NatsConnection>> subject-pattern → peer → connection */
     private array $subIndex = [];
+
     /** @var array<string, string> peer → 待解析的输入缓冲 */
     private array $buffers = [];
+
     private int $nextSid = 1;
+
     private ?ServerBuilder $builder = null;
 
     public static function scheme(): string
@@ -63,9 +70,9 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_payload'  => 1_048_576,
+            'max_payload' => 1_048_576,
             'ping_interval' => 30,
-            'server_name'  => 'kode-nats',
+            'server_name' => 'kode-nats',
         ];
     }
 
@@ -89,7 +96,7 @@ final class Server extends AbstractAdapter
     public function run(): void
     {
         $this->running = true;
-        $maxPayload = (int)($this->config['max_payload'] ?? 1_048_576);
+        $maxPayload = (int) ($this->config['max_payload'] ?? 1_048_576);
 
         while ($this->running) {
             // 接受新连接
@@ -105,14 +112,14 @@ final class Server extends AbstractAdapter
                 $this->buffers[$peer] = '';
                 // 发送 INFO
                 @fwrite($new, NatsCodec::encodeInfo([
-                    'server_id'   => 'kode-' . bin2hex(random_bytes(4)),
+                    'server_id' => 'kode-'.bin2hex(random_bytes(4)),
                     'server_name' => $this->config['server_name'],
-                    'version'     => '1.0.0',
-                    'go'          => 'kode-php',
-                    'host'        => '0.0.0.0',
-                    'port'        => 0,
+                    'version' => '1.0.0',
+                    'go' => 'kode-php',
+                    'host' => '0.0.0.0',
+                    'port' => 0,
                     'max_payload' => $maxPayload,
-                    'proto'       => 1,
+                    'proto' => 1,
                 ]));
                 $this->builder?->emit('connection.open', ['connection' => $this->connections[$peer]]);
             }
@@ -120,7 +127,7 @@ final class Server extends AbstractAdapter
             // 读取已有连接
             foreach ($this->connections as $peer => $conn) {
                 $sock = $conn->stream();
-                if (!is_resource($sock)) {
+                if (! is_resource($sock)) {
                     continue;
                 }
                 $chunk = @fread($sock, 4096);
@@ -137,7 +144,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('NATS Server 不支持 connect()');
+        throw new LogicException('NATS Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -171,12 +178,12 @@ final class Server extends AbstractAdapter
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         $buf = &$this->buffers[$peer];
 
-        while (strlen($buf) > 0) {
+        while ($buf !== '') {
             $head = strtoupper(strtok($buf, " \r\n"));
             if ($head === 'PUB') {
                 $parsed = NatsCodec::parseWithPayload($buf);
@@ -206,7 +213,7 @@ final class Server extends AbstractAdapter
     private function dispatch(NatsConnection $conn, string $op, array $args, string $payload): void
     {
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         switch ($op) {
@@ -237,20 +244,20 @@ final class Server extends AbstractAdapter
         if ($args === []) {
             return;
         }
-        $subject = (string)$args[0];
+        $subject = (string) $args[0];
         $replyTo = null;
         // 第二个参数可能是 reply-to（若非纯数字）或 #bytes
-        if (isset($args[1]) && !ctype_digit((string)$args[1])) {
-            $replyTo = (string)$args[1];
+        if (isset($args[1]) && ! ctype_digit((string) $args[1])) {
+            $replyTo = (string) $args[1];
         }
         $msg = Msg::fromRaw(
             $payload,
             'nats',
             topic: $subject,
             context: [
-                'connection_id'  => $conn->id(),
+                'connection_id' => $conn->id(),
                 'remote_address' => $conn->remoteAddress(),
-                'reply_to'       => $replyTo,
+                'reply_to' => $replyTo,
             ],
         );
         $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $msg]);
@@ -277,16 +284,16 @@ final class Server extends AbstractAdapter
         if ($args === []) {
             return;
         }
-        $subject = (string)$args[0];
+        $subject = (string) $args[0];
         $sid = 0;
         $queueGroup = null;
         if (count($args) === 1) {
             $sid = ++$this->nextSid;
         } elseif (count($args) === 2) {
-            $sid = (int)$args[1];
+            $sid = (int) $args[1];
         } else {
-            $queueGroup = (string)$args[1];
-            $sid = (int)$args[2];
+            $queueGroup = (string) $args[1];
+            $sid = (int) $args[2];
         }
         $this->subIndex[$subject][$conn->id()] = $conn;
         $this->subscriptions[$sid] = ['conn' => $conn, 'subject' => $subject, 'queueGroup' => $queueGroup];
@@ -297,7 +304,7 @@ final class Server extends AbstractAdapter
         if ($args === []) {
             return;
         }
-        $sid = (int)$args[0];
+        $sid = (int) $args[0];
         $sub = $this->subscriptions[$sid] ?? null;
         if ($sub === null) {
             return;
@@ -316,6 +323,7 @@ final class Server extends AbstractAdapter
                 return $sid;
             }
         }
+
         return null;
     }
 
@@ -340,6 +348,7 @@ final class Server extends AbstractAdapter
             }
             $i++;
         }
+
         return count($f) === count($s);
     }
 }

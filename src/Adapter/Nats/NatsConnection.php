@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\Nats;
 
 use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
+use Throwable;
 
 /**
  * NATS 客户端连接
@@ -14,10 +15,10 @@ use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
  */
 class NatsConnection extends WebSocketConnection
 {
-    /** @var array<string, callable(string $subject, string $payload, \Kode\Messaging\Message\Message $message): void> */
+    /** @var array<string, callable(string, string, \Kode\Messaging\Message\Message): void> */
     protected array $subjectHandlers = [];
 
-    /** @var array<int, callable(string $reply, string $payload): void> */
+    /** @var array<int, callable(string, string): void> */
     protected array $replyHandlers = [];
 
     private int $nextSid = 1;
@@ -39,24 +40,24 @@ class NatsConnection extends WebSocketConnection
             'nats',
             topic: $subject,
             context: [
-                'connection_id'  => $this->connId,
+                'connection_id' => $this->connId,
                 'remote_address' => $this->remoteAddress,
-                'sid'            => $sid,
-                'reply_to'       => $replyTo,
+                'sid' => $sid,
+                'reply_to' => $replyTo,
             ],
         );
         foreach ($this->subjectHandlers as $filter => $handler) {
             if ($this->matchSubject($filter, $subject)) {
                 try {
                     $handler($subject, $payload, $msg);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                 }
             }
         }
         if ($replyTo !== null && isset($this->replyHandlers[$replyTo])) {
             try {
                 ($this->replyHandlers[$replyTo])($replyTo, $payload);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }
@@ -67,6 +68,7 @@ class NatsConnection extends WebSocketConnection
         if ($this->nextSid > 0xFFFF) {
             $this->nextSid = 1;
         }
+
         return $sid;
     }
 
@@ -97,6 +99,7 @@ class NatsConnection extends WebSocketConnection
             }
             $i++;
         }
+
         return count($f) === count($s);
     }
 }

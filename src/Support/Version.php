@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Support;
 
+use function constant;
+use function sprintf;
+
 /**
  * 包版本号（与 composer.json 中 version 字段保持一致）。
  */
@@ -16,12 +19,13 @@ final class Version
 
     public static function get(): string
     {
-        $version = \sprintf('%d.%d.%d', self::MAJOR, self::MINOR, self::PATCH);
+        $version = sprintf('%d.%d.%d', self::MAJOR, self::MINOR, self::PATCH);
         /** @var string $pre 来自常量的运行时值，PHPStan 静态分析可能判定为常量 */
-        $pre = (string)\constant('self::PRE_RELEASE');
+        $pre = (string) constant('self::PRE_RELEASE');
         if ($pre !== '') {
-            return $version . '-' . $pre;
+            return $version.'-'.$pre;
         }
+
         return $version;
     }
 }

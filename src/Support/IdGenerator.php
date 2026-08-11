@@ -12,7 +12,9 @@ namespace Kode\Messaging\Support;
 final class IdGenerator
 {
     private static int $counter = 0;
+
     private static string $prefix = '';
+
     private static bool $initialized = false;
 
     private static function init(): void
@@ -33,9 +35,10 @@ final class IdGenerator
     {
         self::init();
         $seq = ++self::$counter;
-        $time = (int)(microtime(true) * 1000) & 0xFFFFFFFFFF;
-        $tag = $prefix !== '' ? $prefix . ':' : '';
-        return self::$prefix . ':' . $tag . $time . ':' . $seq;
+        $time = (int) (microtime(true) * 1000) & 0xFFFFFFFFFF;
+        $tag = $prefix !== '' ? $prefix.':' : '';
+
+        return self::$prefix.':'.$tag.$time.':'.$seq;
     }
 
     /**

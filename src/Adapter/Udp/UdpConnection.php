@@ -6,6 +6,7 @@ namespace Kode\Messaging\Adapter\Udp;
 
 use Kode\Messaging\Connection\Connection;
 use Kode\Messaging\Exception\UdpException;
+use Throwable;
 
 /**
  * UDP 连接（发送方抽象）。
@@ -30,22 +31,24 @@ class UdpConnection extends Connection
 
     public function send(mixed $payload, array $options = []): bool
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return false;
         }
-        $data = is_string($payload) ? $payload : (string)json_encode(
+        $data = is_string($payload) ? $payload : (string) json_encode(
             $payload,
             JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         );
-        $max = (int)($options['max_packet_size'] ?? 65_507);
+        $max = (int) ($options['max_packet_size'] ?? 65_507);
         if (strlen($data) > $max) {
             throw UdpException::packetTooBig(strlen($data), $max);
         }
         $bytes = @stream_socket_sendto($this->socket, $data, 0, $this->peer);
         if ($bytes === false) {
             $this->close(0, 'send failed');
+
             return false;
         }
+
         return true;
     }
 
@@ -55,7 +58,7 @@ class UdpConnection extends Connection
         foreach ($this->closeCallbacks as $cb) {
             try {
                 $cb(null);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
         $this->closeCallbacks = [];

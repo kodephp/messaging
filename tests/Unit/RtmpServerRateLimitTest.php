@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Tests\Unit;
 
+use function fclose;
+use function is_resource;
+
 use Kode\Limiting\Algorithm\RateLimiterInterface;
 use Kode\Limiting\DTO\LimiterResult;
 use Kode\Messaging\Adapter\Rtmp\Amf0;
@@ -11,8 +14,11 @@ use Kode\Messaging\Adapter\Rtmp\RtmpConnection;
 use Kode\Messaging\Adapter\Rtmp\Server;
 use Kode\Messaging\Event\Event;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use ReflectionClass;
+use RuntimeException;
 
 /**
  * RTMP 限流单元测试
@@ -36,7 +42,7 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->capturedEvents = [];
     }
 
-    public function testSetRateLimitersStoresInstances(): void
+    public function test_set_rate_limiters_stores_instances(): void
     {
         $server = new Server(new NullLogger());
         $connLimiter = $this->makeAllowLimiter();
@@ -44,14 +50,14 @@ final class RtmpServerRateLimitTest extends TestCase
 
         $server->setRateLimiters($connLimiter, $cmdLimiter);
 
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $connProp = $ref->getProperty('connectionLimiter');
         $cmdProp = $ref->getProperty('commandLimiter');
         $this->assertSame($connLimiter, $connProp->getValue($server));
         $this->assertSame($cmdLimiter, $cmdProp->getValue($server));
     }
 
-    public function testConnectionLimiterRejectsNewConnection(): void
+    public function test_connection_limiter_rejects_new_connection(): void
     {
         $server = $this->buildServerWithBuilder();
 
@@ -75,7 +81,7 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testConnectionLimiterAllowsWhenAllow(): void
+    public function test_connection_limiter_allows_when_allow(): void
     {
         $server = $this->buildServerWithBuilder();
 
@@ -93,7 +99,7 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testCommandLimiterRejectsAmf0Command(): void
+    public function test_command_limiter_rejects_amf0_command(): void
     {
         $server = $this->buildServerWithBuilder();
 
@@ -103,7 +109,7 @@ final class RtmpServerRateLimitTest extends TestCase
         [$serverR, $clientW] = $this->makeSocketPair();
         $conn = new RtmpConnection('rtmp-test-id-1', 'rtmp', '1.2.3.4:5555', $serverR);
 
-        $body = Amf0::encode('connect') . Amf0::encode(1) . Amf0::encode(['app' => 'live']);
+        $body = Amf0::encode('connect').Amf0::encode(1).Amf0::encode(['app' => 'live']);
         $this->invokeHandleAmf0Command($server, $conn, 3, $body);
 
         $names = array_column($this->capturedEvents, 'name');
@@ -119,14 +125,14 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testOnLimitedCallbackIsInvoked(): void
+    public function test_on_limited_callback_is_invoked(): void
     {
         $server = $this->buildServerWithBuilder();
         $connLimiter = $this->makeDenyLimiter();
         $server->setRateLimiters($connLimiter, null);
 
         $captured = null;
-        $server->onLimited(function (array $payload) use (&$captured) {
+        $server->onLimited(function (array $payload) use (&$captured): void {
             $captured = $payload;
         });
 
@@ -141,18 +147,19 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testOnLimitedCallbackErrorDoesNotBreakFlow(): void
+    public function test_on_limited_callback_error_does_not_break_flow(): void
     {
         $server = $this->buildServerWithBuilder();
         $connLimiter = $this->makeDenyLimiter();
         $server->setRateLimiters($connLimiter, null);
 
         $called = 0;
-        $server->onLimited(function () use (&$called) {
+        $server->onLimited(function () use (&$called): void {
             $called++;
-            throw new \RuntimeException('boom');
+
+            throw new RuntimeException('boom');
         });
-        $server->onLimited(function () use (&$called) {
+        $server->onLimited(function () use (&$called): void {
             $called++;
         });
 
@@ -166,31 +173,31 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testExtractIpHandlesIpv4(): void
+    public function test_extract_ip_handles_ipv4(): void
     {
         $server = new Server(new NullLogger());
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $method = $ref->getMethod('extractIp');
         $this->assertSame('10.0.0.1', $method->invoke($server, '10.0.0.1:1234'));
     }
 
-    public function testExtractIpHandlesIpv6(): void
+    public function test_extract_ip_handles_ipv6(): void
     {
         $server = new Server(new NullLogger());
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $method = $ref->getMethod('extractIp');
         $this->assertSame('::1', $method->invoke($server, '[::1]:443'));
     }
 
-    public function testExtractIpFallbackOnMalformedPeer(): void
+    public function test_extract_ip_fallback_on_malformed_peer(): void
     {
         $server = new Server(new NullLogger());
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $method = $ref->getMethod('extractIp');
         $this->assertSame('noport', $method->invoke($server, 'noport'));
     }
 
-    public function testCommandLimiterKeyIsIsolated(): void
+    public function test_command_limiter_key_is_isolated(): void
     {
         // 验证限流器被调用时使用 connection_id 作为 key 的一部分
         $server = $this->buildServerWithBuilder();
@@ -198,31 +205,52 @@ final class RtmpServerRateLimitTest extends TestCase
         $limiter = new class implements RateLimiterInterface {
             /** @var list<string> */
             public array $keys = [];
+
             public function allow(string $key, int $tokens = 1): bool
             {
                 $this->keys[] = $key;
+
                 return false;
             }
+
             public function check(string $key, int $tokens = 1): LimiterResult
             {
                 return LimiterResult::denied(60.0, 1, 0.0);
             }
+
             public function consume(string $key, int $tokens = 1): LimiterResult
             {
                 $this->keys[] = $key;
+
                 return LimiterResult::denied(60.0, 1, 0.0);
             }
-            public function getRemaining(string $key): float { return 0.0; }
-            public function getWaitTime(string $key): float { return 60.0; }
-            public function getCapacity(): int { return 1; }
-            public function reset(string $key): void { $this->keys = []; }
+
+            public function getRemaining(string $key): float
+            {
+                return 0.0;
+            }
+
+            public function getWaitTime(string $key): float
+            {
+                return 60.0;
+            }
+
+            public function getCapacity(): int
+            {
+                return 1;
+            }
+
+            public function reset(string $key): void
+            {
+                $this->keys = [];
+            }
         };
         $server->setRateLimiters(null, $limiter);
 
         [$serverR, $clientW] = $this->makeSocketPair();
         $conn = new RtmpConnection('rtmp-key-test', 'rtmp', '8.8.8.8:9999', $serverR);
 
-        $body = Amf0::encode('connect') . Amf0::encode(1) . Amf0::encode(['app' => 'live']);
+        $body = Amf0::encode('connect').Amf0::encode(1).Amf0::encode(['app' => 'live']);
         $this->invokeHandleAmf0Command($server, $conn, 3, $body);
 
         $this->assertCount(1, $limiter->keys);
@@ -232,7 +260,7 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testNoLimitersMeansNoRateLimitEvents(): void
+    public function test_no_limiters_means_no_rate_limit_events(): void
     {
         $server = $this->buildServerWithBuilder();
         [$serverR, $clientW] = $this->makeSocketPair();
@@ -245,20 +273,20 @@ final class RtmpServerRateLimitTest extends TestCase
         $this->closeQuietly($clientW);
     }
 
-    public function testServerSchemeIsRtmp(): void
+    public function test_server_scheme_is_rtmp(): void
     {
         $this->assertSame('rtmp', Server::scheme());
     }
 
-    public function testServerConnectThrows(): void
+    public function test_server_connect_throws(): void
     {
         $server = new Server(new NullLogger());
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('不支持 connect()');
         $server->connect([]);
     }
 
-    public function testServerAutoRegisters(): void
+    public function test_server_auto_registers(): void
     {
         Server::autoRegister();
         $this->assertSame(Server::class, \Kode\Messaging\Adapter\Registry::find('rtmp'));
@@ -273,18 +301,19 @@ final class RtmpServerRateLimitTest extends TestCase
     {
         $builder = new ServerBuilder('rtmp://0.0.0.0:1935');
         $captured = &$this->capturedEvents;
-        $builder->on('rate_limit.exceeded', function (Event $e) use (&$captured) {
+        $builder->on('rate_limit.exceeded', function (Event $e) use (&$captured): void {
             $captured[] = ['name' => $e->name, 'payload' => $e->payload];
         });
-        $builder->on('error.protocol', function (Event $e) use (&$captured) {
+        $builder->on('error.protocol', function (Event $e) use (&$captured): void {
             $captured[] = ['name' => $e->name, 'payload' => $e->payload];
         });
-        $builder->on('connection.open', function (Event $e) use (&$captured) {
+        $builder->on('connection.open', function (Event $e) use (&$captured): void {
             $captured[] = ['name' => $e->name, 'payload' => $e->payload];
         });
 
         $server = new Server(new NullLogger());
         $server->setBuilder($builder);
+
         return $server;
     }
 
@@ -297,19 +326,20 @@ final class RtmpServerRateLimitTest extends TestCase
         if ($pair === false) {
             $this->fail('无法创建 socket pair');
         }
+
         return $pair;
     }
 
     private function invokeHandleNewConnection(Server $server, $socket, string $peer): void
     {
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $method = $ref->getMethod('handleNewConnection');
         $method->invoke($server, $socket, $peer);
     }
 
     private function invokeHandleAmf0Command(Server $server, RtmpConnection $conn, int $csid, string $body): void
     {
-        $ref = new \ReflectionClass($server);
+        $ref = new ReflectionClass($server);
         $method = $ref->getMethod('handleAmf0Command');
         $method->invoke($server, $conn, $csid, $body);
     }
@@ -317,18 +347,36 @@ final class RtmpServerRateLimitTest extends TestCase
     private function makeAllowLimiter(): RateLimiterInterface
     {
         return new class implements RateLimiterInterface {
-            public function allow(string $key, int $tokens = 1): bool { return true; }
+            public function allow(string $key, int $tokens = 1): bool
+            {
+                return true;
+            }
+
             public function check(string $key, int $tokens = 1): LimiterResult
             {
                 return LimiterResult::allowed(INF, 1, 0.0);
             }
+
             public function consume(string $key, int $tokens = 1): LimiterResult
             {
                 return LimiterResult::allowed(INF, 1, 0.0);
             }
-            public function getRemaining(string $key): float { return INF; }
-            public function getWaitTime(string $key): float { return 0.0; }
-            public function getCapacity(): int { return 1; }
+
+            public function getRemaining(string $key): float
+            {
+                return INF;
+            }
+
+            public function getWaitTime(string $key): float
+            {
+                return 0.0;
+            }
+
+            public function getCapacity(): int
+            {
+                return 1;
+            }
+
             public function reset(string $key): void {}
         };
     }
@@ -336,18 +384,36 @@ final class RtmpServerRateLimitTest extends TestCase
     private function makeDenyLimiter(): RateLimiterInterface
     {
         return new class implements RateLimiterInterface {
-            public function allow(string $key, int $tokens = 1): bool { return false; }
+            public function allow(string $key, int $tokens = 1): bool
+            {
+                return false;
+            }
+
             public function check(string $key, int $tokens = 1): LimiterResult
             {
                 return LimiterResult::denied(60.0, 1, 0.0);
             }
+
             public function consume(string $key, int $tokens = 1): LimiterResult
             {
                 return LimiterResult::denied(60.0, 1, 0.0);
             }
-            public function getRemaining(string $key): float { return 0.0; }
-            public function getWaitTime(string $key): float { return 60.0; }
-            public function getCapacity(): int { return 1; }
+
+            public function getRemaining(string $key): float
+            {
+                return 0.0;
+            }
+
+            public function getWaitTime(string $key): float
+            {
+                return 60.0;
+            }
+
+            public function getCapacity(): int
+            {
+                return 1;
+            }
+
             public function reset(string $key): void {}
         };
     }
@@ -367,8 +433,8 @@ final class RtmpServerRateLimitTest extends TestCase
 
     private function closeQuietly(mixed $resource): void
     {
-        if (\is_resource($resource)) {
-            @\fclose($resource);
+        if (is_resource($resource)) {
+            @fclose($resource);
         }
     }
 }

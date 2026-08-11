@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Transport;
 
 use Kode\Messaging\Exception\TransportException;
+use Throwable;
 use Workerman\Connection\AsyncTcpConnection;
 use Workerman\Connection\TcpConnection;
 use Workerman\Worker;
@@ -31,7 +32,7 @@ final class WorkermanTransport implements TransportInterface
      */
     public function __construct()
     {
-        if (!class_exists(Worker::class)) {
+        if (! class_exists(Worker::class)) {
             throw TransportException::openFailed(
                 'workerman',
                 'workerman/workerman 未安装或 \Workerman\Worker 类不存在',
@@ -62,9 +63,10 @@ final class WorkermanTransport implements TransportInterface
         try {
             $worker = new Worker($socketName);
             $worker->count = 1;
+
             // 不立即 runAll，由调用方配置回调后启动
             return $worker;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw TransportException::openFailed(
                 $socketName,
                 $e->getMessage(),
@@ -124,7 +126,7 @@ final class WorkermanTransport implements TransportInterface
             $connection->connectTimeout = $timeout;
 
             return $connection;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw TransportException::openFailed(
                 $socketName,
                 $e->getMessage(),
@@ -139,7 +141,7 @@ final class WorkermanTransport implements TransportInterface
      * Workerman 连接的读取由 onMessage 回调驱动，不使用同步 read()。
      * 此方法仅用于接口兼容，实际数据通过回调获取。
      *
-     * @param TcpConnection|AsyncTcpConnection $socket 连接对象
+     * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      * @param int                               $length 期望读取的最大字节数
      *
      * @return false 始终返回 false（Workerman 由事件循环驱动）
@@ -155,16 +157,16 @@ final class WorkermanTransport implements TransportInterface
      *
      * 通过 Workerman 连接对象发送数据。
      *
-     * @param TcpConnection|AsyncTcpConnection $socket 连接对象
+     * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      * @param string                            $data   待写入数据
      *
-     * @return int|false 实际发送字节数；失败返回 false/null（统一为 false）
+     * @return false|int 实际发送字节数；失败返回 false/null（统一为 false）
      */
     public function write(mixed $socket, string $data): int|false
     {
         $result = $socket->send($data);
 
-        return $result === null || $result === false ? false : (int)$result;
+        return $result === null || $result === false ? false : (int) $result;
     }
 
     /**
@@ -172,7 +174,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * 关闭 Workerman 连接或停止 Worker。
      *
-     * @param TcpConnection|AsyncTcpConnection|Worker $socket 连接或 Worker 对象
+     * @param AsyncTcpConnection|TcpConnection|Worker $socket 连接或 Worker 对象
      */
     public function close(mixed $socket): void
     {
@@ -182,7 +184,7 @@ final class WorkermanTransport implements TransportInterface
             } else {
                 $socket->close();
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // 忽略关闭错误
         }
     }
@@ -194,8 +196,7 @@ final class WorkermanTransport implements TransportInterface
      * 调用方应使用 Worker->runAll() 启动事件循环。
      *
      * @param array<int, mixed>      $read
-     * @param array<int, mixed>|null $write
-     * @param int                    $timeoutMicroseconds
+     * @param null|array<int, mixed> $write
      *
      * @return false 始终返回 false（Workerman 由事件循环驱动）
      */
@@ -210,7 +211,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * Workerman 连接由事件循环管理，无需手动设置非阻塞。
      *
-     * @param TcpConnection|AsyncTcpConnection $socket 连接对象
+     * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
     public function setNonBlocking(mixed $socket): void
     {
@@ -221,7 +222,7 @@ final class WorkermanTransport implements TransportInterface
     /**
      * {@inheritdoc}
      *
-     * @param TcpConnection|AsyncTcpConnection $socket 连接对象
+     * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
     public function setBlocking(mixed $socket): void
     {
@@ -232,9 +233,7 @@ final class WorkermanTransport implements TransportInterface
     /**
      * {@inheritdoc}
      *
-     * @param TcpConnection|AsyncTcpConnection $socket 连接对象
-     *
-     * @return string|false
+     * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
     public function getPeerName(mixed $socket): string|false
     {

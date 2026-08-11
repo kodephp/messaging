@@ -7,6 +7,7 @@ namespace Kode\Messaging\Tests\Unit;
 use Kode\Messaging\Contract\AcknowledgeInterface;
 use Kode\Messaging\PubSub\MemoryBus;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Pub/Sub 总线单元测试
@@ -24,7 +25,7 @@ final class PubSubBusTest extends TestCase
 {
     // ===================== 精确匹配 =====================
 
-    public function testExactMatch(): void
+    public function test_exact_match(): void
     {
         $bus = new MemoryBus();
 
@@ -35,7 +36,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 单级通配符 * =====================
 
-    public function testSingleLevelWildcard(): void
+    public function test_single_level_wildcard(): void
     {
         $bus = new MemoryBus();
 
@@ -51,7 +52,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 多级通配符 # =====================
 
-    public function testMultiLevelWildcard(): void
+    public function test_multi_level_wildcard(): void
     {
         $bus = new MemoryBus();
 
@@ -70,7 +71,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 正则编译缓存 =====================
 
-    public function testPatternCacheConsistency(): void
+    public function test_pattern_cache_consistency(): void
     {
         $bus = new MemoryBus();
 
@@ -84,7 +85,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 分发投递 =====================
 
-    public function testDispatchDeliversToExactSubscriber(): void
+    public function test_dispatch_delivers_to_exact_subscriber(): void
     {
         $bus = new MemoryBus();
         $received = [];
@@ -102,7 +103,7 @@ final class PubSubBusTest extends TestCase
         ], $received);
     }
 
-    public function testDispatchDeliversToAllMatchingSubscribers(): void
+    public function test_dispatch_delivers_to_all_matching_subscribers(): void
     {
         $bus = new MemoryBus();
         $hits = 0;
@@ -120,7 +121,7 @@ final class PubSubBusTest extends TestCase
         $this->assertSame(2, $hits);
     }
 
-    public function testWildcardSubscriberOnlyReceivesMatchingTopics(): void
+    public function test_wildcard_subscriber_only_receives_matching_topics(): void
     {
         $bus = new MemoryBus();
         $received = [];
@@ -139,13 +140,13 @@ final class PubSubBusTest extends TestCase
         ], $received);
     }
 
-    public function testHandlerErrorIsSwallowed(): void
+    public function test_handler_error_is_swallowed(): void
     {
         $bus = new MemoryBus();
         $safe = [];
 
         $bus->subscribe('topic', function (array $payload, AcknowledgeInterface $ack): void {
-            throw new \RuntimeException('boom');
+            throw new RuntimeException('boom');
         });
         $bus->subscribe('topic', function (array $payload, AcknowledgeInterface $ack) use (&$safe): void {
             $safe[] = $payload;
@@ -159,7 +160,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 取消订阅 =====================
 
-    public function testUnsubscribeStopsDelivery(): void
+    public function test_unsubscribe_stops_delivery(): void
     {
         $bus = new MemoryBus();
         $received = [];
@@ -178,7 +179,7 @@ final class PubSubBusTest extends TestCase
         $this->assertSame(0, $bus->subscriberCount());
     }
 
-    public function testUnsubscribeUnknownIdIsNoop(): void
+    public function test_unsubscribe_unknown_id_is_noop(): void
     {
         $bus = new MemoryBus();
         $bus->unsubscribe('non-existent-id');
@@ -187,7 +188,7 @@ final class PubSubBusTest extends TestCase
 
     // ===================== 可观测性 =====================
 
-    public function testSubscriberAndTopicCounts(): void
+    public function test_subscriber_and_topic_counts(): void
     {
         $bus = new MemoryBus();
 
@@ -200,7 +201,7 @@ final class PubSubBusTest extends TestCase
         $this->assertSame(2, $bus->topicCount());
     }
 
-    public function testTopicCountEmptyBus(): void
+    public function test_topic_count_empty_bus(): void
     {
         $bus = new MemoryBus();
         $this->assertSame(0, $bus->topicCount());

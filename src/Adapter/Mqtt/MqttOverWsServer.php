@@ -9,7 +9,7 @@ use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\Handshake;
 use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
 use Kode\Messaging\Exception\WebSocketException;
-use Kode\Messaging\Server\Builder as ServerBuilder;
+use RuntimeException;
 
 /**
  * MQTT over WebSocket 服务端
@@ -59,10 +59,10 @@ class MqttOverWsServer extends Server
     protected function defaultConfig(): array
     {
         return array_merge(parent::defaultConfig(), [
-            'subprotocols'         => ['mqtt'],
-            'allowed_origins'      => ['*'],
-            'handshake_timeout'    => 10,
-            'max_frame_size'       => 1_048_576,
+            'subprotocols' => ['mqtt'],
+            'allowed_origins' => ['*'],
+            'handshake_timeout' => 10,
+            'max_frame_size' => 1_048_576,
         ]);
     }
 
@@ -80,7 +80,7 @@ class MqttOverWsServer extends Server
             STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
         );
         if ($this->socket === false) {
-            throw new \RuntimeException("MQTT over WebSocket listen 失败: {$errstr}", $errno);
+            throw new RuntimeException("MQTT over WebSocket listen 失败: {$errstr}", $errno);
         }
         stream_set_blocking($this->socket, false);
         $this->logger->info("MQTT over WebSocket listening on {$host}:{$port}");
@@ -149,7 +149,7 @@ class MqttOverWsServer extends Server
                 continue;
             }
             $sock = $conn->stream();
-            if (!is_resource($sock)) {
+            if (! is_resource($sock)) {
                 $this->removeHandshakeConnection($peer);
                 continue;
             }
@@ -167,7 +167,7 @@ class MqttOverWsServer extends Server
 
             // 检查是否已收到完整 HTTP 请求头
             $buffer = $this->handshakeBuffers[$peer];
-            if (strpos($buffer, "\r\n\r\n") === false) {
+            if (! str_contains($buffer, "\r\n\r\n")) {
                 // 超时检测
                 if (time() - $this->lastActivity[$peer] > ($this->config['handshake_timeout'] ?? 10)) {
                     $this->logger->warning('WebSocket 握手超时', ['peer' => $peer]);
@@ -180,7 +180,7 @@ class MqttOverWsServer extends Server
             try {
                 $response = Handshake::serverResponse($buffer, [
                     'allowed_origins' => $this->config['allowed_origins'] ?? ['*'],
-                    'subprotocols'    => $this->config['subprotocols'] ?? ['mqtt'],
+                    'subprotocols' => $this->config['subprotocols'] ?? ['mqtt'],
                 ]);
                 @fwrite($sock, $response);
 
@@ -221,7 +221,7 @@ class MqttOverWsServer extends Server
                 continue;
             }
             $sock = $conn->stream();
-            if (!is_resource($sock)) {
+            if (! is_resource($sock)) {
                 $this->disconnectClient($peer, false);
                 continue;
             }
@@ -301,6 +301,7 @@ class MqttOverWsServer extends Server
                 'max' => $maxFrame,
             ]);
             $this->disconnectClient($peer, false);
+
             return null;
         }
 
@@ -379,7 +380,7 @@ class MqttOverWsServer extends Server
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         // MQTT 包 → WebSocket 二进制帧（服务端不 mask）
@@ -397,7 +398,7 @@ class MqttOverWsServer extends Server
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         @fwrite($sock, $encodedFrame);

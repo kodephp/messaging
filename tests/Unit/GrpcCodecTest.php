@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class GrpcCodecTest extends TestCase
 {
-    public function testEncode(): void
+    public function test_encode(): void
     {
         $frame = GrpcCodec::encode('hello');
         $this->assertSame(10, strlen($frame));
@@ -18,13 +18,13 @@ final class GrpcCodecTest extends TestCase
         $this->assertSame('hello', substr($frame, 5));
     }
 
-    public function testEncodeCompressedFlag(): void
+    public function test_encode_compressed_flag(): void
     {
         $frame = GrpcCodec::encode('hi', true);
         $this->assertSame(GrpcCodec::COMPRESSED, ord($frame[0]));
     }
 
-    public function testDecode(): void
+    public function test_decode(): void
     {
         $frame = GrpcCodec::encode('hello');
         $decoded = GrpcCodec::decode($frame);
@@ -34,25 +34,25 @@ final class GrpcCodecTest extends TestCase
         $this->assertSame(strlen($frame), $decoded['consumed']);
     }
 
-    public function testDecodeIncomplete(): void
+    public function test_decode_incomplete(): void
     {
         $this->assertNull(GrpcCodec::decode("\x00\x00\x00\x00\x05he"));
     }
 
-    public function testEncodeTrailers(): void
+    public function test_encode_trailers(): void
     {
         $trailers = GrpcCodec::encodeTrailers(GrpcCodec::STATUS_OK);
         $this->assertStringContainsString('grpc-status: 0', $trailers);
     }
 
-    public function testEncodeTrailersWithMessage(): void
+    public function test_encode_trailers_with_message(): void
     {
         $trailers = GrpcCodec::encodeTrailers(GrpcCodec::STATUS_INTERNAL, 'server error');
         $this->assertStringContainsString('grpc-status: 13', $trailers);
         $this->assertStringContainsString('grpc-message: server%20error', $trailers);
     }
 
-    public function testParseStatus(): void
+    public function test_parse_status(): void
     {
         $parsed = GrpcCodec::parseStatus(['grpc-status' => '0', 'grpc-message' => '']);
         $this->assertSame(GrpcCodec::STATUS_OK, $parsed['status']);

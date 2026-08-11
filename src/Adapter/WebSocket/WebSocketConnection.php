@@ -6,9 +6,10 @@ namespace Kode\Messaging\Adapter\WebSocket;
 
 use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
-use Kode\Messaging\Exception\WebSocketException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
+use Throwable;
 
 /**
  * WebSocket 连接（服务端 / 客户端共用基类）
@@ -84,6 +85,7 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
             $payload = Frame::applyMask($payload, $mask);
         }
         $first = ord($header[0]);
+
         return new Frame(
             ($first & 0x80) !== 0,
             $first & 0x0F,
@@ -102,12 +104,13 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
             }
             $buf .= $chunk;
         }
+
         return $buf;
     }
 
     public function send(mixed $payload, array $options = []): bool
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return false;
         }
         $opcode = isset($options['binary']) && $options['binary']
@@ -122,20 +125,23 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
         $written = @fwrite($this->stream, $bytes);
         if ($written === false || $written < strlen($bytes)) {
             $this->close(1011, 'write failed');
+
             return false;
         }
+
         return true;
     }
 
     public function close(int $code = 1000, string $reason = ''): void
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return;
         }
+
         try {
             $frame = Frame::close($code, $reason);
             @fwrite($this->stream, $frame->encode(masked: $this->shouldMask()));
-        } catch (\Throwable) {
+        } catch (Throwable) {
         }
         $this->open = false;
         if (is_resource($this->stream)) {
@@ -143,8 +149,8 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
         }
         foreach ($this->closeCallbacks as $cb) {
             try {
-                $cb($code === 1000 ? null : new \RuntimeException("close: {$code} {$reason}", $code));
-            } catch (\Throwable) {
+                $cb($code === 1000 ? null : new RuntimeException("close: {$code} {$reason}", $code));
+            } catch (Throwable) {
             }
         }
         $this->closeCallbacks = [];

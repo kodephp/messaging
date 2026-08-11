@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging;
 
+use InvalidArgumentException;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Client\Builder as ClientBuilder;
 use Kode\Messaging\PubSub\Bus;
@@ -30,13 +31,13 @@ final class Messaging
 {
     /** @var array<string, mixed> */
     private static array $config = [];
+
     private static ?LoggerInterface $logger = null;
+
     /** @var list<object> */
     private static array $globalMiddlewares = [];
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     /**
      * 加载全局配置。
@@ -92,6 +93,7 @@ final class Messaging
     public static function server(string $scheme, array $config = []): ServerBuilder
     {
         $scheme = self::normalizeScheme($scheme);
+
         return new ServerBuilder($scheme, $config, self::$config);
     }
 
@@ -103,28 +105,30 @@ final class Messaging
     public static function client(string $scheme, array $config = []): ClientBuilder
     {
         $scheme = self::normalizeScheme($scheme);
+
         return new ClientBuilder($scheme, $config, self::$config);
     }
 
     /**
      * 创建一个发布订阅总线。
      *
-     * @param string|null $driver memory | channel | redis
+     * @param null|string $driver memory | channel | redis
      * @param array<string, mixed> $config 驱动配置
      */
     public static function pubsub(?string $driver = null, array $config = []): Bus
     {
         $driver ??= self::$config['pubsub']['default'] ?? 'memory';
+
         return match ($driver) {
-            'redis'   => new \Kode\Messaging\PubSub\RedisBus(
+            'redis' => new PubSub\RedisBus(
                 array_replace_recursive(self::$config['pubsub']['redis'] ?? [], $config),
                 self::logger(),
             ),
-            'channel' => new \Kode\Messaging\PubSub\ChannelBus(
+            'channel' => new PubSub\ChannelBus(
                 array_replace_recursive(self::$config['pubsub']['channel'] ?? [], $config),
                 self::logger(),
             ),
-            default   => new MemoryBus($config, self::logger()),
+            default => new MemoryBus($config, self::logger()),
         };
     }
 
@@ -136,8 +140,8 @@ final class Messaging
     public static function parseUrl(string $url): array
     {
         $parts = parse_url($url);
-        if ($parts === false || !isset($parts['scheme'])) {
-            throw new \InvalidArgumentException("无法解析 URL: {$url}");
+        if ($parts === false || ! isset($parts['scheme'])) {
+            throw new InvalidArgumentException("无法解析 URL: {$url}");
         }
         $scheme = strtolower($parts['scheme']);
         // ws / wss 归一为 ws，tls 由后缀 s 决定
@@ -146,22 +150,23 @@ final class Messaging
         if (str_ends_with($scheme, 's') && in_array($scheme, ['wss', 'mqtts', 'https'], true)) {
             $tls = true;
             $base = match ($scheme) {
-                'wss'    => 'ws',
-                'mqtts'  => 'mqtt',
-                'https'  => 'sse',
+                'wss' => 'ws',
+                'mqtts' => 'mqtt',
+                'https' => 'sse',
             };
         }
         $query = [];
         if (isset($parts['query'])) {
             parse_str($parts['query'], $query);
         }
+
         return [
             'scheme' => $base,
-            'host'   => $parts['host'] ?? '0.0.0.0',
-            'port'   => $parts['port'] ?? self::defaultPort($base, $tls),
-            'path'   => $parts['path'] ?? '/',
-            'query'  => $query,
-            'tls'    => $tls,
+            'host' => $parts['host'] ?? '0.0.0.0',
+            'port' => $parts['port'] ?? self::defaultPort($base, $tls),
+            'path' => $parts['path'] ?? '/',
+            'query' => $query,
+            'tls' => $tls,
         ];
     }
 
@@ -171,19 +176,19 @@ final class Messaging
     public static function defaultPort(string $scheme, bool $tls = false): int
     {
         return match ($scheme) {
-            'ws'           => $tls ? 443 : 80,
-            'mqtt'         => $tls ? 8883 : 1883,
-            'mqtt+ws'      => $tls ? 8443 : 8083,
-            'sse'          => 8081,
-            'udp'          => 8082,
+            'ws' => $tls ? 443 : 80,
+            'mqtt' => $tls ? 8883 : 1883,
+            'mqtt+ws' => $tls ? 8443 : 8083,
+            'sse' => 8081,
+            'udp' => 8082,
             'long-polling' => 8083,
-            'coap'         => $tls ? 5684 : 5683,
-            'nats'         => 4222,
-            'stomp'        => 61613,
-            'grpc'         => 50051,
+            'coap' => $tls ? 5684 : 5683,
+            'nats' => 4222,
+            'stomp' => 61613,
+            'grpc' => 50051,
             'webtransport' => 4433,
-            'rtmp'         => 1935,
-            default        => 0,
+            'rtmp' => 1935,
+            default => 0,
         };
     }
 
@@ -193,27 +198,28 @@ final class Messaging
     public static function normalizeScheme(string $scheme): string
     {
         $scheme = strtolower(trim($scheme));
+
         return match (true) {
             in_array($scheme, ['ws', 'wss', 'websocket', 'websockets'], true) => 'ws',
-            in_array($scheme, ['sse', 'eventsource', 'event-stream'], true)   => 'sse',
-            in_array($scheme, ['mqtt', 'mqtts', 'mqttv3', 'mqttv5'], true)    => 'mqtt',
+            in_array($scheme, ['sse', 'eventsource', 'event-stream'], true) => 'sse',
+            in_array($scheme, ['mqtt', 'mqtts', 'mqttv3', 'mqttv5'], true) => 'mqtt',
             in_array($scheme, ['mqtt+ws', 'mqtt+wss', 'ws+mqtt', 'wss+mqtt'], true) => 'mqtt+ws',
-            in_array($scheme, ['udp', 'datagram', 'dgram'], true)             => 'udp',
+            in_array($scheme, ['udp', 'datagram', 'dgram'], true) => 'udp',
             in_array($scheme, ['poll', 'long-polling', 'longpolling', 'lp'], true) => 'long-polling',
-            in_array($scheme, ['coap', 'coaps'], true)                       => 'coap',
-            in_array($scheme, ['nats', 'nats://'], true)                     => 'nats',
-            in_array($scheme, ['stomp', 'stomps'], true)                     => 'stomp',
-            in_array($scheme, ['grpc', 'grpc-web', 'grpcweb'], true)          => 'grpc',
-            in_array($scheme, ['webtransport', 'wt'], true)                   => 'webtransport',
-            in_array($scheme, ['rtmp', 'rtmps'], true)                       => 'rtmp',
-            default                                                           => $scheme,
+            in_array($scheme, ['coap', 'coaps'], true) => 'coap',
+            in_array($scheme, ['nats', 'nats://'], true) => 'nats',
+            in_array($scheme, ['stomp', 'stomps'], true) => 'stomp',
+            in_array($scheme, ['grpc', 'grpc-web', 'grpcweb'], true) => 'grpc',
+            in_array($scheme, ['webtransport', 'wt'], true) => 'webtransport',
+            in_array($scheme, ['rtmp', 'rtmps'], true) => 'rtmp',
+            default => $scheme,
         };
     }
 
     /**
      * 注册协议适配器（业务方扩展协议时调用）。
      *
-     * @param class-string<\Kode\Messaging\Contract\AdapterInterface> $adapterClass
+     * @param class-string<Contract\AdapterInterface> $adapterClass
      */
     public static function register(string $scheme, string $adapterClass): void
     {

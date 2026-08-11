@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kode\Messaging\Tests\Unit\_fixtures;
 
 use Kode\Messaging\Adapter\AbstractAdapter;
-use Kode\Messaging\Connection\Connection;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Psr\Log\LoggerInterface;
 
@@ -21,6 +20,7 @@ use Psr\Log\LoggerInterface;
 final class InMemoryAdapter extends AbstractAdapter
 {
     public static int $connectCount = 0;
+
     public static int $lastPublishCount = 0;
 
     public function __construct(?LoggerInterface $logger = null)
@@ -38,23 +38,20 @@ final class InMemoryAdapter extends AbstractAdapter
         return 'test-1.0';
     }
 
-    public function listen(string $host, int $port): void
-    {
-    }
+    public function listen(string $host, int $port): void {}
 
     public function connect(array $config): ConnectionInterface
     {
         self::$connectCount++;
+
         return new FakeConnection(
-            connId: 'test-' . self::$connectCount,
+            connId: 'test-'.self::$connectCount,
             protocol: 'test-bld',
             remoteAddress: '127.0.0.1:0',
         );
     }
 
-    public function run(): void
-    {
-    }
+    public function run(): void {}
 
     public function subscribe(string $topic, callable $handler, mixed $extra = null): mixed
     {

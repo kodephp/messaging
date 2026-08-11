@@ -37,8 +37,9 @@ final class Publish
         if ($qos > 0) {
             $varHeader .= Codec::encodeUint16($packetId);
         }
-        $body = $varHeader . $payload;
-        return Codec::encodeFixedHeader(PacketType::PUBLISH, $flags, strlen($body)) . $body;
+        $body = $varHeader.$payload;
+
+        return Codec::encodeFixedHeader(PacketType::PUBLISH, $flags, strlen($body)).$body;
     }
 
     /**
@@ -63,11 +64,11 @@ final class Publish
         $payload = substr($body, $offset);
 
         return [
-            'topic'     => $topic,
-            'payload'   => $payload,
-            'qos'       => $qos,
-            'retain'    => $retain,
-            'dup'       => $dup,
+            'topic' => $topic,
+            'payload' => $payload,
+            'qos' => $qos,
+            'retain' => $retain,
+            'dup' => $dup,
             'packet_id' => $packetId,
             'remaining' => $payload,
         ];

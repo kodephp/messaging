@@ -8,6 +8,7 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\StompException;
+use LogicException;
 
 /**
  * STOMP 客户端
@@ -23,12 +24,16 @@ use Kode\Messaging\Exception\StompException;
  */
 final class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
+
     private ?StompConnection $conn = null;
+
     private string $buffer = '';
+
     /** @var array<string, string> subscription-id → destination */
     private array $subs = [];
+
     private int $nextSubId = 1;
 
     public static function scheme(): string
@@ -44,10 +49,10 @@ final class Client extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'version'      => '1.2',
-            'login'        => null,
-            'passcode'     => null,
-            'client_id'    => null,
+            'version' => '1.2',
+            'login' => null,
+            'passcode' => null,
+            'client_id' => null,
             'heartbeat_ms' => 10_000,
         ];
     }
@@ -55,10 +60,10 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 61613);
-        $tls  = (bool)($config['tls'] ?? false);
+        $port = (int) ($config['port'] ?? 61613);
+        $tls = (bool) ($config['tls'] ?? false);
 
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
         $errno = 0;
         $errstr = '';
         $this->stream = @stream_socket_client($remote, $errno, $errstr, 5.0, STREAM_CLIENT_CONNECT);
@@ -70,14 +75,14 @@ final class Client extends AbstractAdapter
         $headers = [
             'host' => $host,
         ];
-        if (!empty($config['login'])) {
-            $headers['login'] = (string)$config['login'];
+        if (! empty($config['login'])) {
+            $headers['login'] = (string) $config['login'];
         }
-        if (!empty($config['passcode'])) {
-            $headers['passcode'] = (string)$config['passcode'];
+        if (! empty($config['passcode'])) {
+            $headers['passcode'] = (string) $config['passcode'];
         }
-        if (!empty($config['client_id'])) {
-            $headers['client-id'] = (string)$config['client_id'];
+        if (! empty($config['client_id'])) {
+            $headers['client-id'] = (string) $config['client_id'];
         }
 
         fwrite($this->stream, StompCodec::encodeStomp($headers));
@@ -88,12 +93,13 @@ final class Client extends AbstractAdapter
             stream_socket_get_name($this->stream, true) ?: "{$host}:{$port}",
             $this->stream,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('STOMP Client 不支持 listen()');
+        throw new LogicException('STOMP Client 不支持 listen()');
     }
 
     public function run(): void
@@ -106,7 +112,7 @@ final class Client extends AbstractAdapter
 
     private function readLoop(): void
     {
-        while (!feof($this->stream)) {
+        while (! feof($this->stream)) {
             $chunk = @fread($this->stream, 4096);
             if ($chunk === false || $chunk === '') {
                 usleep(10_000);
@@ -145,7 +151,7 @@ final class Client extends AbstractAdapter
                 // receipt-id 关联回执
                 break;
             case StompCodec::COMMAND_ERROR:
-                $this->logger->error('STOMP ERROR: ' . ($headers['message'] ?? '') . ' / ' . $body);
+                $this->logger->error('STOMP ERROR: '.($headers['message'] ?? '').' / '.$body);
                 break;
             default:
                 $this->logger->debug("STOMP 未知命令: {$command}");
@@ -169,10 +175,11 @@ final class Client extends AbstractAdapter
      */
     public function subscribe(string $destination, callable $handler, array $headers = []): string
     {
-        $subId = 'sub-' . $this->nextSubId++;
+        $subId = 'sub-'.$this->nextSubId++;
         @fwrite($this->stream, StompCodec::encodeSubscribe($destination, $subId, $headers));
         $this->subs[$subId] = $destination;
         $this->conn?->addSubscriptionHandler($subId, $handler);
+
         return $subId;
     }
 

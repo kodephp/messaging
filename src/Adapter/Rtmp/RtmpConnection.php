@@ -12,7 +12,9 @@ use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
 class RtmpConnection extends WebSocketConnection
 {
     private int $chunkSizeIn = 128;
+
     private int $chunkSizeOut = 128;
+
     /** @var array<int, array{timestamp:int, messageLength:int, messageType:int, messageStreamId:int, buffer:string, fmt:int}> */
     private array $chunkStates = [];
 
@@ -62,20 +64,21 @@ class RtmpConnection extends WebSocketConnection
             $fmt = $first ? RtmpChunk::FMT_FULL : RtmpChunk::FMT_CONTINUATION;
             $ts = $first ? $timestamp : $timestamp; // 时间戳：只在首片携带
             $packet = RtmpChunk::encodeBasicHeader($fmt, $csid)
-                . RtmpChunk::encodeMessageHeader(
+                .RtmpChunk::encodeMessageHeader(
                     $fmt,
                     $ts,
                     $len,
                     $messageType,
                     $messageStreamId,
                 )
-                . $piece;
+                .$piece;
             $written = @fwrite($this->stream, $packet);
             if ($written === false || $written < strlen($packet)) {
                 return false;
             }
             $first = false;
         }
+
         return true;
     }
 
@@ -119,27 +122,28 @@ class RtmpConnection extends WebSocketConnection
             }
             $piece = substr($buffer, $offset, $toRead);
             $offset += $toRead;
-            $newBuffer = ($state['buffer'] ?? '') . $piece;
+            $newBuffer = ($state['buffer'] ?? '').$piece;
             if (strlen($newBuffer) >= $mh['messageLength']) {
                 $messages[] = [
-                    'csid'      => $csid,
-                    'type'      => $mh['messageType'],
+                    'csid' => $csid,
+                    'type' => $mh['messageType'],
                     'timestamp' => $mh['timestamp'],
-                    'body'      => $newBuffer,
+                    'body' => $newBuffer,
                 ];
                 $this->clearChunkState($csid);
             } else {
                 $this->setChunkState($csid, [
-                    'timestamp'       => $mh['timestamp'],
-                    'messageLength'   => $mh['messageLength'],
-                    'messageType'     => $mh['messageType'],
+                    'timestamp' => $mh['timestamp'],
+                    'messageLength' => $mh['messageLength'],
+                    'messageType' => $mh['messageType'],
                     'messageStreamId' => $mh['messageStreamId'],
-                    'buffer'          => $newBuffer,
-                    'fmt'             => $fmt,
+                    'buffer' => $newBuffer,
+                    'fmt' => $fmt,
                 ]);
             }
         }
         $consumed = $offset;
+
         return $messages;
     }
 

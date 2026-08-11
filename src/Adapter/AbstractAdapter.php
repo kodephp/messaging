@@ -24,11 +24,17 @@ use Psr\Log\NullLogger;
 abstract class AbstractAdapter implements AdapterInterface
 {
     protected array $config = [];
+
     protected LoggerInterface $logger;
+
     protected bool $running = false;
+
     protected string $host = '0.0.0.0';
+
     protected int $port = 0;
+
     protected ?TransportInterface $transport = null;
+
     protected ?BusInterface $bus = null;
 
     public function __construct(?LoggerInterface $logger = null)

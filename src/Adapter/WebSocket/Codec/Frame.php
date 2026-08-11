@@ -22,8 +22,7 @@ final class Frame
         public readonly int $opcode,
         public readonly string $payload,
         public readonly bool $masked = false,
-    ) {
-    }
+    ) {}
 
     /**
      * 应用 4 字节掩码（RFC 6455 §5.3）。
@@ -38,6 +37,7 @@ final class Frame
         if ($payload === '' || $mask === '') {
             return $payload;
         }
+
         return $payload ^ str_pad('', strlen($payload), $mask);
     }
 
@@ -57,23 +57,24 @@ final class Frame
         if ($len < 126) {
             $header .= chr($secondByte | $len);
         } elseif ($len <= 0xFFFF) {
-            $header .= chr($secondByte | 126) . pack('n', $len);
+            $header .= chr($secondByte | 126).pack('n', $len);
         } else {
-            $header .= chr($secondByte | 127) . pack('J', $len);
+            $header .= chr($secondByte | 127).pack('J', $len);
         }
 
         if ($masked) {
             $mask = random_bytes(4);
-            return $header . $mask . self::applyMask($payload, $mask);
+
+            return $header.$mask.self::applyMask($payload, $mask);
         }
 
-        return $header . $payload;
+        return $header.$payload;
     }
 
     /**
      * 从字节流中解码一帧（不处理跨帧合并）。
      *
-     * @param int|null $maxPayload 载荷上限（字节）；超过则抛异常。
+     * @param null|int $maxPayload 载荷上限（字节）；超过则抛异常。
      *                             null = 不限制（保持向后兼容），生产环境建议显式传入以防内存耗尽攻击。
      */
     public static function decode(string $data, bool $mustMask = true, ?int $maxPayload = null): self
@@ -88,10 +89,10 @@ final class Frame
         $opcode = $first & 0x0F;
         $masked = ($second & 0x80) !== 0;
 
-        if ($mustMask && !$masked) {
+        if ($mustMask && ! $masked) {
             throw WebSocketException::invalidFrame('客户端帧必须 mask', []);
         }
-        if (!$mustMask && $masked) {
+        if (! $mustMask && $masked) {
             throw WebSocketException::invalidFrame('服务端帧不应 mask', []);
         }
 
@@ -117,7 +118,7 @@ final class Frame
 
         // 控制帧约束（RFC 6455 §5.5）：不可分片，且载荷 ≤ 125 字节
         if ($opcode >= 0x8) {
-            if (!$fin) {
+            if (! $fin) {
                 throw WebSocketException::invalidFrame('控制帧不可分片', ['opcode' => $opcode]);
             }
             if ($len > self::MAX_CONTROL_PAYLOAD) {
@@ -172,7 +173,8 @@ final class Frame
         if (strlen($reason) > self::MAX_CONTROL_PAYLOAD - 2) {
             $reason = substr($reason, 0, self::MAX_CONTROL_PAYLOAD - 2);
         }
-        $payload = pack('n', $code) . $reason;
+        $payload = pack('n', $code).$reason;
+
         return new self(true, OpCode::CLOSE, $payload);
     }
 

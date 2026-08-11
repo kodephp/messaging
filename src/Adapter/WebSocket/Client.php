@@ -6,13 +6,11 @@ namespace Kode\Messaging\Adapter\WebSocket;
 
 use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
-use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\Handshake;
-use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
 use Kode\Messaging\Client\Builder as ClientBuilder;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\WebSocketException;
-use Kode\Messaging\Message\Message;
+use LogicException;
 
 /**
  * WebSocket 客户端适配器
@@ -32,13 +30,13 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 80);
+        $port = (int) ($config['port'] ?? 80);
         $path = $config['path'] ?? '/';
-        $tls  = (bool)($config['tls'] ?? false);
+        $tls = (bool) ($config['tls'] ?? false);
 
         $errno = 0;
         $errstr = '';
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
         $socket = @stream_socket_client(
             $remote,
             $errno,
@@ -64,25 +62,28 @@ final class Client extends AbstractAdapter
 
         $response = '';
         $deadline = microtime(true) + 10;
-        while (strpos($response, "\r\n\r\n") === false && microtime(true) < $deadline) {
+        while (! str_contains($response, "\r\n\r\n") && microtime(true) < $deadline) {
             $chunk = @fread($socket, 2048);
             if ($chunk === false || $chunk === '') {
                 break;
             }
             $response .= $chunk;
         }
-        if (strpos($response, "\r\n\r\n") === false) {
+        if (! str_contains($response, "\r\n\r\n")) {
             @fclose($socket);
+
             throw new WebSocketException('握手超时', 5002);
         }
 
         // 验证响应（accept 用 key 计算）
         if (preg_match('/Sec-WebSocket-Key:\s*(\S+)/i', $request, $km) === 1) {
             $expected = Handshake::acceptKey($km[1]);
+
             try {
                 Handshake::verifyServer($response, ['expected_accept' => $expected]);
             } catch (WebSocketException $e) {
                 @fclose($socket);
+
                 throw $e;
             }
         }
@@ -98,7 +99,7 @@ final class Client extends AbstractAdapter
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('Client 适配器不支持 listen()');
+        throw new LogicException('Client 适配器不支持 listen()');
     }
 
     public function run(): void

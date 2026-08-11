@@ -21,13 +21,11 @@ use Kode\Messaging\Exception\MessagingException;
  */
 final class BearerAuthMiddleware implements MiddlewareInterface
 {
-    /** @var callable $validator */
+    /** @var callable */
     private $validator;
 
     /**
      * 接受返回 bool 或用户标识（string）的 callable，或 AuthenticatorInterface 实例。
-     *
-     * @param callable|AuthenticatorInterface $validator
      */
     public function __construct(callable|AuthenticatorInterface $validator)
     {
@@ -48,6 +46,7 @@ final class BearerAuthMiddleware implements MiddlewareInterface
         if ($result === false || $result === '' || $result === null) {
             throw new MessagingException('Bearer Token 校验失败', 4001);
         }
+
         return $next($message);
     }
 
@@ -66,6 +65,7 @@ final class BearerAuthMiddleware implements MiddlewareInterface
         if (isset($headers['sec-websocket-protocol'])) {
             return $headers['sec-websocket-protocol'];
         }
+
         return null;
     }
 }

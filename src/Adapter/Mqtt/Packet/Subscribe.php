@@ -15,10 +15,11 @@ final class Subscribe
         $varHeader = Codec::encodeUint16($packetId);
         $payload = '';
         foreach ($topics as $t) {
-            $payload .= Codec::encodeString((string)$t['topic']);
-            $payload .= Codec::encodeUint8((int)($t['qos'] ?? 0));
+            $payload .= Codec::encodeString((string) $t['topic']);
+            $payload .= Codec::encodeUint8((int) ($t['qos'] ?? 0));
         }
-        $body = $varHeader . $payload;
-        return Codec::encodeFixedHeader(PacketType::SUBSCRIBE, 0x02, strlen($body)) . $body;
+        $body = $varHeader.$payload;
+
+        return Codec::encodeFixedHeader(PacketType::SUBSCRIBE, 0x02, strlen($body)).$body;
     }
 }

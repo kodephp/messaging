@@ -23,23 +23,23 @@ use Kode\Messaging\Exception\StompException;
 final class StompCodec
 {
     public const NULL = "\x00";
-    public const LF   = "\n";
+    public const LF = "\n";
 
-    public const COMMAND_CONNECT      = 'CONNECT';
-    public const COMMAND_STOMP        = 'STOMP';
-    public const COMMAND_DISCONNECT   = 'DISCONNECT';
-    public const COMMAND_SEND         = 'SEND';
-    public const COMMAND_SUBSCRIBE    = 'SUBSCRIBE';
-    public const COMMAND_UNSUBSCRIBE  = 'UNSUBSCRIBE';
-    public const COMMAND_ACK          = 'ACK';
-    public const COMMAND_NACK         = 'NACK';
-    public const COMMAND_BEGIN        = 'BEGIN';
-    public const COMMAND_COMMIT       = 'COMMIT';
-    public const COMMAND_ABORT        = 'ABORT';
-    public const COMMAND_CONNECTED    = 'CONNECTED';
-    public const COMMAND_MESSAGE      = 'MESSAGE';
-    public const COMMAND_RECEIPT      = 'RECEIPT';
-    public const COMMAND_ERROR        = 'ERROR';
+    public const COMMAND_CONNECT = 'CONNECT';
+    public const COMMAND_STOMP = 'STOMP';
+    public const COMMAND_DISCONNECT = 'DISCONNECT';
+    public const COMMAND_SEND = 'SEND';
+    public const COMMAND_SUBSCRIBE = 'SUBSCRIBE';
+    public const COMMAND_UNSUBSCRIBE = 'UNSUBSCRIBE';
+    public const COMMAND_ACK = 'ACK';
+    public const COMMAND_NACK = 'NACK';
+    public const COMMAND_BEGIN = 'BEGIN';
+    public const COMMAND_COMMIT = 'COMMIT';
+    public const COMMAND_ABORT = 'ABORT';
+    public const COMMAND_CONNECTED = 'CONNECTED';
+    public const COMMAND_MESSAGE = 'MESSAGE';
+    public const COMMAND_RECEIPT = 'RECEIPT';
+    public const COMMAND_ERROR = 'ERROR';
 
     /**
      * 编码一个 STOMP 帧。
@@ -48,20 +48,21 @@ final class StompCodec
      */
     public static function encodeFrame(string $command, array $headers, string $body = ''): string
     {
-        $buf = $command . self::LF;
+        $buf = $command.self::LF;
         foreach ($headers as $k => $v) {
             // 头部值必须不含 \n 或 \r
-            $v = strtr((string)$v, ["\n" => '', "\r" => '']);
-            $buf .= "{$k}:{$v}" . self::LF;
+            $v = strtr((string) $v, ["\n" => '', "\r" => '']);
+            $buf .= "{$k}:{$v}".self::LF;
         }
-        $buf .= self::LF . $body . self::NULL;
+        $buf .= self::LF.$body.self::NULL;
+
         return $buf;
     }
 
     /**
      * 解码一个 STOMP 帧。
      *
-     * @return array{command: string, headers: array<string, string>, body: string, consumed: int}|null
+     * @return null|array{command: string, headers: array<string, string>, body: string, consumed: int}
      */
     public static function decodeFrame(string $buffer, int $offset = 0): ?array
     {
@@ -73,7 +74,7 @@ final class StompCodec
         $consumed = $nullPos - $offset + 1;
 
         // 用双重换行（空行）分隔 headers 与 body
-        $emptyLine = strpos($frameStr, self::LF . self::LF);
+        $emptyLine = strpos($frameStr, self::LF.self::LF);
         if ($emptyLine === false) {
             throw StompException::parseFailed('帧缺少空行分隔', ['raw' => substr($frameStr, 0, 64)]);
         }
@@ -81,7 +82,7 @@ final class StompCodec
         $body = substr($frameStr, $emptyLine + 2);
 
         $lines = explode(self::LF, $head);
-        $command = trim((string)array_shift($lines));
+        $command = trim((string) array_shift($lines));
 
         $headers = [];
         foreach ($lines as $line) {
@@ -98,9 +99,9 @@ final class StompCodec
         }
 
         return [
-            'command'  => $command,
-            'headers'  => $headers,
-            'body'     => $body,
+            'command' => $command,
+            'headers' => $headers,
+            'body' => $body,
             'consumed' => $consumed,
         ];
     }
@@ -114,10 +115,11 @@ final class StompCodec
     {
         $default = [
             'accept-version' => '1.0,1.1,1.2',
-            'host'           => 'localhost',
-            'heart-beat'     => '10000,10000',
+            'host' => 'localhost',
+            'heart-beat' => '10000,10000',
         ];
         $headers = array_replace($default, $headers);
+
         return self::encodeFrame(self::COMMAND_CONNECT, $headers);
     }
 
@@ -130,10 +132,11 @@ final class StompCodec
     {
         $default = [
             'accept-version' => '1.2',
-            'host'           => 'localhost',
-            'heart-beat'     => '10000,10000',
+            'host' => 'localhost',
+            'heart-beat' => '10000,10000',
         ];
         $headers = array_replace($default, $headers);
+
         return self::encodeFrame(self::COMMAND_STOMP, $headers);
     }
 
@@ -145,10 +148,11 @@ final class StompCodec
     public static function encodeSubscribe(string $destination, string $subscriptionId, array $headers = []): string
     {
         $headers = array_replace([
-            'id'              => $subscriptionId,
-            'destination'     => $destination,
-            'ack'             => 'auto',
+            'id' => $subscriptionId,
+            'destination' => $destination,
+            'ack' => 'auto',
         ], $headers);
+
         return self::encodeFrame(self::COMMAND_SUBSCRIBE, $headers);
     }
 
@@ -161,8 +165,9 @@ final class StompCodec
     {
         $headers = array_replace([
             'destination' => $destination,
-            'content-length' => (string)strlen($body),
+            'content-length' => (string) strlen($body),
         ], $headers);
+
         return self::encodeFrame(self::COMMAND_SEND, $headers, $body);
     }
 
@@ -176,6 +181,7 @@ final class StompCodec
         $headers = array_replace([
             'id' => $subscriptionId,
         ], $headers);
+
         return self::encodeFrame(self::COMMAND_UNSUBSCRIBE, $headers);
     }
 
@@ -187,6 +193,7 @@ final class StompCodec
     public static function encodeAck(string $messageId, array $headers = []): string
     {
         $headers = array_replace(['id' => $messageId], $headers);
+
         return self::encodeFrame(self::COMMAND_ACK, $headers);
     }
 
@@ -208,11 +215,12 @@ final class StompCodec
     public static function encodeConnected(array $headers = []): string
     {
         $headers = array_replace([
-            'version'    => '1.2',
-            'session'    => 'kode-' . bin2hex(random_bytes(4)),
-            'server'     => 'kode-messaging/1.0',
+            'version' => '1.2',
+            'session' => 'kode-'.bin2hex(random_bytes(4)),
+            'server' => 'kode-messaging/1.0',
             'heart-beat' => '10000,10000',
         ], $headers);
+
         return self::encodeFrame(self::COMMAND_CONNECTED, $headers);
     }
 
@@ -224,11 +232,12 @@ final class StompCodec
     public static function encodeMessage(string $destination, string $messageId, string $subscriptionId, string $body, array $headers = []): string
     {
         $headers = array_replace([
-            'destination'   => $destination,
-            'message-id'    => $messageId,
-            'subscription'  => $subscriptionId,
-            'content-length' => (string)strlen($body),
+            'destination' => $destination,
+            'message-id' => $messageId,
+            'subscription' => $subscriptionId,
+            'content-length' => (string) strlen($body),
         ], $headers);
+
         return self::encodeFrame(self::COMMAND_MESSAGE, $headers, $body);
     }
 
@@ -240,6 +249,7 @@ final class StompCodec
     public static function encodeError(string $message, array $headers = []): string
     {
         $headers['message'] = $message;
+
         return self::encodeFrame(self::COMMAND_ERROR, $headers, $message);
     }
 }

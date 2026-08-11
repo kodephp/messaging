@@ -18,14 +18,14 @@ namespace Kode\Messaging\Exception;
  */
 class WebSocketException extends MessagingException
 {
-    public const CODE_NORMAL              = 1000;
-    public const CODE_GOING_AWAY          = 1001;
-    public const CODE_PROTOCOL_ERROR      = 1002;
-    public const CODE_UNSUPPORTED_DATA    = 1003;
-    public const CODE_INVALID_PAYLOAD     = 1007;
-    public const CODE_POLICY_VIOLATION    = 1008;
-    public const CODE_MESSAGE_TOO_BIG     = 1009;
-    public const CODE_INTERNAL_ERROR      = 1011;
+    public const CODE_NORMAL = 1000;
+    public const CODE_GOING_AWAY = 1001;
+    public const CODE_PROTOCOL_ERROR = 1002;
+    public const CODE_UNSUPPORTED_DATA = 1003;
+    public const CODE_INVALID_PAYLOAD = 1007;
+    public const CODE_POLICY_VIOLATION = 1008;
+    public const CODE_MESSAGE_TOO_BIG = 1009;
+    public const CODE_INTERNAL_ERROR = 1011;
 
     public static function handshakeFailed(string $reason, array $context = []): self
     {

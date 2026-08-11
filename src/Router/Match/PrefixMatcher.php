@@ -16,12 +16,12 @@ final class PrefixMatcher implements MatcherInterface
 
     public function __construct(private readonly string $pattern)
     {
-        $this->regex = '#^' . str_replace('\\*', '.*', preg_quote($this->pattern, '#')) . '$#';
+        $this->regex = '#^'.str_replace('\\*', '.*', preg_quote($this->pattern, '#')).'$#';
     }
 
     public function match(string $subject): bool
     {
-        return (bool)preg_match($this->regex, $subject);
+        return (bool) preg_match($this->regex, $subject);
     }
 
     /**

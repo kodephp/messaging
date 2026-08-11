@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * gRPC Streaming 服务端示例
@@ -8,7 +8,7 @@
  * 运行：php examples/grpc_server.php
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\Grpc\Server as GrpcServer;
 use Kode\Messaging\Messaging;
@@ -20,6 +20,7 @@ $adapter = $server->adapter();
 $adapter->registerMethod('/helloworld.Greeter/SayHello', function (string $payload, array $meta): string {
     $req = json_decode($payload, true);
     $name = $req['name'] ?? 'World';
+
     return json_encode(['message' => "Hello, {$name}"]);
 });
 

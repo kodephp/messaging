@@ -15,7 +15,7 @@ class AdapterNotFoundException extends MessagingException
             "协议适配器未注册: {$scheme}",
             4040,
             [
-                'scheme'     => $scheme,
+                'scheme' => $scheme,
                 'registered' => $registered,
             ],
         );

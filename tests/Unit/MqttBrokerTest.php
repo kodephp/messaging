@@ -11,6 +11,7 @@ use Kode\Messaging\Adapter\Mqtt\Packet\Publish;
 use Kode\Messaging\Adapter\Mqtt\Packet\Subscribe;
 use Kode\Messaging\Adapter\Mqtt\Server;
 use Kode\Messaging\Adapter\Registry;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -30,13 +31,13 @@ final class MqttBrokerTest extends TestCase
     // 1. 主题匹配测试
     // ============================================================
 
-    public function testMatchTopicExact(): void
+    public function test_match_topic_exact(): void
     {
         $this->assertTrue(Server::matchTopic('sport/tennis', 'sport/tennis'));
         $this->assertFalse(Server::matchTopic('sport/tennis', 'sport/football'));
     }
 
-    public function testMatchTopicSingleLevelWildcard(): void
+    public function test_match_topic_single_level_wildcard(): void
     {
         // + 匹配恰好一个层级
         $this->assertTrue(Server::matchTopic('sport/+/player', 'sport/tennis/player'));
@@ -45,7 +46,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertFalse(Server::matchTopic('sport/+/player', 'sport/tennis'));
     }
 
-    public function testMatchTopicMultiLevelWildcard(): void
+    public function test_match_topic_multi_level_wildcard(): void
     {
         // # 匹配零个或多个层级，必须位于末尾
         $this->assertTrue(Server::matchTopic('sport/#', 'sport'));
@@ -55,14 +56,14 @@ final class MqttBrokerTest extends TestCase
         $this->assertFalse(Server::matchTopic('sport/#', 'sports/tennis'));
     }
 
-    public function testMatchTopicCombinedWildcards(): void
+    public function test_match_topic_combined_wildcards(): void
     {
         $this->assertTrue(Server::matchTopic('+/tennis/#', 'sport/tennis/player1/ranking'));
         $this->assertTrue(Server::matchTopic('+/tennis/#', 'sport/tennis'));
         $this->assertFalse(Server::matchTopic('+/tennis/#', 'sport/football/player1'));
     }
 
-    public function testMatchTopicHashOnly(): void
+    public function test_match_topic_hash_only(): void
     {
         // # 单独使用匹配所有主题
         $this->assertTrue(Server::matchTopic('#', 'sport'));
@@ -70,14 +71,14 @@ final class MqttBrokerTest extends TestCase
         $this->assertTrue(Server::matchTopic('#', ''));
     }
 
-    public function testMatchTopicPlusOnly(): void
+    public function test_match_topic_plus_only(): void
     {
         // + 单独使用匹配恰好一个层级
         $this->assertTrue(Server::matchTopic('+', 'sport'));
         $this->assertFalse(Server::matchTopic('+', 'sport/tennis'));
     }
 
-    public function testMatchTopicLeadingSlash(): void
+    public function test_match_topic_leading_slash(): void
     {
         // MQTT 主题不应以 / 开头，但算法应正确处理空层级
         $this->assertTrue(Server::matchTopic('/sport/#', '/sport/tennis'));
@@ -88,7 +89,7 @@ final class MqttBrokerTest extends TestCase
     // 2. 包编码/解码测试
     // ============================================================
 
-    public function testEncodeConnackAccepted(): void
+    public function test_encode_connack_accepted(): void
     {
         $packet = Server::encodeConnack(0, false);
         // CONNACK 类型 = 2，左移 4 位 = 0x20
@@ -101,7 +102,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(0, ord($packet[3]));
     }
 
-    public function testEncodeConnackSessionPresent(): void
+    public function test_encode_connack_session_present(): void
     {
         $packet = Server::encodeConnack(0, true);
         // session present = true → Ack Flags = 0x01
@@ -109,14 +110,14 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(0, ord($packet[3]));
     }
 
-    public function testEncodeConnackRejected(): void
+    public function test_encode_connack_rejected(): void
     {
         $packet = Server::encodeConnack(5); // Not Authorized
         $this->assertSame(0x20, ord($packet[0]));
         $this->assertSame(5, ord($packet[3]));
     }
 
-    public function testEncodeSuback(): void
+    public function test_encode_suback(): void
     {
         $packet = Server::encodeSuback(42, [0, 1, 2]);
         // SUBACK 类型 = 9，左移 4 位 = 0x90
@@ -131,13 +132,13 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, ord($packet[6]));
     }
 
-    public function testEncodeSubackFailure(): void
+    public function test_encode_suback_failure(): void
     {
         $packet = Server::encodeSuback(1, [128]);
         $this->assertSame(128, ord($packet[4]));
     }
 
-    public function testEncodePuback(): void
+    public function test_encode_puback(): void
     {
         $packet = Server::encodePuback(100);
         // PUBACK 类型 = 4，左移 4 位 = 0x40
@@ -146,7 +147,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(100, unpack('n', substr($packet, 2, 2))[1]);
     }
 
-    public function testEncodePubrec(): void
+    public function test_encode_pubrec(): void
     {
         $packet = Server::encodePubrec(200);
         // PUBREC 类型 = 5，左移 4 位 = 0x50
@@ -154,7 +155,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(200, unpack('n', substr($packet, 2, 2))[1]);
     }
 
-    public function testEncodePubrel(): void
+    public function test_encode_pubrel(): void
     {
         $packet = Server::encodePubrel(300);
         // PUBREL 类型 = 6，左移 4 位 + flags 0x02 = 0x62
@@ -162,7 +163,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(300, unpack('n', substr($packet, 2, 2))[1]);
     }
 
-    public function testEncodePubcomp(): void
+    public function test_encode_pubcomp(): void
     {
         $packet = Server::encodePubcomp(400);
         // PUBCOMP 类型 = 7，左移 4 位 = 0x70
@@ -170,7 +171,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(400, unpack('n', substr($packet, 2, 2))[1]);
     }
 
-    public function testEncodeUnsuback(): void
+    public function test_encode_unsuback(): void
     {
         $packet = Server::encodeUnsuback(500);
         // UNSUBACK 类型 = 11，左移 4 位 = 0xB0
@@ -178,7 +179,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(500, unpack('n', substr($packet, 2, 2))[1]);
     }
 
-    public function testEncodePingresp(): void
+    public function test_encode_pingresp(): void
     {
         $packet = Server::encodePingresp();
         // PINGRESP 类型 = 13，左移 4 位 = 0xD0
@@ -187,7 +188,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, strlen($packet));
     }
 
-    public function testEncodeDisconnect(): void
+    public function test_encode_disconnect(): void
     {
         $packet = Server::encodeDisconnect();
         // DISCONNECT 类型 = 14，左移 4 位 = 0xE0
@@ -196,7 +197,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, strlen($packet));
     }
 
-    public function testDecodeConnectBasic(): void
+    public function test_decode_connect_basic(): void
     {
         $packet = Connect::encode(
             clientId: 'client-001',
@@ -224,7 +225,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertNull($info['password']);
     }
 
-    public function testDecodeConnectWithWill(): void
+    public function test_decode_connect_with_will(): void
     {
         $packet = Connect::encode(
             clientId: 'device-001',
@@ -233,10 +234,10 @@ final class MqttBrokerTest extends TestCase
             keepalive: 30,
             cleanSession: false,
             will: [
-                'topic'   => 'devices/001/status',
+                'topic' => 'devices/001/status',
                 'payload' => 'offline',
-                'qos'     => 1,
-                'retain'  => true,
+                'qos' => 1,
+                'retain' => true,
             ],
             version: '3.1.1',
         );
@@ -258,7 +259,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame('pass', $info['password']);
     }
 
-    public function testDecodeSubscribe(): void
+    public function test_decode_subscribe(): void
     {
         $packet = Subscribe::encode(42, [
             ['topic' => 'sensors/+/temp', 'qos' => 1],
@@ -279,13 +280,13 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, $info['topics'][1]['qos']);
     }
 
-    public function testDecodeUnsubscribe(): void
+    public function test_decode_unsubscribe(): void
     {
         // 手动构造 UNSUBSCRIBE 包
         $body = Codec::encodeUint16(99);
         $body .= Codec::encodeString('topic/a');
         $body .= Codec::encodeString('topic/b');
-        $packet = Codec::encodeFixedHeader(PacketType::UNSUBSCRIBE, 0x02, strlen($body)) . $body;
+        $packet = Codec::encodeFixedHeader(PacketType::UNSUBSCRIBE, 0x02, strlen($body)).$body;
 
         $offset = 1;
         $remainingLen = Codec::decodeRemainingLength($packet, $offset);
@@ -299,7 +300,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame('topic/b', $info['topics'][1]);
     }
 
-    public function testPublishEncodeDecodeRoundtrip(): void
+    public function test_publish_encode_decode_roundtrip(): void
     {
         $original = Publish::encode('sensors/temp', '23.5', qos: 1, retain: true, packetId: 7);
 
@@ -322,7 +323,7 @@ final class MqttBrokerTest extends TestCase
     // 3. 保留消息逻辑测试
     // ============================================================
 
-    public function testRetainedMessageStoredOnPublish(): void
+    public function test_retained_message_stored_on_publish(): void
     {
         $server = new Server(new NullLogger());
 
@@ -334,7 +335,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(1, $retained['sensors/temp']['qos']);
     }
 
-    public function testRetainedMessageClearedOnEmptyPayload(): void
+    public function test_retained_message_cleared_on_empty_payload(): void
     {
         $server = new Server(new NullLogger());
 
@@ -347,7 +348,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertArrayNotHasKey('sensors/temp', $server->getRetainedMessages());
     }
 
-    public function testRetainedMessageNotStoredWhenRetainFalse(): void
+    public function test_retained_message_not_stored_when_retain_false(): void
     {
         $server = new Server(new NullLogger());
 
@@ -356,7 +357,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertArrayNotHasKey('sensors/temp', $server->getRetainedMessages());
     }
 
-    public function testRetainedMessageOverwritten(): void
+    public function test_retained_message_overwritten(): void
     {
         $server = new Server(new NullLogger());
 
@@ -372,7 +373,7 @@ final class MqttBrokerTest extends TestCase
     // 4. 会话管理测试
     // ============================================================
 
-    public function testSessionCreatedOnSubscribe(): void
+    public function test_session_created_on_subscribe(): void
     {
         $server = new Server(new NullLogger());
 
@@ -384,7 +385,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(1, $sessions['client-001']['subscriptions']['sensors/#']);
     }
 
-    public function testSessionMultipleSubscriptions(): void
+    public function test_session_multiple_subscriptions(): void
     {
         $server = new Server(new NullLogger());
 
@@ -399,7 +400,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, $sessions['client-001']['subscriptions']['alerts/#']);
     }
 
-    public function testSessionSubscriptionOverwrite(): void
+    public function test_session_subscription_overwrite(): void
     {
         $server = new Server(new NullLogger());
 
@@ -410,7 +411,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(2, $sessions['client-001']['subscriptions']['sensors/temp']);
     }
 
-    public function testMultipleClientSessions(): void
+    public function test_multiple_client_sessions(): void
     {
         $server = new Server(new NullLogger());
 
@@ -427,33 +428,33 @@ final class MqttBrokerTest extends TestCase
     // 5. 服务器基础功能测试
     // ============================================================
 
-    public function testSchemeIsMqtt(): void
+    public function test_scheme_is_mqtt(): void
     {
         $this->assertSame('mqtt', Server::scheme());
     }
 
-    public function testVersionIsMqtt311(): void
+    public function test_version_is_mqtt311(): void
     {
         $server = new Server(new NullLogger());
         $this->assertSame('mqtt-3.1.1', $server->version());
     }
 
-    public function testConnectThrowsLogicException(): void
+    public function test_connect_throws_logic_exception(): void
     {
         $server = new Server(new NullLogger());
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('不支持 connect()');
         $server->connect([]);
     }
 
-    public function testAutoRegister(): void
+    public function test_auto_register(): void
     {
         Registry::reset();
         Server::autoRegister();
         $this->assertSame(Server::class, Registry::find('mqtt'));
     }
 
-    public function testDefaultConfig(): void
+    public function test_default_config(): void
     {
         $server = new Server(new NullLogger());
         $server->boot([]);
@@ -462,7 +463,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertTrue($config['allow_anonymous']);
     }
 
-    public function testShutdownClearsState(): void
+    public function test_shutdown_clears_state(): void
     {
         $server = new Server(new NullLogger());
         $server->boot([]);
@@ -478,7 +479,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertEmpty($server->getClientIds());
     }
 
-    public function testIsRunningInitiallyFalse(): void
+    public function test_is_running_initially_false(): void
     {
         $server = new Server(new NullLogger());
         $this->assertFalse($server->isRunning());
@@ -488,13 +489,13 @@ final class MqttBrokerTest extends TestCase
     // 6. Remaining Length 编码测试
     // ============================================================
 
-    public function testRemainingLengthSingleByte(): void
+    public function test_remaining_length_single_byte(): void
     {
         $this->assertSame(chr(0), Codec::encodeRemainingLength(0));
         $this->assertSame(chr(127), Codec::encodeRemainingLength(127));
     }
 
-    public function testRemainingLengthTwoBytes(): void
+    public function test_remaining_length_two_bytes(): void
     {
         $encoded = Codec::encodeRemainingLength(128);
         $this->assertSame(2, strlen($encoded));
@@ -502,7 +503,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(128, Codec::decodeRemainingLength($encoded, $offset));
     }
 
-    public function testRemainingLengthLargeValue(): void
+    public function test_remaining_length_large_value(): void
     {
         // 使用 3 字节最大值（Codec 对 4 字节最大值有已知限制）
         $value = 2097151; // 3-byte 最大值
@@ -515,7 +516,7 @@ final class MqttBrokerTest extends TestCase
     // 7. QoS 流程验证（通过包类型）
     // ============================================================
 
-    public function testQos1PacketTypes(): void
+    public function test_qos1_packet_types(): void
     {
         // PUBLISH (QoS 1) → PUBACK
         $pub = Publish::encode('test/topic', 'hello', qos: 1, packetId: 1);
@@ -525,7 +526,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(PacketType::PUBACK, (ord($ack[0]) >> 4) & 0x0F);
     }
 
-    public function testQos2PacketTypes(): void
+    public function test_qos2_packet_types(): void
     {
         // PUBLISH (QoS 2) → PUBREC → PUBREL → PUBCOMP
         $pub = Publish::encode('test/topic', 'hello', qos: 2, packetId: 1);
@@ -542,7 +543,7 @@ final class MqttBrokerTest extends TestCase
         $this->assertSame(PacketType::PUBCOMP, (ord($comp[0]) >> 4) & 0x0F);
     }
 
-    public function testAllPacketTypeByteValues(): void
+    public function test_all_packet_type_byte_values(): void
     {
         // 验证所有控制包类型的固定头字节值
         $this->assertSame(0x20, ord(Server::encodeConnack(0)[0]));      // CONNACK

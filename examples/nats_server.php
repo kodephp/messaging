@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * NATS 嵌入式 Broker 启动示例
@@ -11,12 +11,12 @@
  * 运行：php examples/nats_server.php
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Messaging;
 
 Messaging::server('nats://0.0.0.0:4222')
-    ->on('message.received', function ($conn, $message) {
+    ->on('message.received', function ($conn, $message): void {
         $subject = $message->topic();
         $payload = $message->payload();
         fwrite(STDOUT, "[NATS] subject={$subject} payload={$payload}\n");

@@ -7,19 +7,20 @@ namespace Kode\Messaging\Adapter\Mqtt;
 use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Support\TopicMatcher;
+use Throwable;
 
 /**
  * MQTT 客户端连接
  */
 class MqttConnection extends WebSocketConnection
 {
-    /** @var array<string, callable(string $topic, string $payload, Msg $message): void> */
+    /** @var array<string, callable(string, string, Msg): void> */
     protected array $topicHandlers = [];
 
     /** @var array<int, callable(array): void> */
     protected array $ackHandlers = [];
 
-    /** @var callable|null */
+    /** @var null|callable */
     protected $onConnect = null;
 
     public function setOnConnect(?callable $cb): void
@@ -50,12 +51,13 @@ class MqttConnection extends WebSocketConnection
                     context: [
                         'connection_id' => $this->connId,
                         'remote_address' => $this->remoteAddress,
-                        'packet_id'      => $packetId,
+                        'packet_id' => $packetId,
                     ],
                 );
+
                 try {
                     $handler($topic, $payload, $msg);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                 }
             }
         }
@@ -67,7 +69,7 @@ class MqttConnection extends WebSocketConnection
         if ($handler !== null) {
             try {
                 $handler($info);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
             unset($this->ackHandlers[$packetId]);
         }
@@ -78,7 +80,7 @@ class MqttConnection extends WebSocketConnection
         if ($this->onConnect !== null) {
             try {
                 ($this->onConnect)($this);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }

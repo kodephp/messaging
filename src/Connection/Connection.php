@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Connection;
 
-use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Contract\AuthContext;
+use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Support\IdGenerator;
+use RuntimeException;
+use Throwable;
 
 /**
  * 协议无关连接（默认实现）
@@ -17,17 +19,19 @@ class Connection implements ConnectionInterface
 {
     /** @var array<string, mixed> */
     protected array $attrs = [];
+
     protected bool $open = true;
-    /** @var list<callable(\Throwable|null):void> */
+
+    /** @var list<callable(null|Throwable):void> */
     protected array $closeCallbacks = [];
+
     protected ?AuthContext $authContext = null;
 
     public function __construct(
         protected string $connId,
         protected string $protocol,
         protected string $remoteAddress,
-    ) {
-    }
+    ) {}
 
     public function id(): string
     {
@@ -52,18 +56,18 @@ class Connection implements ConnectionInterface
 
     public function close(int $code = 1000, string $reason = ''): void
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return;
         }
         $this->open = false;
         $err = null;
         if ($code !== 1000 && $code !== 0) {
-            $err = new \RuntimeException("Connection closed: code={$code} reason={$reason}", $code);
+            $err = new RuntimeException("Connection closed: code={$code} reason={$reason}", $code);
         }
         foreach ($this->closeCallbacks as $cb) {
             try {
                 $cb($err);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // 静默吞掉，避免影响其它回调
             }
         }
@@ -93,11 +97,11 @@ class Connection implements ConnectionInterface
     public function onClose(callable $callback): void
     {
         $this->closeCallbacks[] = $callback;
-        if (!$this->open) {
+        if (! $this->open) {
             // 已关闭，立即回调一次
             try {
                 $callback(null);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }
@@ -119,6 +123,6 @@ class Connection implements ConnectionInterface
      */
     public static function generateId(string $protocol): string
     {
-        return $protocol . '-' . IdGenerator::random();
+        return $protocol.'-'.IdGenerator::random();
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging;
 
+use Exception;
 use Kode\Messaging\Support\PhpCompat;
 use Kode\Messaging\Support\RuntimeDetector;
 
@@ -14,9 +15,7 @@ use Kode\Messaging\Support\RuntimeDetector;
  */
 final class Kode
 {
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function version(): string
     {
@@ -64,7 +63,7 @@ final class Kode
     /**
      * 获取安全的随机字节（8.3 基线直接使用 Random\Randomizer）
      *
-     * @throws \Exception 在熵源不可用时抛出
+     * @throws Exception 在熵源不可用时抛出
      */
     public static function randomBytes(int $length): string
     {
@@ -115,6 +114,7 @@ final class Kode
         foreach ($stages as $stage) {
             $value = $stage($value);
         }
+
         return $value;
     }
 }

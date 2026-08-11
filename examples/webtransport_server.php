@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * WebTransport 占位服务示例
@@ -12,7 +12,7 @@
  * 运行：php examples/webtransport_server.php
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\WebTransport\Server as WtServer;
 use Kode\Messaging\Messaging;
@@ -22,13 +22,13 @@ $server = Messaging::server('wt://0.0.0.0:4433');
 /** @var WtServer $adapter */
 $adapter = $server->adapter();
 
-$adapter->onBidirectional('session-1', function (string $payload, array $meta) {
+$adapter->onBidirectional('session-1', function (string $payload, array $meta): void {
     fwrite(STDOUT, "[wt-bidi] {$payload}\n");
 });
-$adapter->onUnidirectional('session-1', function (string $payload, array $meta) {
+$adapter->onUnidirectional('session-1', function (string $payload, array $meta): void {
     fwrite(STDOUT, "[wt-unidi] {$payload}\n");
 });
-$adapter->onDatagram('session-1', function (string $payload, array $meta) {
+$adapter->onDatagram('session-1', function (string $payload, array $meta): void {
     fwrite(STDOUT, "[wt-dgram] {$payload}\n");
 });
 

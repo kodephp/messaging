@@ -8,7 +8,7 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\SseException;
-use Kode\Messaging\Message\Message as Msg;
+use LogicException;
 
 /**
  * SSE 客户端
@@ -17,7 +17,7 @@ use Kode\Messaging\Message\Message as Msg;
  */
 final class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
 
     public static function scheme(): string
@@ -33,13 +33,13 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 80);
+        $port = (int) ($config['port'] ?? 80);
         $path = $config['path'] ?? '/';
-        $tls  = (bool)($config['tls'] ?? false);
+        $tls = (bool) ($config['tls'] ?? false);
 
         $errno = 0;
         $errstr = '';
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
         $this->stream = @stream_socket_client(
             $remote,
             $errno,
@@ -63,16 +63,17 @@ final class Client extends AbstractAdapter
         @fwrite($this->stream, $req);
 
         $response = '';
-        while (strpos($response, "\r\n\r\n") === false) {
+        while (! str_contains($response, "\r\n\r\n")) {
             $chunk = @fread($this->stream, 2048);
             if ($chunk === false || $chunk === '') {
                 break;
             }
             $response .= $chunk;
         }
-        if (!str_contains($response, '200 OK')) {
+        if (! str_contains($response, '200 OK')) {
             @fclose($this->stream);
             $this->stream = null;
+
             throw SseException::invalidEvent('SSE 握手失败', ['response' => substr($response, 0, 200)]);
         }
 
@@ -87,7 +88,7 @@ final class Client extends AbstractAdapter
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('SSE Client 不支持 listen()');
+        throw new LogicException('SSE Client 不支持 listen()');
     }
 
     public function run(): void

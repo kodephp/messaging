@@ -32,8 +32,7 @@ final readonly class Message implements MessageInterface
         public string $proto,
         public int $timestamp,
         public array $context = [],
-    ) {
-    }
+    ) {}
 
     public function id(): string
     {
@@ -138,6 +137,7 @@ final readonly class Message implements MessageInterface
     {
         $headers = $this->headers;
         $headers[$key] = $value;
+
         return new self(
             $this->messageId,
             $this->eventName,
@@ -161,6 +161,7 @@ final readonly class Message implements MessageInterface
     {
         $context = $this->context;
         $context[$key] = $value;
+
         return new self(
             $this->messageId,
             $this->eventName,
@@ -202,7 +203,7 @@ final readonly class Message implements MessageInterface
             $binary,
             $retain,
             $protocol,
-            (int)(microtime(true) * 1000),
+            (int) (microtime(true) * 1000),
             $context,
         );
     }
@@ -221,7 +222,8 @@ final readonly class Message implements MessageInterface
         array $headers = [],
         array $context = [],
     ): self {
-        $raw = is_string($payload) ? $payload : (string)json_encode($payload);
+        $raw = is_string($payload) ? $payload : (string) json_encode($payload);
+
         return new self(
             IdGenerator::next('msg'),
             $event,
@@ -233,7 +235,7 @@ final readonly class Message implements MessageInterface
             $binary,
             $retain,
             $protocol,
-            (int)(microtime(true) * 1000),
+            (int) (microtime(true) * 1000),
             $context,
         );
     }

@@ -14,6 +14,7 @@ use Kode\Messaging\Middleware\Pipeline;
 use Kode\Messaging\Router\Router;
 use Kode\Messaging\Support\IdGenerator;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * 服务端构建器
@@ -45,6 +46,7 @@ final class Builder
     private array $intervals = [];
 
     private bool $withCluster = false;
+
     private ?string $nodeId = null;
 
     public function __construct(
@@ -68,6 +70,7 @@ final class Builder
     public function on(string $event, callable $handler): self
     {
         $this->listeners[$event][] = $handler;
+
         return $this;
     }
 
@@ -79,7 +82,7 @@ final class Builder
         foreach ($this->listeners[$event] ?? [] as $listener) {
             try {
                 $listener(new \Kode\Messaging\Event\Event($event, $payload));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 if ($this->logger !== null) {
                     $this->logger->error('listener error', ['event' => $event, 'error' => $e->getMessage()]);
                 }
@@ -90,12 +93,14 @@ final class Builder
     public function middleware(MiddlewareInterface|callable $mw): self
     {
         $this->pipeline->push($mw);
+
         return $this;
     }
 
     public function withPipeline(Pipeline $pipeline): self
     {
         $this->pipeline = $pipeline;
+
         return $this;
     }
 
@@ -107,6 +112,7 @@ final class Builder
     public function withRouter(?Router $router): self
     {
         $this->router = $router;
+
         return $this;
     }
 
@@ -118,6 +124,7 @@ final class Builder
     public function withAuthenticator(AuthenticatorInterface $auth): self
     {
         $this->authenticator = $auth;
+
         return $this;
     }
 
@@ -129,6 +136,7 @@ final class Builder
     public function withEventDispatcher(Dispatcher $dispatcher): self
     {
         $this->dispatcher = $dispatcher;
+
         return $this;
     }
 
@@ -140,6 +148,7 @@ final class Builder
     public function withLogger(LoggerInterface $logger): self
     {
         $this->logger = $logger;
+
         return $this;
     }
 
@@ -154,8 +163,9 @@ final class Builder
     public function interval(int $ms, ?callable $handler = null): self
     {
         if ($handler !== null) {
-            $this->intervals[(string)$ms] = $handler;
+            $this->intervals[(string) $ms] = $handler;
         }
+
         return $this;
     }
 
@@ -171,6 +181,7 @@ final class Builder
     {
         $this->withCluster = $enable;
         $this->nodeId = $nodeId ?? IdGenerator::random();
+
         return $this;
     }
 
@@ -225,6 +236,7 @@ final class Builder
 
         $adapter->listen($url['host'], $url['port']);
         $this->emit('server.start', ['scheme' => $this->scheme, 'host' => $url['host'], 'port' => $url['port']]);
+
         try {
             $adapter->run();
         } finally {
@@ -256,8 +268,8 @@ final class Builder
                 $host = $redisConfig['host'] ?? '127.0.0.1';
                 $port = $redisConfig['port'] ?? 6379;
                 $bus = new \Kode\Messaging\PubSub\RedisBus([
-                    'host'   => $host,
-                    'port'   => $port,
+                    'host' => $host,
+                    'port' => $port,
                     'prefix' => $redisConfig['prefix'] ?? 'kode:messaging:',
                 ], $logger);
                 $target = "{$host}:{$port}";
@@ -267,15 +279,15 @@ final class Builder
                 $adapter->setBus($bus);
             }
             $logger->info('集群总线已启用', [
-                'driver'  => $driver,
+                'driver' => $driver,
                 'node_id' => $this->nodeId,
-                'target'  => $target,
+                'target' => $target,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 原实现在未注入 logger 时会因 null->warning() 直接致命错误
             $logger->warning('集群总线初始化失败，降级为单节点模式', [
                 'driver' => $driver,
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -286,6 +298,7 @@ final class Builder
         if ($class === null) {
             throw AdapterNotFoundException::forScheme($this->scheme, Registry::schemes());
         }
+
         return new $class($this->logger);
     }
 

@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\Coap\CoapCode;
 use Kode\Messaging\Adapter\Coap\CoapOption;
@@ -28,37 +28,37 @@ use Kode\Messaging\Messaging;
 $dataFile = '/tmp/coap-sensor-temp';
 
 $builder = Messaging::server('coap://0.0.0.0:5683')
-    ->on('connection.open', function ($conn) {
+    ->on('connection.open', function ($conn): void {
         echo "[open] {$conn->remoteAddress()}\n";
     })
-    ->on('message.received', function ($conn, $message) use ($dataFile) {
+    ->on('message.received', function ($conn, $message) use ($dataFile): void {
         $ctx = $message->headers();
         $coap = $ctx['coap'] ?? [];
         $method = $coap['method'] ?? 'GET';
         $path = $coap['path'] ?? '/';
-        $mid = (int)($coap['mid'] ?? 0);
-        $token = (string)($coap['token'] ?? '');
+        $mid = (int) ($coap['mid'] ?? 0);
+        $token = (string) ($coap['token'] ?? '');
 
-        echo "[recv] {$method} {$path} from {$conn->remoteAddress()} payload=" . substr((string)$message->payload(), 0, 80) . "\n";
+        echo "[recv] {$method} {$path} from {$conn->remoteAddress()} payload=".substr((string) $message->payload(), 0, 80)."\n";
 
-        $respond = function (float $code, string $body, int $cf = CoapOption::FMT_JSON) use ($conn, $mid, $token) {
+        $respond = function (float $code, string $body, int $cf = CoapOption::FMT_JSON) use ($conn, $mid, $token): void {
             $conn->sendRequest($code, '', $body, [
-                'mid'   => $mid,
+                'mid' => $mid,
                 'token' => $token,
-                'type'  => CoapType::ACK,
+                'type' => CoapType::ACK,
                 'content_format' => $cf,
             ]);
         };
 
         if ($path === '/sensors/temp' && $method === 'GET') {
-            $value = file_exists($dataFile) ? trim((string)file_get_contents($dataFile)) : 'unknown';
+            $value = file_exists($dataFile) ? trim((string) file_get_contents($dataFile)) : 'unknown';
             $respond(CoapCode::CONTENT, json_encode([
                 'value' => $value,
-                'unit'  => 'C',
-                'ts'    => time(),
+                'unit' => 'C',
+                'ts' => time(),
             ]));
         } elseif ($path === '/sensors/temp' && $method === 'PUT') {
-            @file_put_contents($dataFile, (string)$message->payload());
+            @file_put_contents($dataFile, (string) $message->payload());
             $respond(CoapCode::CHANGED, '');
         } elseif ($path === '/health' && $method === 'GET') {
             $respond(CoapCode::CONTENT, json_encode(['ok' => true]));
@@ -66,13 +66,13 @@ $builder = Messaging::server('coap://0.0.0.0:5683')
             $respond(CoapCode::NOT_FOUND, 'Not Found', CoapOption::FMT_TEXT);
         }
     })
-    ->on('coap.timeout', function ($info) {
+    ->on('coap.timeout', function ($info): void {
         echo "[timeout] mid={$info['mid']} peer={$info['peer']}\n";
     })
-    ->on('coap.retransmit', function ($info) {
+    ->on('coap.retransmit', function ($info): void {
         echo "[retransmit] mid={$info['mid']} attempts={$info['attempts']}\n";
     })
-    ->on('connection.close', function ($conn) {
+    ->on('connection.close', function ($conn): void {
         echo "[close] {$conn->remoteAddress()}\n";
     });
 

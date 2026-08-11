@@ -6,6 +6,7 @@ namespace Kode\Messaging\Tests\Unit;
 
 use Kode\Messaging\Adapter\Mqtt\MqttConnection;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * MQTT 客户端连接：本地主题回调分发单元测试
@@ -20,15 +21,16 @@ final class MqttClientTopicTest extends TestCase
     {
         $stream = fopen('php://memory', 'r+');
         self::assertIsResource($stream);
+
         return new MqttConnection('c1', 'mqtt', '127.0.0.1:1883', $stream);
     }
 
-    public function testPlusWildcardHandlerIsInvoked(): void
+    public function test_plus_wildcard_handler_is_invoked(): void
     {
         $received = [];
         $conn = $this->conn();
         $conn->addTopicHandler('sensors/+/temp', function (string $topic, string $payload) use (&$received): void {
-            $received[] = $topic . '=' . $payload;
+            $received[] = $topic.'='.$payload;
         });
 
         $conn->dispatchPublish('sensors/room1/temp', '25', 0, false, 0);
@@ -38,7 +40,7 @@ final class MqttClientTopicTest extends TestCase
         $this->assertSame(['sensors/room1/temp=25', 'sensors/room2/temp=26'], $received);
     }
 
-    public function testHashWildcardHandlerIsInvoked(): void
+    public function test_hash_wildcard_handler_is_invoked(): void
     {
         $count = 0;
         $conn = $this->conn();
@@ -53,7 +55,7 @@ final class MqttClientTopicTest extends TestCase
         $this->assertSame(2, $count);
     }
 
-    public function testExactTopicHandler(): void
+    public function test_exact_topic_handler(): void
     {
         $hit = false;
         $conn = $this->conn();
@@ -65,12 +67,12 @@ final class MqttClientTopicTest extends TestCase
         $this->assertTrue($hit);
     }
 
-    public function testHandlerExceptionIsIsolated(): void
+    public function test_handler_exception_is_isolated(): void
     {
         $second = false;
         $conn = $this->conn();
         $conn->addTopicHandler('a/#', function (): void {
-            throw new \RuntimeException('boom');
+            throw new RuntimeException('boom');
         });
         $conn->addTopicHandler('a/b', function () use (&$second): void {
             $second = true;
@@ -80,7 +82,7 @@ final class MqttClientTopicTest extends TestCase
         $this->assertTrue($second);
     }
 
-    public function testAckHandlerFiresOnceAndIsRemoved(): void
+    public function test_ack_handler_fires_once_and_is_removed(): void
     {
         $calls = 0;
         $conn = $this->conn();

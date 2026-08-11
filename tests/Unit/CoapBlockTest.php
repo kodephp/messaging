@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class CoapBlockTest extends TestCase
 {
-    public function testBlock1Byte(): void
+    public function test_block1_byte(): void
     {
         $bytes = CoapBlock::encode(5, true, 3);
         $this->assertSame(1, strlen($bytes));
@@ -20,7 +20,7 @@ final class CoapBlockTest extends TestCase
         $this->assertSame(128, $decoded['size']);
     }
 
-    public function testBlock2Bytes(): void
+    public function test_block2_bytes(): void
     {
         $bytes = CoapBlock::encode(100, false, 4);
         $this->assertSame(2, strlen($bytes));
@@ -31,7 +31,7 @@ final class CoapBlockTest extends TestCase
         $this->assertSame(256, $decoded['size']);
     }
 
-    public function testBlock3Bytes(): void
+    public function test_block3_bytes(): void
     {
         $bytes = CoapBlock::encode(65535, true, 6);
         $this->assertSame(3, strlen($bytes));
@@ -42,13 +42,13 @@ final class CoapBlockTest extends TestCase
         $this->assertSame(1024, $decoded['size']);
     }
 
-    public function testInvalidSzx(): void
+    public function test_invalid_szx(): void
     {
         $this->expectException(\Kode\Messaging\Exception\CoapException::class);
         CoapBlock::encode(0, false, 7);
     }
 
-    public function testSplit(): void
+    public function test_split(): void
     {
         $payload = str_repeat('A', 300);
         $blocks = CoapBlock::split($payload, 2);  // 64 bytes per block

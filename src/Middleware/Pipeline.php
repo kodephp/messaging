@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Middleware;
 
+use Closure;
 use Kode\Messaging\Contract\MessageInterface;
 use Kode\Messaging\Contract\MiddlewareInterface;
 
@@ -22,13 +23,13 @@ use Kode\Messaging\Contract\MiddlewareInterface;
  */
 final class Pipeline
 {
-    /** @var list<MiddlewareInterface|callable> */
+    /** @var list<callable|MiddlewareInterface> */
     private array $middlewares = [];
 
-    /** @var ?\Closure 已编译的洋葱链（首次 process() 构建，中间件不变则复用） */
-    private ?\Closure $compiled = null;
+    /** @var ?Closure 已编译的洋葱链（首次 process() 构建，中间件不变则复用） */
+    private ?Closure $compiled = null;
 
-    /** @var callable|null 当前 process() 调用的末端 handler */
+    /** @var null|callable 当前 process() 调用的末端 handler */
     private $terminalHandler = null;
 
     /**
@@ -38,19 +39,21 @@ final class Pipeline
     {
         $this->middlewares[] = $middleware;
         $this->compiled = null;
+
         return $this;
     }
 
     /**
      * 批量追加。
      *
-     * @param iterable<MiddlewareInterface|callable> $middlewares
+     * @param iterable<callable|MiddlewareInterface> $middlewares
      */
     public function pushAll(iterable $middlewares): self
     {
         foreach ($middlewares as $mw) {
             $this->push($mw);
         }
+
         return $this;
     }
 
@@ -71,12 +74,14 @@ final class Pipeline
                     if ($mw instanceof MiddlewareInterface) {
                         return $mw->process($msg, $current);
                     }
+
                     return $mw($msg, $current);
                 };
             }
             $this->compiled = $next;
         }
         $this->terminalHandler = $handler;
+
         return ($this->compiled)($message);
     }
 

@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class WebSocketFrameSecurityTest extends TestCase
 {
-    public function testApplyMaskIsSymmetricAndLengthPreserving(): void
+    public function test_apply_mask_is_symmetric_and_length_preserving(): void
     {
         $mask = "\x01\x02\x03\x04";
         foreach (['', 'a', 'abc', 'abcd', 'abcde', str_repeat('x', 1000)] as $payload) {
@@ -31,12 +31,12 @@ final class WebSocketFrameSecurityTest extends TestCase
         }
     }
 
-    public function testApplyMaskWithEmptyMaskIsNoop(): void
+    public function test_apply_mask_with_empty_mask_is_noop(): void
     {
         $this->assertSame('abc', Frame::applyMask('abc', ''));
     }
 
-    public function testMaskedRoundTripUnalignedLength(): void
+    public function test_masked_round_trip_unaligned_length(): void
     {
         // 7 字节：非 4 字节对齐，验证掩码流精确截断
         $frame = new Frame(true, OpCode::BINARY, "\x01\x02\x03\x04\x05\x06\x07");
@@ -44,7 +44,7 @@ final class WebSocketFrameSecurityTest extends TestCase
         $this->assertSame("\x01\x02\x03\x04\x05\x06\x07", $decoded->payload);
     }
 
-    public function testFragmentedControlFrameRejected(): void
+    public function test_fragmented_control_frame_rejected(): void
     {
         // FIN=0 + PING(0x9) → 0x09，载荷 0 字节，未 mask
         $bytes = "\x09\x00";
@@ -53,17 +53,17 @@ final class WebSocketFrameSecurityTest extends TestCase
         Frame::decode($bytes, mustMask: false);
     }
 
-    public function testOversizedControlFrameRejected(): void
+    public function test_oversized_control_frame_rejected(): void
     {
         // FIN + PING，声明 126 字节载荷（>125）
         $payload = str_repeat('p', 126);
-        $bytes = "\x89\x7E" . pack('n', 126) . $payload;
+        $bytes = "\x89\x7E".pack('n', 126).$payload;
         $this->expectException(WebSocketException::class);
         $this->expectExceptionMessage('控制帧载荷超过 125 字节');
         Frame::decode($bytes, mustMask: false);
     }
 
-    public function testCloseFrameTruncatesLongReason(): void
+    public function test_close_frame_truncates_long_reason(): void
     {
         $frame = Frame::close(1000, str_repeat('r', 500));
         $this->assertSame(Frame::MAX_CONTROL_PAYLOAD, strlen($frame->payload));
@@ -72,7 +72,7 @@ final class WebSocketFrameSecurityTest extends TestCase
         $this->assertSame(OpCode::CLOSE, $decoded->opcode);
     }
 
-    public function testMaxPayloadGuardRejectsOversizedFrame(): void
+    public function test_max_payload_guard_rejects_oversized_frame(): void
     {
         $frame = new Frame(true, OpCode::TEXT, str_repeat('a', 1000));
         $bytes = $frame->encode(masked: false);
@@ -82,24 +82,24 @@ final class WebSocketFrameSecurityTest extends TestCase
         Frame::decode($bytes, mustMask: false, maxPayload: 512);
     }
 
-    public function testMaxPayloadGuardAllowsWithinLimit(): void
+    public function test_max_payload_guard_allows_within_limit(): void
     {
         $frame = new Frame(true, OpCode::TEXT, str_repeat('a', 1000));
         $decoded = Frame::decode($frame->encode(masked: false), mustMask: false, maxPayload: 1024);
         $this->assertSame(1000, strlen($decoded->payload));
     }
 
-    public function testDefaultDecodeHasNoPayloadLimit(): void
+    public function test_default_decode_has_no_payload_limit(): void
     {
         $frame = new Frame(true, OpCode::TEXT, str_repeat('a', 70000));
         $decoded = Frame::decode($frame->encode(masked: false), mustMask: false);
         $this->assertSame(70000, strlen($decoded->payload));
     }
 
-    public function testNegative64BitLengthRejected(): void
+    public function test_negative64_bit_length_rejected(): void
     {
         // 64 位长度最高位为 1 → PHP 下解析为负数，必须拒绝
-        $bytes = "\x81\x7F" . "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
+        $bytes = "\x81\x7F"."\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
         $this->expectException(WebSocketException::class);
         $this->expectExceptionMessage('64 位长度非法');
         Frame::decode($bytes, mustMask: false);

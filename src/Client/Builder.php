@@ -11,8 +11,11 @@ use Kode\Messaging\Contract\MiddlewareInterface;
 use Kode\Messaging\Event\Dispatcher;
 use Kode\Messaging\Exception\AdapterNotFoundException;
 use Kode\Messaging\Middleware\Pipeline;
+use LogicException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
+use Throwable;
 
 /**
  * 客户端构建器
@@ -31,13 +34,17 @@ final class Builder
     private ?ConnectionInterface $connection = null;
 
     private int $reconnectMax = 0;
+
     private int $reconnectDelayMs = 1000;
+
     private bool $reconnect = false;
 
     private int $heartbeatInterval = 0;
 
     private ?string $clientId = null;
+
     private ?string $username = null;
+
     private ?string $password = null;
 
     public function __construct(
@@ -51,18 +58,21 @@ final class Builder
     public function on(string $event, callable $handler): self
     {
         $this->listeners[$event][] = $handler;
+
         return $this;
     }
 
     public function middleware(MiddlewareInterface|callable $mw): self
     {
         $this->pipeline->push($mw);
+
         return $this;
     }
 
     public function withLogger(LoggerInterface $logger): self
     {
         $this->logger = $logger;
+
         return $this;
     }
 
@@ -74,6 +84,7 @@ final class Builder
     public function withEventDispatcher(Dispatcher $dispatcher): self
     {
         $this->dispatcher = $dispatcher;
+
         return $this;
     }
 
@@ -87,18 +98,21 @@ final class Builder
         $this->reconnect = true;
         $this->reconnectMax = $maxAttempts;
         $this->reconnectDelayMs = $delayMs;
+
         return $this;
     }
 
     public function withHeartbeat(int $intervalSeconds): self
     {
         $this->heartbeatInterval = $intervalSeconds;
+
         return $this;
     }
 
     public function withClientId(string $id): self
     {
         $this->clientId = $id;
+
         return $this;
     }
 
@@ -106,6 +120,7 @@ final class Builder
     {
         $this->username = $username;
         $this->password = $password;
+
         return $this;
     }
 
@@ -122,6 +137,7 @@ final class Builder
     private function normalizedScheme(): string
     {
         $url = \Kode\Messaging\Messaging::parseUrl($this->scheme);
+
         return $url['scheme'];
     }
 
@@ -142,44 +158,46 @@ final class Builder
             $this->globalConfig[$url['scheme']] ?? [],
             $this->userConfig,
             [
-                'client_id'  => $this->clientId,
-                'username'   => $this->username,
-                'password'   => $this->password,
-                'heartbeat'  => $this->heartbeatInterval,
-                'reconnect'  => [
+                'client_id' => $this->clientId,
+                'username' => $this->username,
+                'password' => $this->password,
+                'heartbeat' => $this->heartbeatInterval,
+                'reconnect' => [
                     'enabled' => $this->reconnect,
-                    'max'     => $this->reconnectMax,
-                    'delay'   => $this->reconnectDelayMs,
+                    'max' => $this->reconnectMax,
+                    'delay' => $this->reconnectDelayMs,
                 ],
-                'url'        => $this->scheme,
-                'tls'        => $url['tls'],
-                'host'       => $url['host'],
-                'port'       => $url['port'],
-                'path'       => $url['path'],
-                'query'      => $url['query'],
+                'url' => $this->scheme,
+                'tls' => $url['tls'],
+                'host' => $url['host'],
+                'port' => $url['port'],
+                'path' => $url['path'],
+                'query' => $url['query'],
             ],
         );
         $adapter->boot($merged);
         $this->connection = $adapter->connect($merged);
         $this->emit('open', ['connection' => $this->connection]);
+
         return $this->connection;
     }
 
     /**
      * 确保已建立连接，返回非空的连接对象。
      *
-     * @throws \RuntimeException 当连接未建立或已关闭
+     * @throws RuntimeException 当连接未建立或已关闭
      */
     private function ensureConnected(): ConnectionInterface
     {
         if ($this->connection === null) {
             $this->connect();
         }
-        if ($this->connection === null || !$this->connection->isOpen()) {
-            throw new \RuntimeException(
+        if ($this->connection === null || ! $this->connection->isOpen()) {
+            throw new RuntimeException(
                 "kode/messaging: 协议 {$this->scheme} 连接尚未建立或已关闭，请先调用 connect()"
             );
         }
+
         return $this->connection;
     }
 
@@ -189,6 +207,7 @@ final class Builder
     public function send(mixed $payload, array $options = []): bool
     {
         $conn = $this->ensureConnected();
+
         return $conn->send($payload, $options);
     }
 
@@ -209,30 +228,31 @@ final class Builder
      *
      * @return mixed 适配器返回的订阅句柄（int sid / string sub-id / null）
      *
-     * @throws \LogicException   适配器不支持 subscribe()
-     * @throws \RuntimeException 连接未建立 / 已关闭
+     * @throws LogicException   适配器不支持 subscribe()
+     * @throws RuntimeException 连接未建立 / 已关闭
      */
     public function subscribe(string $topic, callable $handler, mixed $extra = null): mixed
     {
         $adapter = $this->makeAdapter();
-        if (!method_exists($adapter, 'subscribe')) {
-            throw new \LogicException("适配器 {$this->scheme} 不支持 subscribe()");
+        if (! method_exists($adapter, 'subscribe')) {
+            throw new LogicException("适配器 {$this->scheme} 不支持 subscribe()");
         }
         $this->ensureConnected();
+
         return $adapter->subscribe($topic, $handler, $extra);
     }
 
     /**
      * 协议级发布。
      *
-     * @throws \LogicException   适配器不支持 publish()
-     * @throws \RuntimeException 连接未建立 / 已关闭
+     * @throws LogicException   适配器不支持 publish()
+     * @throws RuntimeException 连接未建立 / 已关闭
      */
     public function publish(string $topic, string $payload, mixed $extra = null): void
     {
         $adapter = $this->makeAdapter();
-        if (!method_exists($adapter, 'publish')) {
-            throw new \LogicException("适配器 {$this->scheme} 不支持 publish()");
+        if (! method_exists($adapter, 'publish')) {
+            throw new LogicException("适配器 {$this->scheme} 不支持 publish()");
         }
         $this->ensureConnected();
         $adapter->publish($topic, $payload, $extra);
@@ -253,6 +273,7 @@ final class Builder
         if ($class === null) {
             throw AdapterNotFoundException::forScheme($this->scheme, Registry::schemes());
         }
+
         return new $class($this->logger);
     }
 
@@ -263,7 +284,7 @@ final class Builder
         if ($this->dispatcher !== null) {
             try {
                 $this->dispatcher->dispatch($eventObj);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger()->error('client event dispatch error', ['event' => $event, 'error' => $e->getMessage()]);
             }
         }
@@ -271,7 +292,7 @@ final class Builder
         foreach ($this->listeners[$event] ?? [] as $listener) {
             try {
                 $listener($eventObj);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger()->error('client listener error', ['event' => $event, 'error' => $e->getMessage()]);
             }
         }

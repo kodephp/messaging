@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\LongPolling\LongPollingClientConnection;
 use Kode\Messaging\Messaging;
@@ -19,7 +19,7 @@ use Kode\Messaging\Messaging;
 // 优雅退出
 if (function_exists('pcntl_signal')) {
     pcntl_async_signals(true);
-    pcntl_signal(SIGINT, function () {
+    pcntl_signal(SIGINT, function (): void {
         echo "Stopping...\n";
         exit(0);
     });
@@ -28,7 +28,7 @@ if (function_exists('pcntl_signal')) {
 $conn = Messaging::client('poll://127.0.0.1:8083/sync?topic=orders')
     ->connect();
 
-if (!$conn instanceof LongPollingClientConnection) {
+if (! $conn instanceof LongPollingClientConnection) {
     fwrite(STDERR, "Unexpected connection type\n");
     exit(1);
 }
@@ -38,10 +38,10 @@ $conn->setMethod('POST');
 $conn->setHeader('X-Token', 'demo-token');
 $conn->setBody(json_encode(['since' => time() - 60]));
 
-$conn->onMessage(function ($msg) {
-    echo "[recv] " . json_encode($msg->payload(), JSON_UNESCAPED_UNICODE) . "\n";
+$conn->onMessage(function ($msg): void {
+    echo '[recv] '.json_encode($msg->payload(), JSON_UNESCAPED_UNICODE)."\n";
 });
-$conn->onError(function (\Throwable $e) {
+$conn->onError(function (Throwable $e): void {
     echo "[error] {$e->getMessage()}\n";
 });
 

@@ -15,6 +15,8 @@ use Kode\Messaging\Exception\MqttException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
 use Kode\Messaging\Support\TopicMatcher;
+use LogicException;
+use Throwable;
 
 /**
  * MQTT 3.1.1 / 5.0 Broker（服务端）
@@ -37,7 +39,7 @@ use Kode\Messaging\Support\TopicMatcher;
  */
 class Server extends AbstractAdapter
 {
-    /** @var resource|null 监听 socket */
+    /** @var null|resource 监听 socket */
     protected $socket = null;
 
     /** @var array<string, MqttConnection> peer → 连接对象 */
@@ -107,18 +109,18 @@ class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_payload'              => 1_048_576, // 1 MiB
-            'allow_anonymous'          => true,
-            'max_client_id_len'        => 65535,
-            'supported_versions'       => ['3.1.1', '5.0'],
-            'max_qos'                  => 2,
-            'retain_available'         => true,
-            'wildcard_sub_available'   => true,
-            'sub_id_available'         => true,
-            'shared_sub_available'     => true,
-            'server_keepalive'         => 0,  // 0 = 使用客户端请求的值
-            'max_packet_size'          => 0,  // 0 = 无限制
-            'topic_alias_max'          => 0,  // 0 = 禁用
+            'max_payload' => 1_048_576, // 1 MiB
+            'allow_anonymous' => true,
+            'max_client_id_len' => 65535,
+            'supported_versions' => ['3.1.1', '5.0'],
+            'max_qos' => 2,
+            'retain_available' => true,
+            'wildcard_sub_available' => true,
+            'sub_id_available' => true,
+            'shared_sub_available' => true,
+            'server_keepalive' => 0,  // 0 = 使用客户端请求的值
+            'max_packet_size' => 0,  // 0 = 无限制
+            'topic_alias_max' => 0,  // 0 = 禁用
         ];
     }
 
@@ -168,7 +170,7 @@ class Server extends AbstractAdapter
                     $this->onClusterMessage($msg);
                 }, ['pattern' => 'mqtt']);
                 $this->logger->info('集群总线订阅已注册', ['pattern' => '#']);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->warning('集群总线订阅失败', ['error' => $e->getMessage()]);
             }
         }
@@ -198,7 +200,7 @@ class Server extends AbstractAdapter
                     continue;
                 }
                 $sock = $conn->stream();
-                if (!is_resource($sock)) {
+                if (! is_resource($sock)) {
                     $this->disconnectClient($peer, false);
                     continue;
                 }
@@ -225,11 +227,11 @@ class Server extends AbstractAdapter
     /**
      * Server 不支持 connect()。
      *
-     * @throws \LogicException
+     * @throws LogicException
      */
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('MQTT Server 不支持 connect()');
+        throw new LogicException('MQTT Server 不支持 connect()');
     }
 
     /**
@@ -306,8 +308,9 @@ class Server extends AbstractAdapter
     public static function encodeConnack(int $returnCode, bool $sessionPresent = false): string
     {
         $ackFlags = $sessionPresent ? 0x01 : 0x00;
-        $body = chr($ackFlags) . chr($returnCode & 0xFF);
-        return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)) . $body;
+        $body = chr($ackFlags).chr($returnCode & 0xFF);
+
+        return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)).$body;
     }
 
     /**
@@ -325,15 +328,15 @@ class Server extends AbstractAdapter
         array $properties = [],
     ): string {
         $ackFlags = $sessionPresent ? 0x01 : 0x00;
-        $body = chr($ackFlags) . chr($reasonCode & 0xFF);
+        $body = chr($ackFlags).chr($reasonCode & 0xFF);
         $body .= Properties::encode($properties);
-        return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::CONNACK, 0, strlen($body)).$body;
     }
 
     /**
      * 编码 DISCONNECT 包（5.0，含 Reason Code + Properties）。
      *
-     * @param int                $reasonCode
      * @param array<int, mixed>  $properties
      */
     public static function encodeDisconnectV5(
@@ -342,7 +345,8 @@ class Server extends AbstractAdapter
     ): string {
         $body = chr($reasonCode & 0xFF);
         $body .= Properties::encode($properties);
-        return Codec::encodeFixedHeader(PacketType::DISCONNECT, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::DISCONNECT, 0, strlen($body)).$body;
     }
 
     /**
@@ -357,7 +361,8 @@ class Server extends AbstractAdapter
         foreach ($returnCodes as $code) {
             $body .= chr($code & 0xFF);
         }
-        return Codec::encodeFixedHeader(PacketType::SUBACK, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::SUBACK, 0, strlen($body)).$body;
     }
 
     /**
@@ -368,51 +373,48 @@ class Server extends AbstractAdapter
     public static function encodeUnsuback(int $packetId): string
     {
         $body = Codec::encodeUint16($packetId);
-        return Codec::encodeFixedHeader(PacketType::UNSUBACK, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::UNSUBACK, 0, strlen($body)).$body;
     }
 
     /**
      * 编码 PUBACK 包（QoS 1 确认）。
-     *
-     * @param int $packetId
      */
     public static function encodePuback(int $packetId): string
     {
         $body = Codec::encodeUint16($packetId);
-        return Codec::encodeFixedHeader(PacketType::PUBACK, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBACK, 0, strlen($body)).$body;
     }
 
     /**
      * 编码 PUBREC 包（QoS 2 第一步：已接收）。
-     *
-     * @param int $packetId
      */
     public static function encodePubrec(int $packetId): string
     {
         $body = Codec::encodeUint16($packetId);
-        return Codec::encodeFixedHeader(PacketType::PUBREC, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBREC, 0, strlen($body)).$body;
     }
 
     /**
      * 编码 PUBREL 包（QoS 2 第二步：释放）。
-     *
-     * @param int $packetId
      */
     public static function encodePubrel(int $packetId): string
     {
         $body = Codec::encodeUint16($packetId);
-        return Codec::encodeFixedHeader(PacketType::PUBREL, 0x02, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBREL, 0x02, strlen($body)).$body;
     }
 
     /**
      * 编码 PUBCOMP 包（QoS 2 第三步：完成）。
-     *
-     * @param int $packetId
      */
     public static function encodePubcomp(int $packetId): string
     {
         $body = Codec::encodeUint16($packetId);
-        return Codec::encodeFixedHeader(PacketType::PUBCOMP, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBCOMP, 0, strlen($body)).$body;
     }
 
     /**
@@ -441,7 +443,8 @@ class Server extends AbstractAdapter
         if ($properties !== []) {
             $body .= Properties::encode($properties);
         }
-        return Codec::encodeFixedHeader(PacketType::PUBACK, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBACK, 0, strlen($body)).$body;
     }
 
     /**
@@ -454,7 +457,8 @@ class Server extends AbstractAdapter
         if ($properties !== []) {
             $body .= Properties::encode($properties);
         }
-        return Codec::encodeFixedHeader(PacketType::PUBREC, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBREC, 0, strlen($body)).$body;
     }
 
     /**
@@ -467,7 +471,8 @@ class Server extends AbstractAdapter
         if ($properties !== []) {
             $body .= Properties::encode($properties);
         }
-        return Codec::encodeFixedHeader(PacketType::PUBREL, 0x02, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBREL, 0x02, strlen($body)).$body;
     }
 
     /**
@@ -480,7 +485,8 @@ class Server extends AbstractAdapter
         if ($properties !== []) {
             $body .= Properties::encode($properties);
         }
-        return Codec::encodeFixedHeader(PacketType::PUBCOMP, 0, strlen($body)) . $body;
+
+        return Codec::encodeFixedHeader(PacketType::PUBCOMP, 0, strlen($body)).$body;
     }
 
     // ============================================================
@@ -547,27 +553,26 @@ class Server extends AbstractAdapter
         }
 
         return [
-            'protocol_name'  => $protocolName,
+            'protocol_name' => $protocolName,
             'protocol_level' => $protocolLevel,
-            'clean_session'  => $cleanSession,
-            'will_flag'      => $willFlag,
-            'will_qos'       => $willQos,
-            'will_retain'    => $willRetain,
-            'username_flag'  => $usernameFlag,
-            'password_flag'  => $passwordFlag,
-            'keepalive'      => $keepalive,
-            'client_id'      => $clientId,
-            'will_topic'     => $willTopic,
-            'will_payload'   => $willPayload,
-            'username'       => $username,
-            'password'       => $password,
+            'clean_session' => $cleanSession,
+            'will_flag' => $willFlag,
+            'will_qos' => $willQos,
+            'will_retain' => $willRetain,
+            'username_flag' => $usernameFlag,
+            'password_flag' => $passwordFlag,
+            'keepalive' => $keepalive,
+            'client_id' => $clientId,
+            'will_topic' => $willTopic,
+            'will_payload' => $willPayload,
+            'username' => $username,
+            'password' => $password,
         ];
     }
 
     /**
      * 解码 SUBSCRIBE 包体。
      *
-     * @param string $body
      *
      * @return array{packet_id: int, topics: list<array{topic: string, qos: int}>}
      *
@@ -591,7 +596,6 @@ class Server extends AbstractAdapter
     /**
      * 解码 UNSUBSCRIBE 包体。
      *
-     * @param string $body
      *
      * @return array{packet_id: int, topics: list<string>}
      *
@@ -627,6 +631,7 @@ class Server extends AbstractAdapter
             $flags = $byte0 & 0x0F;
 
             $offset = 1;
+
             try {
                 $remainingLen = Codec::decodeRemainingLength($buf, $offset);
             } catch (MqttException) {
@@ -646,11 +651,12 @@ class Server extends AbstractAdapter
                 $this->dispatchPacket($peer, $type, $flags, $body);
             } catch (MqttException $e) {
                 $this->builder?->emit('error.protocol', [
-                    'peer'  => $peer,
+                    'peer' => $peer,
                     'error' => $e->getMessage(),
-                    'code'  => $e->getCode(),
+                    'code' => $e->getCode(),
                 ]);
                 $this->disconnectClient($peer, false);
+
                 return;
             }
         }
@@ -720,6 +726,7 @@ class Server extends AbstractAdapter
         // 校验协议名
         if ($info['protocol_name'] !== 'MQTT') {
             $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
+
             return;
         }
 
@@ -727,52 +734,56 @@ class Server extends AbstractAdapter
         $isV311 = $info['protocol_level'] === 4;
 
         // 校验协议版本
-        if (!$isV311 && !$isV5) {
+        if (! $isV311 && ! $isV5) {
             // 3.1.1 的协议级别为 4，5.0 为 5
             $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
+
             return;
         }
 
         // 检查服务端是否支持该版本
         $supported = $this->config['supported_versions'] ?? ['3.1.1', '5.0'];
         $versionStr = $isV5 ? '5.0' : '3.1.1';
-        if (!in_array($versionStr, $supported, true)) {
+        if (! in_array($versionStr, $supported, true)) {
             if ($isV5) {
                 $this->write($peer, self::encodeConnackV5(ReasonCode::UNSUPPORTED_PROTOCOL_VERSION));
             } else {
                 $this->sendConnackAndDisconnect($peer, 1, false, $info['protocol_level']);
             }
             $this->disconnectClient($peer, true);
+
             return;
         }
 
         $clientId = $info['client_id'];
 
         // 客户端 ID 为空时，Clean Session 必须为 true
-        if ($clientId === '' && !$info['clean_session']) {
+        if ($clientId === '' && ! $info['clean_session']) {
             if ($isV5) {
                 $this->write($peer, self::encodeConnackV5(ReasonCode::CLIENT_IDENTIFIER_NOT_VALID));
             } else {
                 $this->write($peer, self::encodeConnack(2));
             }
             $this->disconnectClient($peer, true);
+
             return;
         }
 
         // 空 clientId 时自动生成
         if ($clientId === '') {
-            $clientId = 'auto-' . bin2hex(random_bytes(8));
+            $clientId = 'auto-'.bin2hex(random_bytes(8));
         }
 
         // 鉴权（简化版：allow_anonymous 控制是否允许匿名）
-        $allowAnonymous = (bool)($this->config['allow_anonymous'] ?? true);
-        if (!$allowAnonymous && $info['username'] === null) {
+        $allowAnonymous = (bool) ($this->config['allow_anonymous'] ?? true);
+        if (! $allowAnonymous && $info['username'] === null) {
             if ($isV5) {
                 $this->write($peer, self::encodeConnackV5(ReasonCode::NOT_AUTHORIZED));
             } else {
                 $this->write($peer, self::encodeConnack(5));
             }
             $this->disconnectClient($peer, true);
+
             return;
         }
 
@@ -784,14 +795,14 @@ class Server extends AbstractAdapter
 
         // 会话恢复
         $sessionPresent = false;
-        if (!$info['clean_session'] && isset($this->sessions[$clientId])) {
+        if (! $info['clean_session'] && isset($this->sessions[$clientId])) {
             // 恢复已有会话
             $sessionPresent = true;
         } else {
             // 创建新会话
             $this->sessions[$clientId] = [
-                'subscriptions'      => [],
-                'pendingOutbound'    => [],
+                'subscriptions' => [],
+                'pendingOutbound' => [],
                 'pendingInboundQos2' => [],
             ];
         }
@@ -813,7 +824,7 @@ class Server extends AbstractAdapter
 
         // 存储 Keep Alive（5.0: 服务端可覆盖）
         $keepalive = $info['keepalive'];
-        $serverKeepalive = (int)($this->config['server_keepalive'] ?? 0);
+        $serverKeepalive = (int) ($this->config['server_keepalive'] ?? 0);
         if ($serverKeepalive > 0) {
             $keepalive = $serverKeepalive;
         }
@@ -823,10 +834,10 @@ class Server extends AbstractAdapter
         // 存储遗嘱消息
         if ($info['will_flag']) {
             $this->willMessages[$peer] = [
-                'topic'      => $info['will_topic'] ?? '',
-                'payload'    => $info['will_payload'] ?? '',
-                'qos'        => $info['will_qos'],
-                'retain'     => $info['will_retain'],
+                'topic' => $info['will_topic'] ?? '',
+                'payload' => $info['will_payload'] ?? '',
+                'qos' => $info['will_qos'],
+                'retain' => $info['will_retain'],
                 'properties' => $info['will_properties'] ?? [],
             ];
         }
@@ -866,45 +877,45 @@ class Server extends AbstractAdapter
         }
 
         // 最大 QoS
-        $maxQos = (int)($this->config['max_qos'] ?? 2);
+        $maxQos = (int) ($this->config['max_qos'] ?? 2);
         if ($maxQos < 2) {
             $props[Properties::MAXIMUM_QOS] = $maxQos;
         }
 
         // 保留可用
-        if (!($this->config['retain_available'] ?? true)) {
+        if (! ($this->config['retain_available'] ?? true)) {
             $props[Properties::RETAIN_AVAILABLE] = 0;
         }
 
         // 最大包大小
-        $maxPacketSize = (int)($this->config['max_packet_size'] ?? 0);
+        $maxPacketSize = (int) ($this->config['max_packet_size'] ?? 0);
         if ($maxPacketSize > 0) {
             $props[Properties::MAXIMUM_PACKET_SIZE] = $maxPacketSize;
         }
 
         // 主题别名最大值
-        $topicAliasMax = (int)($this->config['topic_alias_max'] ?? 0);
+        $topicAliasMax = (int) ($this->config['topic_alias_max'] ?? 0);
         if ($topicAliasMax > 0) {
             $props[Properties::TOPIC_ALIAS_MAXIMUM] = $topicAliasMax;
         }
 
         // 通配符订阅可用
-        if (!($this->config['wildcard_sub_available'] ?? true)) {
+        if (! ($this->config['wildcard_sub_available'] ?? true)) {
             $props[Properties::WILDCARD_SUBSCRIPTION_AVAILABLE] = 0;
         }
 
         // 订阅标识符可用
-        if (!($this->config['sub_id_available'] ?? true)) {
+        if (! ($this->config['sub_id_available'] ?? true)) {
             $props[Properties::SUBSCRIPTION_IDENTIFIER_AVAILABLE] = 0;
         }
 
         // 共享订阅可用
-        if (!($this->config['shared_sub_available'] ?? true)) {
+        if (! ($this->config['shared_sub_available'] ?? true)) {
             $props[Properties::SHARED_SUBSCRIPTION_AVAILABLE] = 0;
         }
 
         // 服务端 Keep Alive 覆盖
-        $serverKeepalive = (int)($this->config['server_keepalive'] ?? 0);
+        $serverKeepalive = (int) ($this->config['server_keepalive'] ?? 0);
         if ($serverKeepalive > 0) {
             $props[Properties::SERVER_KEEP_ALIVE] = $serverKeepalive;
         }
@@ -970,11 +981,11 @@ class Server extends AbstractAdapter
             qos: $qos,
             retain: $retain,
             context: [
-                'connection_id'  => $conn?->id(),
+                'connection_id' => $conn?->id(),
                 'remote_address' => $conn?->remoteAddress(),
-                'packet_id'      => $packetId,
-                'dup'            => $dup,
-                'properties'     => $publishProperties,
+                'packet_id' => $packetId,
+                'dup' => $dup,
+                'properties' => $publishProperties,
             ],
         );
         $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $msg]);
@@ -1173,12 +1184,12 @@ class Server extends AbstractAdapter
             }
 
             $conn = $this->connections[$peer] ?? null;
-            if ($conn === null || !$conn->isOpen()) {
+            if ($conn === null || ! $conn->isOpen()) {
                 continue;
             }
 
             foreach ($session['subscriptions'] as $filter => $subQos) {
-                if ($filter === $topic || TopicMatcher::matchesParts((string)$filter, $topicParts)) {
+                if ($filter === $topic || TopicMatcher::matchesParts((string) $filter, $topicParts)) {
                     // 实际投递 QoS = min(发布 QoS, 订阅 QoS)
                     $deliverQos = min($qos, $subQos);
                     $this->sendPublish($peer, $topic, $payload, $deliverQos, false, $properties);
@@ -1196,7 +1207,7 @@ class Server extends AbstractAdapter
                     'retain' => $retain,
                     'node_id' => $this->builder?->nodeId() ?? 'local',
                 ], ['qos' => $qos]);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->warning('集群总线发布失败', [
                     'topic' => $topic,
                     'error' => $e->getMessage(),
@@ -1214,8 +1225,8 @@ class Server extends AbstractAdapter
     {
         $topic = $msg['topic'] ?? '';
         $payload = $msg['payload'] ?? '';
-        $qos = (int)($msg['qos'] ?? 0);
-        $retain = (bool)($msg['retain'] ?? false);
+        $qos = (int) ($msg['qos'] ?? 0);
+        $retain = (bool) ($msg['retain'] ?? false);
 
         if ($topic === '') {
             return;
@@ -1229,11 +1240,11 @@ class Server extends AbstractAdapter
                 continue;
             }
             $conn = $this->connections[$peer] ?? null;
-            if ($conn === null || !$conn->isOpen()) {
+            if ($conn === null || ! $conn->isOpen()) {
                 continue;
             }
             foreach ($session['subscriptions'] as $filter => $subQos) {
-                if ($filter === $topic || TopicMatcher::matchesParts((string)$filter, $topicParts)) {
+                if ($filter === $topic || TopicMatcher::matchesParts((string) $filter, $topicParts)) {
                     $deliverQos = min($qos, $subQos);
                     $this->sendPublish($peer, $topic, $payload, $deliverQos, false);
                     break;
@@ -1262,8 +1273,8 @@ class Server extends AbstractAdapter
         // 构造 PUBLISH 包
         $flags = 0;
         $flags |= match ($qos) {
-            1       => 0x02,
-            2       => 0x04,
+            1 => 0x02,
+            2 => 0x04,
             default => 0x00,
         };
         if ($retain) {
@@ -1280,8 +1291,8 @@ class Server extends AbstractAdapter
             $varHeader .= Properties::encode($properties);
         }
 
-        $body = $varHeader . $payload;
-        $packet = Codec::encodeFixedHeader(PacketType::PUBLISH, $flags, strlen($body)) . $body;
+        $body = $varHeader.$payload;
+        $packet = Codec::encodeFixedHeader(PacketType::PUBLISH, $flags, strlen($body)).$body;
 
         $this->write($peer, $packet);
 
@@ -1290,10 +1301,10 @@ class Server extends AbstractAdapter
             $clientId = $this->clientIdOf($peer);
             if ($clientId !== null) {
                 $this->sessions[$clientId]['pendingOutbound'][] = [
-                    'topic'     => $topic,
-                    'payload'   => $payload,
-                    'qos'       => $qos,
-                    'retain'    => $retain,
+                    'topic' => $topic,
+                    'payload' => $payload,
+                    'qos' => $qos,
+                    'retain' => $retain,
                     'packet_id' => $packetId,
                 ];
             }
@@ -1356,7 +1367,7 @@ class Server extends AbstractAdapter
         $conn = $this->connections[$peer] ?? null;
 
         // 非优雅断开：发布遗嘱消息
-        if (!$graceful && isset($this->willMessages[$peer])) {
+        if (! $graceful && isset($this->willMessages[$peer])) {
             $will = $this->willMessages[$peer];
             if ($will['topic'] !== '') {
                 $this->publishToSubscribers(
@@ -1372,7 +1383,7 @@ class Server extends AbstractAdapter
                     } else {
                         $this->retainedMessages[$will['topic']] = [
                             'payload' => $will['payload'],
-                            'qos'     => $will['qos'],
+                            'qos' => $will['qos'],
                         ];
                     }
                 }
@@ -1401,7 +1412,7 @@ class Server extends AbstractAdapter
             $conn->close(0, 'disconnect');
             $this->builder?->emit('connection.close', [
                 'connection' => $conn,
-                'reason'     => $graceful ? 'mqtt.disconnect' : 'mqtt.connection_lost',
+                'reason' => $graceful ? 'mqtt.disconnect' : 'mqtt.connection_lost',
             ]);
         }
 
@@ -1429,7 +1440,7 @@ class Server extends AbstractAdapter
                 continue; // Keep Alive = 0 表示不检测
             }
             $lastActivity = $this->lastActivity[$peer] ?? $now;
-            $timeout = (int)ceil($ka * 1.5);
+            $timeout = (int) ceil($ka * 1.5);
             if ($now - $lastActivity > $timeout) {
                 $this->logger->debug("MQTT Keep Alive 超时: peer={$peer}, ka={$ka}s");
                 $this->disconnectClient($peer, false);
@@ -1451,6 +1462,7 @@ class Server extends AbstractAdapter
                 return $clientId;
             }
         }
+
         return null;
     }
 
@@ -1469,6 +1481,7 @@ class Server extends AbstractAdapter
     {
         $id = $this->nextPacketId[$peer] ?? 1;
         $this->nextPacketId[$peer] = $id >= 0xFFFF ? 1 : $id + 1;
+
         return $id;
     }
 
@@ -1485,7 +1498,7 @@ class Server extends AbstractAdapter
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         @fwrite($sock, $data);
@@ -1545,10 +1558,10 @@ class Server extends AbstractAdapter
      */
     public function addSubscriptionForTest(string $clientId, string $filter, int $qos): void
     {
-        if (!isset($this->sessions[$clientId])) {
+        if (! isset($this->sessions[$clientId])) {
             $this->sessions[$clientId] = [
-                'subscriptions'      => [],
-                'pendingOutbound'    => [],
+                'subscriptions' => [],
+                'pendingOutbound' => [],
                 'pendingInboundQos2' => [],
             ];
         }

@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\Coap\CoapCode;
 use Kode\Messaging\Adapter\Coap\CoapConnection;
@@ -21,7 +21,7 @@ use Kode\Messaging\Messaging;
 
 $conn = Messaging::client('coap://127.0.0.1:5683')->connect();
 
-if (!($conn instanceof CoapConnection)) {
+if (! ($conn instanceof CoapConnection)) {
     fwrite(STDERR, "Unexpected connection type\n");
     exit(1);
 }
@@ -30,8 +30,8 @@ if (!($conn instanceof CoapConnection)) {
 echo "→ GET /sensors/temp\n";
 $conn->sendRequest(CoapCode::GET, '/sensors/temp', '', [
     'accept' => CoapOption::FMT_JSON,
-    'type'   => CoapType::CON,  // 可靠传输
-    'token'  => "\x01",
+    'type' => CoapType::CON,  // 可靠传输
+    'token' => "\x01",
 ]);
 
 // 等待响应（实际场景中应注册消息回调）
@@ -41,8 +41,8 @@ sleep(1);
 echo "→ PUT /sensors/temp\n";
 $conn->sendRequest(CoapCode::PUT, '/sensors/temp', '23.7', [
     'content_format' => CoapOption::FMT_TEXT,
-    'type'           => CoapType::CON,
-    'token'          => "\x02",
+    'type' => CoapType::CON,
+    'token' => "\x02",
 ]);
 sleep(1);
 

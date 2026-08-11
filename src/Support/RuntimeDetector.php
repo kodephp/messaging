@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Support;
 
+use Fiber;
 use Random\Randomizer;
+use ReflectionClass;
+use Throwable;
 
 /**
  * 运行时环境检测器
@@ -37,12 +40,12 @@ final class RuntimeDetector
     public const RUNTIME_PLAIN = 'plain';
 
     /**
-     * @var string|null 运行时类型缓存（进程内）
+     * @var null|string 运行时类型缓存（进程内）
      */
     private static ?string $runtime = null;
 
     /**
-     * @var Randomizer|null Randomizer 实例缓存
+     * @var null|Randomizer Randomizer 实例缓存
      */
     private static ?Randomizer $randomizer = null;
 
@@ -79,23 +82,22 @@ final class RuntimeDetector
      * 是否在 Swoole 协程中
      *
      * 判定条件：ext-swoole 已加载，且当前处于协程上下文（getCid() > 0）。
-     *
-     * @return bool
      */
     public static function isSwoole(): bool
     {
-        if (!extension_loaded('swoole')) {
+        if (! extension_loaded('swoole')) {
             return false;
         }
         // 仅当能安全调用时才校验协程上下文
-        if (!class_exists(\Swoole\Coroutine::class)) {
+        if (! class_exists(\Swoole\Coroutine::class)) {
             return false;
         }
+
         try {
-            /** @var mixed $cid */
             $cid = \Swoole\Coroutine::getCid();
+
             return $cid > 0;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return false;
         }
     }
@@ -104,8 +106,6 @@ final class RuntimeDetector
      * 是否在 Swow 协程中
      *
      * 判定条件：ext-swow 已加载。
-     *
-     * @return bool
      */
     public static function isSwow(): bool
     {
@@ -117,33 +117,30 @@ final class RuntimeDetector
      *
      * 判定条件：workerman/workerman 包已安装，且 Worker::$globalEvent 已被赋值
      * （事件循环已启动）。使用反射读取，避免对未安装包的硬依赖。
-     *
-     * @return bool
      */
     public static function isWorkerman(): bool
     {
-        if (!class_exists(\Workerman\Worker::class)) {
+        if (! class_exists(\Workerman\Worker::class)) {
             return false;
         }
+
         try {
-            $reflection = new \ReflectionClass(\Workerman\Worker::class);
-            if (!$reflection->hasProperty('globalEvent')) {
+            $reflection = new ReflectionClass(\Workerman\Worker::class);
+            if (! $reflection->hasProperty('globalEvent')) {
                 // 类存在但属性缺失，保守视为 Workerman 环境
                 return true;
             }
             $prop = $reflection->getProperty('globalEvent');
-            /** @var mixed $event */
             $event = $prop->getValue();
+
             return $event !== null;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return false;
         }
     }
 
     /**
      * 是否纯 PHP stream 模式
-     *
-     * @return bool
      */
     public static function isPlain(): bool
     {
@@ -152,8 +149,6 @@ final class RuntimeDetector
 
     /**
      * 是否支持 ext-sockets
-     *
-     * @return bool
      */
     public static function hasExtSockets(): bool
     {
@@ -162,8 +157,6 @@ final class RuntimeDetector
 
     /**
      * 是否支持 ext-openssl (TLS)
-     *
-     * @return bool
      */
     public static function hasExtOpenssl(): bool
     {
@@ -172,8 +165,6 @@ final class RuntimeDetector
 
     /**
      * 是否支持 ext-pcntl
-     *
-     * @return bool
      */
     public static function hasExtPcntl(): bool
     {
@@ -182,18 +173,14 @@ final class RuntimeDetector
 
     /**
      * 是否支持 Fiber (PHP 8.1+)
-     *
-     * @return bool
      */
     public static function hasFiber(): bool
     {
-        return class_exists(\Fiber::class);
+        return class_exists(Fiber::class);
     }
 
     /**
      * 是否在协程上下文中（Swoole 或 Swow）
-     *
-     * @return bool
      */
     public static function inCoroutine(): bool
     {
@@ -202,8 +189,6 @@ final class RuntimeDetector
 
     /**
      * 是否支持 PHP 8.4 property hooks
-     *
-     * @return bool
      */
     public static function hasPropertyHooks(): bool
     {
@@ -212,8 +197,6 @@ final class RuntimeDetector
 
     /**
      * 是否支持 PHP 8.4 asymmetric visibility
-     *
-     * @return bool
      */
     public static function hasAsymmetricVisibility(): bool
     {
@@ -224,8 +207,6 @@ final class RuntimeDetector
      * 是否支持 PHP 8.5 pipe operator
      *
      * 由于无法安全地 eval 检测 `|>` 语法，使用版本号判定。
-     *
-     * @return bool
      */
     public static function hasPipeOperator(): bool
     {

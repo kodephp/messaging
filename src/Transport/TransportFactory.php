@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Transport;
 
 use Kode\Messaging\Exception\TransportException;
+use Throwable;
 
 /**
  * 传输层工厂 —— 根据配置和运行时环境自动选择最佳传输驱动。
@@ -33,7 +34,7 @@ final class TransportFactory
     /**
      * 创建传输层实例。
      *
-     * @param string|null $driver 驱动名；null 表示自动检测最佳驱动
+     * @param null|string $driver 驱动名；null 表示自动检测最佳驱动
      *
      * @return TransportInterface 传输层实例（同一驱动复用单例）
      *
@@ -41,7 +42,7 @@ final class TransportFactory
      */
     public static function create(?string $driver = null): TransportInterface
     {
-        $driver = $driver ?? self::detect();
+        $driver ??= self::detect();
 
         if (isset(self::$instances[$driver])) {
             return self::$instances[$driver];
@@ -79,8 +80,6 @@ final class TransportFactory
 
     /**
      * 是否在 Swoole 运行时中。
-     *
-     * @return bool
      */
     public static function isSwoole(): bool
     {
@@ -90,8 +89,6 @@ final class TransportFactory
 
     /**
      * 是否在 Swow 运行时中。
-     *
-     * @return bool
      */
     public static function isSwow(): bool
     {
@@ -101,8 +98,6 @@ final class TransportFactory
 
     /**
      * 是否安装了 Workerman。
-     *
-     * @return bool
      */
     public static function isWorkerman(): bool
     {
@@ -111,8 +106,6 @@ final class TransportFactory
 
     /**
      * 是否加载了 ext-sockets 扩展。
-     *
-     * @return bool
      */
     public static function hasExtSockets(): bool
     {
@@ -132,7 +125,6 @@ final class TransportFactory
      *
      * @param string $driver 驱动名
      *
-     * @return TransportInterface
      *
      * @throws TransportException 当驱动不可用或不支持
      */
@@ -152,7 +144,7 @@ final class TransportFactory
             };
         } catch (TransportException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw TransportException::openFailed(
                 $driver,
                 "传输驱动 [{$driver}] 初始化失败: {$e->getMessage()}",

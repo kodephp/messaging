@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class LongPollingHubTest extends TestCase
 {
-    public function testSingleton(): void
+    public function test_singleton(): void
     {
         $a = Hub::singleton();
         $b = Hub::singleton();
@@ -23,11 +23,11 @@ final class LongPollingHubTest extends TestCase
         Hub::setSingleton(new Hub());
     }
 
-    public function testSubscribeAndPush(): void
+    public function test_subscribe_and_push(): void
     {
         $hub = new Hub();
         $received = [];
-        $hub->subscribe('orders', function ($payload) use (&$received) {
+        $hub->subscribe('orders', function ($payload) use (&$received): void {
             $received[] = $payload;
         });
 
@@ -37,31 +37,37 @@ final class LongPollingHubTest extends TestCase
         $this->assertSame(['id' => 1], $received[0]);
     }
 
-    public function testMultipleSubscribers(): void
+    public function test_multiple_subscribers(): void
     {
         $hub = new Hub();
         $count1 = 0;
         $count2 = 0;
-        $hub->subscribe('topic', function () use (&$count1) { $count1++; });
-        $hub->subscribe('topic', function () use (&$count2) { $count2++; });
+        $hub->subscribe('topic', function () use (&$count1): void {
+            $count1++;
+        });
+        $hub->subscribe('topic', function () use (&$count2): void {
+            $count2++;
+        });
 
         $hub->push('topic', 'x');
         $this->assertSame(1, $count1);
         $this->assertSame(1, $count2);
     }
 
-    public function testUnsubscribe(): void
+    public function test_unsubscribe(): void
     {
         $hub = new Hub();
         $count = 0;
-        $cb = function () use (&$count) { $count++; };
+        $cb = function () use (&$count): void {
+            $count++;
+        };
         $hub->subscribe('orders', $cb);
         $hub->unsubscribe('orders', $cb);
         $hub->push('orders', 'x');
         $this->assertSame(0, $count);
     }
 
-    public function testUnsubscribeTopic(): void
+    public function test_unsubscribe_topic(): void
     {
         $hub = new Hub();
         $hub->subscribe('a', fn() => 1);
@@ -72,12 +78,12 @@ final class LongPollingHubTest extends TestCase
         $this->assertSame(1, $hub->topicCount('b'));
     }
 
-    public function testDispatcher(): void
+    public function test_dispatcher(): void
     {
         $hub = new Hub(Hub::DRIVER_CHANNEL);
-        /** @var array{topic:string, payload:mixed}|null $dispatched */
+        /** @var null|array{topic:string, payload:mixed} $dispatched */
         $dispatched = null;
-        $hub->setDispatcher(function (string $topic, $payload) use (&$dispatched) {
+        $hub->setDispatcher(function (string $topic, $payload) use (&$dispatched): void {
             $dispatched = ['topic' => $topic, 'payload' => $payload];
         });
         $hub->push('cross-node', ['data' => 1]);
@@ -86,7 +92,7 @@ final class LongPollingHubTest extends TestCase
         $this->assertSame(['data' => 1], $dispatched['payload']);
     }
 
-    public function testTotalSubscribers(): void
+    public function test_total_subscribers(): void
     {
         $hub = new Hub();
         $hub->subscribe('a', fn() => 1);
@@ -95,7 +101,7 @@ final class LongPollingHubTest extends TestCase
         $this->assertSame(3, $hub->totalSubscribers());
     }
 
-    public function testTopics(): void
+    public function test_topics(): void
     {
         $hub = new Hub();
         $hub->subscribe('a', fn() => 1);

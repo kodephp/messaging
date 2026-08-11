@@ -11,6 +11,9 @@ use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\CoapException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+
+use function strlen;
 
 /**
  * CoAP 服务端（RFC 7252）
@@ -33,7 +36,7 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
 
     /** @var array<string, CoapConnection> 对端地址 → 连接 */
@@ -62,11 +65,11 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_packet_size'   => 1_152,
-            'ack_timeout_ms'    => 2_000,
-            'max_retransmit'    => 4,
-            'retransmit_backoff'=> 2.0,
-            'enable_observe'    => true,   // RFC 7641
+            'max_packet_size' => 1_152,
+            'ack_timeout_ms' => 2_000,
+            'max_retransmit' => 4,
+            'retransmit_backoff' => 2.0,
+            'enable_observe' => true,   // RFC 7641
             'default_response_format' => CoapOption::FMT_JSON,
         ];
     }
@@ -82,7 +85,7 @@ final class Server extends AbstractAdapter
             STREAM_SERVER_BIND,
         );
         if ($this->socket === false) {
-            throw CoapException::bindFailed($host, $port, (string)$errstr);
+            throw CoapException::bindFailed($host, $port, (string) $errstr);
         }
         stream_set_timeout($this->socket, 1);
         $this->logger->info("CoAP listening on {$host}:{$port}");
@@ -91,16 +94,16 @@ final class Server extends AbstractAdapter
     public function run(): void
     {
         $this->running = true;
-        $max = (int)($this->config['max_packet_size'] ?? 1_152);
-        $ackMs = (int)($this->config['ack_timeout_ms'] ?? 2_000);
-        $maxRetrans = (int)($this->config['max_retransmit'] ?? 4);
-        $backoff = (float)($this->config['retransmit_backoff'] ?? 2.0);
+        $max = (int) ($this->config['max_packet_size'] ?? 1_152);
+        $ackMs = (int) ($this->config['ack_timeout_ms'] ?? 2_000);
+        $maxRetrans = (int) ($this->config['max_retransmit'] ?? 4);
+        $backoff = (float) ($this->config['retransmit_backoff'] ?? 2.0);
 
         while ($this->running) {
             // 接收
             $buf = @stream_socket_recvfrom($this->socket, $max, 0, $peer);
             if ($buf !== false && $buf !== '') {
-                $this->handleDatagram($buf, (string)$peer);
+                $this->handleDatagram($buf, (string) $peer);
             }
 
             // 重传扫描
@@ -110,17 +113,17 @@ final class Server extends AbstractAdapter
                     if ($entry['attempts'] >= $maxRetrans) {
                         unset($this->pending[$mid]);
                         $this->builder?->emit('coap.timeout', [
-                            'mid'   => $mid,
-                            'peer'  => $entry['peer'],
+                            'mid' => $mid,
+                            'peer' => $entry['peer'],
                         ]);
                         continue;
                     }
                     // 触发事件让业务决定是否重传
                     $this->builder?->emit('coap.retransmit', [
-                        'mid'      => $mid,
-                        'peer'     => $entry['peer'],
+                        'mid' => $mid,
+                        'peer' => $entry['peer'],
                         'attempts' => $entry['attempts'] + 1,
-                        'timeout'  => $ackMs * ($backoff ** $entry['attempts']),
+                        'timeout' => $ackMs * ($backoff ** $entry['attempts']),
                     ]);
                     $this->pending[$mid]['attempts']++;
                     $this->pending[$mid]['deadline'] = $now + $ackMs * ($backoff ** $entry['attempts']);
@@ -133,7 +136,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('CoAP Server 不支持 connect()');
+        throw new LogicException('CoAP Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -157,20 +160,20 @@ final class Server extends AbstractAdapter
     {
         $type = $options['type'] ?? CoapType::ACK;
         $token = $options['token'] ?? '';
-        $contentFormat = $options['content_format'] ?? (int)($this->config['default_response_format'] ?? CoapOption::FMT_JSON);
+        $contentFormat = $options['content_format'] ?? (int) ($this->config['default_response_format'] ?? CoapOption::FMT_JSON);
 
         $optList = [];
         if ($payload !== '' && $contentFormat > 0) {
             $optList[] = ['number' => CoapOption::CONTENT_FORMAT, 'value' => chr($contentFormat)];
         }
         foreach ($options['extra'] ?? [] as $k => $v) {
-            $optList[] = ['number' => (int)$k, 'value' => (string)$v];
+            $optList[] = ['number' => (int) $k, 'value' => (string) $v];
         }
         usort($optList, fn($a, $b) => $a['number'] <=> $b['number']);
 
         $packet = new CoapPacket(
             type: $type,
-            tokenLength: \strlen($token),
+            tokenLength: strlen($token),
             code: $code,
             messageId: $mid,
             token: $token,
@@ -189,10 +192,11 @@ final class Server extends AbstractAdapter
             $packet = CoapPacket::decode($data);
         } catch (CoapException $e) {
             $this->builder?->emit('error.protocol', ['error' => $e->getMessage(), 'peer' => $peer]);
+
             return;
         }
 
-        if (!isset($this->connections[$peer])) {
+        if (! isset($this->connections[$peer])) {
             $this->connections[$peer] = new CoapConnection(
                 Connection::generateId('coap'),
                 'coap',
@@ -210,7 +214,7 @@ final class Server extends AbstractAdapter
             unset($this->pending[$packet->messageId]);
             $this->builder?->emit('coap.ack', [
                 'connection' => $conn,
-                'packet'     => $packet,
+                'packet' => $packet,
             ]);
             if ($packet->type === CoapType::RST) {
                 return;
@@ -225,17 +229,17 @@ final class Server extends AbstractAdapter
             'coap',
             topic: $path,
             context: [
-                'connection_id'  => $conn->id(),
+                'connection_id' => $conn->id(),
                 'remote_address' => $peer,
                 'coap' => [
-                    'mid'     => $packet->messageId,
-                    'type'    => $packet->type,
+                    'mid' => $packet->messageId,
+                    'type' => $packet->type,
                     'type_name' => CoapType::name($packet->type),
-                    'code'    => $packet->code,
+                    'code' => $packet->code,
                     'code_name' => CoapCode::name($packet->code),
-                    'method'  => $method,
-                    'path'    => $path,
-                    'token'   => $packet->token,
+                    'method' => $method,
+                    'path' => $path,
+                    'token' => $packet->token,
                     'options' => $packet->options,
                 ],
             ],
@@ -252,17 +256,18 @@ final class Server extends AbstractAdapter
                 $segs[] = $opt['value'];
             }
         }
-        return '/' . implode('/', $segs);
+
+        return '/'.implode('/', $segs);
     }
 
     private function codeToMethod(float $code): string
     {
         return match ($code) {
-            CoapCode::GET    => 'GET',
-            CoapCode::POST   => 'POST',
-            CoapCode::PUT    => 'PUT',
+            CoapCode::GET => 'GET',
+            CoapCode::POST => 'POST',
+            CoapCode::PUT => 'PUT',
             CoapCode::DELETE => 'DELETE',
-            default          => 'CODE_' . number_format($code, 2, '_', ''),
+            default => 'CODE_'.number_format($code, 2, '_', ''),
         };
     }
 }

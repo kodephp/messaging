@@ -46,12 +46,13 @@ class CoapException extends MessagingException
     {
         $class = match (true) {
             $code >= 4.00 && $code < 5.00 => '客户端错误',
-            $code >= 5.00                 => '服务端错误',
-            default                       => 'CoAP 错误',
+            $code >= 5.00 => '服务端错误',
+            default => 'CoAP 错误',
         };
+
         return new self(
-            "CoAP {$class} " . number_format($code, 2) . ($reason !== '' ? ": {$reason}" : ''),
-            (int)($code * 100),
+            "CoAP {$class} ".number_format($code, 2).($reason !== '' ? ": {$reason}" : ''),
+            (int) ($code * 100),
             ['response_code' => $code, 'reason' => $reason],
         );
     }

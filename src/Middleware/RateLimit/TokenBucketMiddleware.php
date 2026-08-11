@@ -34,7 +34,7 @@ use Kode\Messaging\Exception\MessagingException;
 final class TokenBucketMiddleware implements MiddlewareInterface
 {
     /**
-     * @param RateLimiterInterface|null $limiter 自定义限流器（不传则使用内部令牌桶）
+     * @param null|RateLimiterInterface $limiter 自定义限流器（不传则使用内部令牌桶）
      * @param int                       $capacity 令牌桶容量（仅在内部创建限流器时使用）
      * @param float                     $refillRate 每秒补充令牌数（仅在内部创建限流器时使用）
      * @param string                    $keyPrefix 键前缀（多租户场景区分）
@@ -46,8 +46,7 @@ final class TokenBucketMiddleware implements MiddlewareInterface
         private readonly float $refillRate = 60.0,
         private readonly string $keyPrefix = 'rtmp:',
         private readonly string $keyField = 'connection_id',
-    ) {
-    }
+    ) {}
 
     /**
      * 创建内存版令牌桶中间件（默认）。
@@ -85,6 +84,7 @@ final class TokenBucketMiddleware implements MiddlewareInterface
             $password,
             $database,
         );
+
         return new self($limiter->build(), $capacity, $refillRate, $keyPrefix, $keyField);
     }
 
@@ -100,16 +100,17 @@ final class TokenBucketMiddleware implements MiddlewareInterface
     {
         $key = $this->bucketKey($message);
         $limiter = $this->limiter ?? $this->defaultLimiter();
-        if (!$limiter->allow($key, 1)) {
+        if (! $limiter->allow($key, 1)) {
             throw new MessagingException('限流触发（令牌桶）', 429, [
-                'algorithm'   => 'token_bucket',
-                'bucket'      => $key,
-                'capacity'    => $this->capacity,
+                'algorithm' => 'token_bucket',
+                'bucket' => $key,
+                'capacity' => $this->capacity,
                 'refill_rate' => $this->refillRate,
-                'wait_time'   => $limiter->getWaitTime($key),
-                'remaining'   => $limiter->getRemaining($key),
+                'wait_time' => $limiter->getWaitTime($key),
+                'remaining' => $limiter->getRemaining($key),
             ]);
         }
+
         return $next($message);
     }
 
@@ -118,14 +119,15 @@ final class TokenBucketMiddleware implements MiddlewareInterface
      */
     private function defaultLimiter(): RateLimiterInterface
     {
-        $key = $this->capacity . ':' . $this->refillRate;
+        $key = $this->capacity.':'.$this->refillRate;
         static $cache = [];
-        if (!isset($cache[$key])) {
+        if (! isset($cache[$key])) {
             $cache[$key] = \Kode\Limiting\Limiter::tokenBucket(
                 $this->capacity,
                 $this->refillRate,
             )->build();
         }
+
         return $cache[$key];
     }
 
@@ -133,11 +135,12 @@ final class TokenBucketMiddleware implements MiddlewareInterface
     {
         $ctx = $m->context();
         if (isset($ctx[$this->keyField]) && is_string($ctx[$this->keyField]) && $ctx[$this->keyField] !== '') {
-            return $this->keyPrefix . $ctx[$this->keyField];
+            return $this->keyPrefix.$ctx[$this->keyField];
         }
         if (isset($ctx['remote_address']) && is_string($ctx['remote_address'])) {
-            return $this->keyPrefix . $ctx['remote_address'];
+            return $this->keyPrefix.$ctx['remote_address'];
         }
-        return $this->keyPrefix . '*';
+
+        return $this->keyPrefix.'*';
     }
 }

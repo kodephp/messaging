@@ -28,6 +28,7 @@ use Random\Randomizer;
 final class PhpCompat
 {
     private static ?int $versionId = null;
+
     private static ?Randomizer $randomizer = null;
 
     public static function version(): string

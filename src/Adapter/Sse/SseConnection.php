@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\Sse;
 
 use Kode\Messaging\Connection\Connection;
+use RuntimeException;
+use Throwable;
 
 /**
  * SSE 连接
@@ -26,7 +28,7 @@ class SseConnection extends Connection
 
     public function send(mixed $payload, array $options = []): bool
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return false;
         }
         $message = \Kode\Messaging\Message\Message::of(
@@ -38,15 +40,17 @@ class SseConnection extends Connection
         $bytes = @fwrite($this->stream, $text);
         if ($bytes === false) {
             $this->close(1000, 'write failed');
+
             return false;
         }
         @fflush($this->stream);
+
         return true;
     }
 
     public function close(int $code = 1000, string $reason = ''): void
     {
-        if (!$this->open) {
+        if (! $this->open) {
             return;
         }
         $this->open = false;
@@ -55,8 +59,8 @@ class SseConnection extends Connection
         }
         foreach ($this->closeCallbacks as $cb) {
             try {
-                $cb($code === 1000 ? null : new \RuntimeException("close: {$reason}", $code));
-            } catch (\Throwable) {
+                $cb($code === 1000 ? null : new RuntimeException("close: {$reason}", $code));
+            } catch (Throwable) {
             }
         }
         $this->closeCallbacks = [];

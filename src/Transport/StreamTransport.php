@@ -71,7 +71,7 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $serverSocket 服务端 socket 资源
      *
-     * @return resource|false 客户端 socket 资源；无连接返回 false
+     * @return false|resource 客户端 socket 资源；无连接返回 false
      */
     public function accept(mixed $serverSocket): mixed
     {
@@ -121,8 +121,6 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      * @param int      $length 期望读取的最大字节数
-     *
-     * @return string|false
      */
     public function read(mixed $socket, int $length): string|false
     {
@@ -138,8 +136,6 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      * @param string   $data   待写入数据
-     *
-     * @return int|false
      */
     public function write(mixed $socket, string $data): int|false
     {
@@ -162,8 +158,7 @@ final class StreamTransport implements TransportInterface
      * {@inheritdoc}
      *
      * @param array<int, resource>      $read
-     * @param array<int, resource>|null $write
-     * @param int                       $timeoutMicroseconds
+     * @param null|array<int, resource> $write
      *
      * @return array{0: array<int, resource>, 1: array<int, resource>}|false
      */
@@ -213,8 +208,6 @@ final class StreamTransport implements TransportInterface
      * {@inheritdoc}
      *
      * @param resource $socket socket 资源
-     *
-     * @return string|false
      */
     public function getPeerName(mixed $socket): string|false
     {
@@ -235,8 +228,6 @@ final class StreamTransport implements TransportInterface
      * 将协议名规范化为 stream scheme。
      *
      * @param string $protocol "tcp" / "udp" / "ssl" / "tls"
-     *
-     * @return string
      */
     private function normalizeScheme(string $protocol): string
     {

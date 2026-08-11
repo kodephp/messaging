@@ -38,16 +38,16 @@ class GrpcException extends MessagingException
     public static function fromStatusCode(int $code, string $message = ''): self
     {
         $name = match ($code) {
-            0  => 'OK',
-            1  => 'CANCELLED',
-            2  => 'UNKNOWN',
-            3  => 'INVALID_ARGUMENT',
-            4  => 'DEADLINE_EXCEEDED',
-            5  => 'NOT_FOUND',
-            6  => 'ALREADY_EXISTS',
-            7  => 'PERMISSION_DENIED',
-            8  => 'RESOURCE_EXHAUSTED',
-            9  => 'FAILED_PRECONDITION',
+            0 => 'OK',
+            1 => 'CANCELLED',
+            2 => 'UNKNOWN',
+            3 => 'INVALID_ARGUMENT',
+            4 => 'DEADLINE_EXCEEDED',
+            5 => 'NOT_FOUND',
+            6 => 'ALREADY_EXISTS',
+            7 => 'PERMISSION_DENIED',
+            8 => 'RESOURCE_EXHAUSTED',
+            9 => 'FAILED_PRECONDITION',
             10 => 'ABORTED',
             11 => 'OUT_OF_RANGE',
             12 => 'UNIMPLEMENTED',
@@ -55,12 +55,13 @@ class GrpcException extends MessagingException
             14 => 'UNAVAILABLE',
             15 => 'DATA_LOSS',
             16 => 'UNAUTHENTICATED',
-            default => 'STATUS_' . $code,
+            default => 'STATUS_'.$code,
         };
+
         return new self("gRPC {$name}: {$message}", 8200 + $code, [
             'status_code' => $code,
             'status_name' => $name,
-            'message'     => $message,
+            'message' => $message,
         ]);
     }
 }

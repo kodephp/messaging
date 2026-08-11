@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 
 final class PacketTest extends TestCase
 {
-    public function testMqttConnectEncode(): void
+    public function test_mqtt_connect_encode(): void
     {
         $packet = Connect::encode(
             clientId: 'client-001',
@@ -30,7 +30,7 @@ final class PacketTest extends TestCase
         $this->assertStringContainsString('client-001', $packet);
     }
 
-    public function testMqttPublishEncode(): void
+    public function test_mqtt_publish_encode(): void
     {
         $bytes = Publish::encode('sensors/temp', '23.5', qos: 1);
         // 0x32 (PUBLISH + QoS 1)
@@ -39,7 +39,7 @@ final class PacketTest extends TestCase
         $this->assertStringContainsString('23.5', $bytes);
     }
 
-    public function testMqttSubscribeEncode(): void
+    public function test_mqtt_subscribe_encode(): void
     {
         $bytes = Subscribe::encode(1, [['topic' => 'sensors/#', 'qos' => 1]]);
         // 0x82 (SUBSCRIBE + 0x02)
@@ -47,7 +47,7 @@ final class PacketTest extends TestCase
         $this->assertStringContainsString('sensors/#', $bytes);
     }
 
-    public function testSseFormat(): void
+    public function test_sse_format(): void
     {
         $text = Formatter::format('{"time":123}', event: 'tick', id: 'evt-1', retry: 3000);
         $this->assertStringContainsString("event: tick\n", $text);
@@ -57,7 +57,7 @@ final class PacketTest extends TestCase
         $this->assertStringEndsWith("\n\n", $text);
     }
 
-    public function testSseFromMessage(): void
+    public function test_sse_from_message(): void
     {
         $msg = Msg::of(['time' => 123], 'sse', event: 'tick');
         $text = Formatter::fromMessage($msg);

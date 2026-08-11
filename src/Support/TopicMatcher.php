@@ -33,6 +33,7 @@ final class TopicMatcher
         if ($filter === $topic) {
             return true;
         }
+
         return self::matchesParts($filter, explode('/', $topic));
     }
 
@@ -112,6 +113,7 @@ final class TopicMatcher
                 return false;
             }
         }
+
         return true;
     }
 
@@ -137,6 +139,7 @@ final class TopicMatcher
             self::$filterCache = [];
         }
         self::$filterCache[$filter] = $parts;
+
         return $parts;
     }
 }

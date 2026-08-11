@@ -48,14 +48,15 @@ final class CoapBlock
                 ['num' => $num],
             );
         }
-        $tail = ((int)$num << 4) | ($more ? 0x08 : 0) | ($szx & 0x07);
+        $tail = ((int) $num << 4) | ($more ? 0x08 : 0) | ($szx & 0x07);
         if ($num < 16) {
             return chr($tail & 0xFF);
         }
         if ($num < 4096) {
-            return chr(($num >> 4) & 0xFF) . chr($tail & 0xFF);
+            return chr(($num >> 4) & 0xFF).chr($tail & 0xFF);
         }
-        return chr(($num >> 12) & 0xFF) . chr(($num >> 4) & 0xFF) . chr($tail & 0xFF);
+
+        return chr(($num >> 12) & 0xFF).chr(($num >> 4) & 0xFF).chr($tail & 0xFF);
     }
 
     /**
@@ -87,6 +88,7 @@ final class CoapBlock
             $num |= ord($bytes[$i]) << (4 + 8 * ($len - 2 - $i));
         }
         $size = 16 << $szx;
+
         return ['num' => $num, 'more' => $more, 'szx' => $szx, 'size' => $size];
     }
 
@@ -110,12 +112,13 @@ final class CoapBlock
             $offset += $size;
             $more = $offset < $len;
             $blocks[] = [
-                'num'  => $i++,
+                'num' => $i++,
                 'more' => $more,
-                'szx'  => $szx,
+                'szx' => $szx,
                 'data' => $chunk,
             ];
         }
+
         return $blocks;
     }
 }

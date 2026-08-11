@@ -76,7 +76,7 @@ interface TransportInterface
      * @param mixed $socket  socket 句柄
      * @param int   $length  期望读取的最大字节数
      *
-     * @return string|false 读取到的数据；连接关闭或出错返回 false
+     * @return false|string 读取到的数据；连接关闭或出错返回 false
      */
     public function read(mixed $socket, int $length): string|false;
 
@@ -86,7 +86,7 @@ interface TransportInterface
      * @param mixed  $socket socket 句柄
      * @param string $data   待写入数据
      *
-     * @return int|false 实际写入字节数；出错返回 false
+     * @return false|int 实际写入字节数；出错返回 false
      */
     public function write(mixed $socket, string $data): int|false;
 
@@ -101,7 +101,7 @@ interface TransportInterface
      * 多路复用 select —— 等待 socket 可读/可写。
      *
      * @param array<int, mixed> $read               监听可读的 socket 数组
-     * @param array<int, mixed>|null $write         监听可写的 socket 数组
+     * @param null|array<int, mixed> $write         监听可写的 socket 数组
      * @param int                $timeoutMicroseconds 超时（微秒）；0 表示立即返回
      *
      * @return array{0: array<int, mixed>, 1: array<int, mixed>}|false
@@ -128,7 +128,7 @@ interface TransportInterface
      *
      * @param mixed $socket socket 句柄
      *
-     * @return string|false 对端地址；失败返回 false
+     * @return false|string 对端地址；失败返回 false
      */
     public function getPeerName(mixed $socket): string|false;
 

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Tests\Unit;
 
+use Kode\Messaging\Adapter\Mqtt\Packet\Codec as MqttCodec;
 use Kode\Messaging\Adapter\WebSocket\Codec\Frame;
 use Kode\Messaging\Adapter\WebSocket\Codec\OpCode;
-use Kode\Messaging\Adapter\Mqtt\Packet\Codec as MqttCodec;
 use PHPUnit\Framework\TestCase;
 
 final class CodecTest extends TestCase
 {
-    public function testWebSocketTextFrameEncode(): void
+    public function test_web_socket_text_frame_encode(): void
     {
         $frame = new Frame(true, OpCode::TEXT, 'hello');
         $bytes = $frame->encode();
@@ -19,7 +19,7 @@ final class CodecTest extends TestCase
         $this->assertSame("\x81\x05hello", $bytes);
     }
 
-    public function testWebSocketFrameDecode(): void
+    public function test_web_socket_frame_decode(): void
     {
         $original = new Frame(true, OpCode::TEXT, 'hello');
         $bytes = $original->encode(masked: true);
@@ -28,14 +28,14 @@ final class CodecTest extends TestCase
         $maskedPayload = substr($bytes, $maskOffset + 4);
         $unmasked = $maskedPayload ^ str_repeat($mask, 1);
         $unmasked = substr($unmasked, 0, 5);
-        $rebuilt = chr(0x81) . chr(0x80 | 5) . $mask . $maskedPayload;
+        $rebuilt = chr(0x81).chr(0x80 | 5).$mask.$maskedPayload;
         $decoded = Frame::decode($rebuilt);
         $this->assertSame(OpCode::TEXT, $decoded->opcode);
         $this->assertSame('hello', $decoded->payload);
         $this->assertTrue($decoded->fin);
     }
 
-    public function testWebSocketFramePing(): void
+    public function test_web_socket_frame_ping(): void
     {
         // 服务端发往客户端的 PING 帧是 unmasked
         $frame = Frame::ping('ping-data');
@@ -45,7 +45,7 @@ final class CodecTest extends TestCase
         $this->assertSame('ping-data', $decoded->payload);
     }
 
-    public function testMqttEncodeRemainingLength(): void
+    public function test_mqtt_encode_remaining_length(): void
     {
         $this->assertSame("\x00", MqttCodec::encodeRemainingLength(0));
         $this->assertSame("\x7F", MqttCodec::encodeRemainingLength(127));
@@ -53,15 +53,15 @@ final class CodecTest extends TestCase
         $this->assertSame("\xFF\x7F", MqttCodec::encodeRemainingLength(16383));
     }
 
-    public function testMqttDecodeRemainingLength(): void
+    public function test_mqtt_decode_remaining_length(): void
     {
-        $data = "\x80\x01" . 'abc';
+        $data = "\x80\x01".'abc';
         $offset = 0;
         $this->assertSame(128, MqttCodec::decodeRemainingLength($data, $offset));
         $this->assertSame(2, $offset);
     }
 
-    public function testMqttEncodeString(): void
+    public function test_mqtt_encode_string(): void
     {
         $this->assertSame("\x00\x05hello", MqttCodec::encodeString('hello'));
     }

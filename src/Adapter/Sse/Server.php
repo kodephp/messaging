@@ -8,6 +8,8 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Exception\SseException;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+use Throwable;
 
 /**
  * SSE 服务端
@@ -23,7 +25,7 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $serverSocket = null;
 
     /** @var array<int, SseConnection> */
@@ -49,11 +51,11 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'retry_ms'         => 3000,
+            'retry_ms' => 3000,
             'keepalive_seconds' => 15,
-            'max_connections'  => 10_000,
-            'heartbeat_event'  => 'ping',
-            'enable_cors'      => true,
+            'max_connections' => 10_000,
+            'heartbeat_event' => 'ping',
+            'enable_cors' => true,
         ];
     }
 
@@ -78,9 +80,9 @@ final class Server extends AbstractAdapter
     public function run(): void
     {
         $this->running = true;
-        $maxConn = (int)($this->config['max_connections'] ?? 10_000);
+        $maxConn = (int) ($this->config['max_connections'] ?? 10_000);
         $lastInterval = 0;
-        $intervals = (array)($this->builder?->intervals() ?? []);
+        $intervals = (array) ($this->builder?->intervals() ?? []);
 
         while ($this->running) {
             $new = @stream_socket_accept($this->serverSocket, 0);
@@ -95,9 +97,9 @@ final class Server extends AbstractAdapter
             $this->checkAlive();
 
             // 触发 interval 事件
-            $now = (int)(microtime(true) * 1000);
+            $now = (int) (microtime(true) * 1000);
             foreach ($intervals as $msStr => $handler) {
-                $ms = (int)$msStr;
+                $ms = (int) $msStr;
                 if ($now - $lastInterval < $ms) {
                     continue;
                 }
@@ -105,7 +107,7 @@ final class Server extends AbstractAdapter
                     if ($conn->isOpen()) {
                         try {
                             $handler($conn);
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('interval handler error', ['error' => $e->getMessage()]);
                         }
                     }
@@ -121,7 +123,7 @@ final class Server extends AbstractAdapter
     {
         stream_set_timeout($socket, 5);
         $buf = '';
-        while (strpos($buf, "\r\n\r\n") === false) {
+        while (! str_contains($buf, "\r\n\r\n")) {
             $chunk = @fread($socket, 2048);
             if ($chunk === false || $chunk === '') {
                 break;
@@ -132,8 +134,9 @@ final class Server extends AbstractAdapter
             }
         }
         $firstLine = strtok($buf, "\r\n");
-        if (!is_string($firstLine) || !preg_match('#^GET\s+(\S+)\s+HTTP/1\.[01]#', $firstLine, $m)) {
+        if (! is_string($firstLine) || ! preg_match('#^GET\s+(\S+)\s+HTTP/1\.[01]#', $firstLine, $m)) {
             @fclose($socket);
+
             return;
         }
         $path = $m[1];
@@ -147,9 +150,10 @@ final class Server extends AbstractAdapter
         }
 
         $accept = $headers['accept'] ?? '';
-        if (!str_contains($accept, 'text/event-stream')) {
+        if (! str_contains($accept, 'text/event-stream')) {
             @fwrite($socket, "HTTP/1.1 406 Not Acceptable\r\nContent-Length: 0\r\n\r\n");
             @fclose($socket);
+
             return;
         }
 
@@ -162,7 +166,7 @@ final class Server extends AbstractAdapter
             $response .= "Access-Control-Allow-Origin: {$origin}\r\n";
         }
         $response .= "X-Accel-Buffering: no\r\n"; // 禁用 Nginx 缓冲
-        $retry = (int)($this->config['retry_ms'] ?? 3000);
+        $retry = (int) ($this->config['retry_ms'] ?? 3000);
         $response .= "retry: {$retry}\r\n";
         $response .= "\r\n";
         @fwrite($socket, $response);
@@ -174,25 +178,25 @@ final class Server extends AbstractAdapter
             $socket,
         );
         $conn->setAttribute('path', $path);
-        $this->connections[(int)$socket] = $conn;
+        $this->connections[(int) $socket] = $conn;
         $this->builder?->emit('connection.open', ['connection' => $conn]);
     }
 
     private function checkAlive(): void
     {
-        $keepalive = (int)($this->config['keepalive_seconds'] ?? 15);
+        $keepalive = (int) ($this->config['keepalive_seconds'] ?? 15);
         if ($keepalive <= 0) {
             return;
         }
         $now = time();
         foreach ($this->connections as $key => $conn) {
             $meta = @stream_get_meta_data($conn->stream());
-            if (!empty($meta['timed_out'])) {
+            if (! empty($meta['timed_out'])) {
                 $this->removeConnection($conn);
                 continue;
             }
             // 发送 keepalive 注释
-            if ($now - (int)$conn->getAttribute('last_keepalive', $now) > $keepalive) {
+            if ($now - (int) $conn->getAttribute('last_keepalive', $now) > $keepalive) {
                 @fwrite($conn->stream(), ": keepalive\n\n");
                 @fflush($conn->stream());
                 $conn->setAttribute('last_keepalive', $now);
@@ -206,6 +210,7 @@ final class Server extends AbstractAdapter
             if ($c === $conn) {
                 unset($this->connections[$key]);
                 $this->builder?->emit('connection.close', ['connection' => $conn]);
+
                 return;
             }
         }
@@ -213,7 +218,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config = []): \Kode\Messaging\Contract\ConnectionInterface
     {
-        throw new \LogicException('SSE Server 不支持 connect()');
+        throw new LogicException('SSE Server 不支持 connect()');
     }
 
     public function shutdown(): void

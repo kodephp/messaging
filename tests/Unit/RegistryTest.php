@@ -16,20 +16,20 @@ final class RegistryTest extends TestCase
         Registry::reset();
     }
 
-    public function testRegisterAndFind(): void
+    public function test_register_and_find(): void
     {
         Registry::register('foo', UdpClient::class);
         $this->assertSame(UdpClient::class, Registry::find('foo'));
     }
 
-    public function testSchemeIsCaseInsensitive(): void
+    public function test_scheme_is_case_insensitive(): void
     {
         Registry::register('WS', UdpClient::class);
         $this->assertSame(UdpClient::class, Registry::find('ws'));
         $this->assertSame(UdpClient::class, Registry::find('WS'));
     }
 
-    public function testNormalizeScheme(): void
+    public function test_normalize_scheme(): void
     {
         $this->assertSame('ws', Messaging::normalizeScheme('wss'));
         $this->assertSame('ws', Messaging::normalizeScheme('WebSocket'));
@@ -38,7 +38,7 @@ final class RegistryTest extends TestCase
         $this->assertSame('udp', Messaging::normalizeScheme('dgram'));
     }
 
-    public function testParseUrl(): void
+    public function test_parse_url(): void
     {
         $info = Messaging::parseUrl('wss://example.com:443/path?token=abc');
         $this->assertSame('ws', $info['scheme']);
@@ -48,7 +48,7 @@ final class RegistryTest extends TestCase
         $this->assertSame('abc', $info['query']['token'] ?? null);
     }
 
-    public function testDefaultPort(): void
+    public function test_default_port(): void
     {
         $this->assertSame(80, Messaging::defaultPort('ws'));
         $this->assertSame(443, Messaging::defaultPort('ws', true));
@@ -60,7 +60,7 @@ final class RegistryTest extends TestCase
         $this->assertSame(1935, Messaging::defaultPort('rtmp'));
     }
 
-    public function testNormalizeNewSchemes(): void
+    public function test_normalize_new_schemes(): void
     {
         $this->assertSame('nats', Messaging::normalizeScheme('NATS'));
         $this->assertSame('stomp', Messaging::normalizeScheme('stomps'));

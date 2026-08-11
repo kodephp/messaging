@@ -6,6 +6,8 @@ namespace Kode\Messaging\Adapter\Coap;
 
 use Kode\Messaging\Exception\CoapException;
 
+use function strlen;
+
 /**
  * CoAP 数据包编解码（RFC 7252 §3）
  *
@@ -37,18 +39,17 @@ final class CoapPacket
         /** @var list<array{number:int, value:string}> */
         public array $options = [],
         public string $payload = '',
-    ) {
-    }
+    ) {}
 
     /**
      * 编码为字节串。
      */
     public function encode(): string
     {
-        if ($this->tokenLength !== \strlen($this->token)) {
+        if ($this->tokenLength !== strlen($this->token)) {
             throw CoapException::packetEncodeFailed(
                 'token length mismatch',
-                ['expected' => $this->tokenLength, 'actual' => \strlen($this->token)],
+                ['expected' => $this->tokenLength, 'actual' => strlen($this->token)],
             );
         }
 
@@ -56,14 +57,15 @@ final class CoapPacket
         $byte1 = CoapCode::encode($this->code);
         $byte23 = pack('n', $this->messageId & 0xFFFF);
 
-        $buf = chr($byte0) . chr($byte1) . $byte23;
+        $buf = chr($byte0).chr($byte1).$byte23;
         if ($this->token !== '') {
             $buf .= $this->token;
         }
         $buf .= $this->encodeOptions();
         if ($this->payload !== '') {
-            $buf .= chr(self::PAYLOAD_MARKER) . $this->payload;
+            $buf .= chr(self::PAYLOAD_MARKER).$this->payload;
         }
+
         return $buf;
     }
 
@@ -72,10 +74,10 @@ final class CoapPacket
      */
     public static function decode(string $data): self
     {
-        if (\strlen($data) < 4) {
+        if (strlen($data) < 4) {
             throw CoapException::packetParseFailed(
                 'packet too short',
-                ['length' => \strlen($data)],
+                ['length' => strlen($data)],
             );
         }
 
@@ -88,7 +90,7 @@ final class CoapPacket
 
         $offset = 4;
         if ($tkl > 0) {
-            if (\strlen($data) < $offset + $tkl) {
+            if (strlen($data) < $offset + $tkl) {
                 throw CoapException::packetParseFailed('token truncated', ['tkl' => $tkl]);
             }
             $token = substr($data, $offset, $tkl);
@@ -100,7 +102,7 @@ final class CoapPacket
         [$options, $offset] = self::decodeOptions($data, $offset);
 
         $payload = '';
-        if ($offset < \strlen($data) && ord($data[$offset]) === self::PAYLOAD_MARKER) {
+        if ($offset < strlen($data) && ord($data[$offset]) === self::PAYLOAD_MARKER) {
             $offset++;
             $payload = substr($data, $offset);
         }
@@ -129,10 +131,10 @@ final class CoapPacket
         $buf = '';
         $prev = 0;
         foreach ($this->options as $opt) {
-            $num = (int)$opt['number'];
-            $val = (string)$opt['value'];
+            $num = (int) $opt['number'];
+            $val = (string) $opt['value'];
             $delta = $num - $prev;
-            $length = \strlen($val);
+            $length = strlen($val);
 
             $deltaExt = 0;
             $deltaBytes = '';
@@ -167,9 +169,10 @@ final class CoapPacket
                 );
             }
 
-            $buf .= chr(($deltaNibble << 4) | $lengthNibble) . $deltaBytes . $lengthBytes . $val;
+            $buf .= chr(($deltaNibble << 4) | $lengthNibble).$deltaBytes.$lengthBytes.$val;
             $prev = $num;
         }
+
         return $buf;
     }
 
@@ -182,7 +185,7 @@ final class CoapPacket
     {
         $options = [];
         $prev = 0;
-        $len = \strlen($data);
+        $len = strlen($data);
         while ($offset < $len) {
             $b = ord($data[$offset]);
             if ($b === self::PAYLOAD_MARKER) {
@@ -230,6 +233,7 @@ final class CoapPacket
             $prev += $delta;
             $options[] = ['number' => $prev, 'value' => $value];
         }
+
         return [$options, $offset];
     }
 
@@ -239,21 +243,21 @@ final class CoapPacket
     public function toArray(): array
     {
         return [
-            'type'      => $this->type,
+            'type' => $this->type,
             'type_name' => CoapType::name($this->type),
-            'code'      => $this->code,
+            'code' => $this->code,
             'code_name' => CoapCode::name($this->code),
-            'mid'       => $this->messageId,
-            'token'     => bin2hex($this->token),
-            'options'   => array_map(
+            'mid' => $this->messageId,
+            'token' => bin2hex($this->token),
+            'options' => array_map(
                 fn($o) => [
                     'number' => $o['number'],
-                    'name'   => CoapOption::name($o['number']),
-                    'value'  => $o['value'],
+                    'name' => CoapOption::name($o['number']),
+                    'value' => $o['value'],
                 ],
                 $this->options,
             ),
-            'payload'   => $this->payload,
+            'payload' => $this->payload,
         ];
     }
 }

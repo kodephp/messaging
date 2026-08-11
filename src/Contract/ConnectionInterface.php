@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Contract;
 
+use Throwable;
+
 /**
  * 协议无关连接接口
  *
@@ -67,7 +69,7 @@ interface ConnectionInterface
     /**
      * 注册连接关闭时的回调（一次性）。
      *
-     * @param callable(\Throwable|null): void $callback
+     * @param callable(null|Throwable): void $callback
      */
     public function onClose(callable $callback): void;
 }

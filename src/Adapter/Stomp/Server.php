@@ -10,6 +10,7 @@ use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\StompException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
 
 /**
  * STOMP 简易服务端
@@ -19,17 +20,23 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
+
     /** @var array<string, StompConnection> peer → connection */
     private array $connections = [];
+
     /** @var array<string, string> peer → 解析缓冲 */
     private array $buffers = [];
+
     /** @var array<string, array<string, StompConnection>> destination → peer → connection */
     private array $subIndex = [];
+
     /** @var array<string, string> peer → session-id（CONNECTED 回包时生成） */
     private array $sessions = [];
+
     private int $nextMessageId = 1;
+
     private ?ServerBuilder $builder = null;
 
     public static function scheme(): string
@@ -83,7 +90,7 @@ final class Server extends AbstractAdapter
 
             foreach ($this->connections as $peer => $conn) {
                 $sock = $conn->stream();
-                if (!is_resource($sock)) {
+                if (! is_resource($sock)) {
                     continue;
                 }
                 $chunk = @fread($sock, 4096);
@@ -100,7 +107,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('STOMP Server 不支持 connect()');
+        throw new LogicException('STOMP Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -138,7 +145,7 @@ final class Server extends AbstractAdapter
     public function pushTo(string $destination, string $body, array $headers = []): int
     {
         $count = 0;
-        if (!isset($this->subIndex[$destination])) {
+        if (! isset($this->subIndex[$destination])) {
             return 0;
         }
         foreach ($this->subIndex[$destination] as $subConn) {
@@ -146,13 +153,14 @@ final class Server extends AbstractAdapter
             if ($subId === null) {
                 continue;
             }
-            $messageId = 'msg-' . $this->nextMessageId++;
+            $messageId = 'msg-'.$this->nextMessageId++;
             $sock = $subConn->stream();
             if (is_resource($sock)) {
                 @fwrite($sock, StompCodec::encodeMessage($destination, $messageId, $subId, $body, $headers));
                 $count++;
             }
         }
+
         return $count;
     }
 
@@ -163,7 +171,7 @@ final class Server extends AbstractAdapter
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         $buf = &$this->buffers[$peer];
@@ -181,7 +189,7 @@ final class Server extends AbstractAdapter
     private function dispatch(StompConnection $conn, array $frame): void
     {
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         $command = $frame['command'];
@@ -220,27 +228,28 @@ final class Server extends AbstractAdapter
     private function handleConnect(StompConnection $conn, array $headers): void
     {
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
-        $session = 'kode-' . bin2hex(random_bytes(4));
+        $session = 'kode-'.bin2hex(random_bytes(4));
         $this->sessions[$conn->remoteAddress()] = $session;
         $conn->setAttribute('stomp.session', $session);
         @fwrite($sock, StompCodec::encodeConnected([
             'version' => '1.2',
             'session' => $session,
-            'server'  => 'kode-messaging/1.0',
+            'server' => 'kode-messaging/1.0',
         ]));
     }
 
     private function handleSend(StompConnection $conn, array $headers, string $body): void
     {
-        $destination = (string)($headers['destination'] ?? '');
+        $destination = (string) ($headers['destination'] ?? '');
         if ($destination === '') {
             $sock = $conn->stream();
             if (is_resource($sock)) {
                 @fwrite($sock, StompCodec::encodeError('缺少 destination'));
             }
+
             return;
         }
         $msg = Msg::fromRaw(
@@ -250,8 +259,8 @@ final class Server extends AbstractAdapter
             context: [
                 'connection_id' => $conn->id(),
                 'remote_address' => $conn->remoteAddress(),
-                'destination'   => $destination,
-                'headers'       => $headers,
+                'destination' => $destination,
+                'headers' => $headers,
             ],
         );
         $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $msg]);
@@ -262,23 +271,24 @@ final class Server extends AbstractAdapter
 
     private function handleSubscribe(StompConnection $conn, array $headers): void
     {
-        $subId = (string)($headers['id'] ?? '');
-        $destination = (string)($headers['destination'] ?? '');
+        $subId = (string) ($headers['id'] ?? '');
+        $destination = (string) ($headers['destination'] ?? '');
         if ($subId === '' || $destination === '') {
             $sock = $conn->stream();
             if (is_resource($sock)) {
                 @fwrite($sock, StompCodec::encodeError('缺少 id 或 destination'));
             }
+
             return;
         }
         $this->subIndex[$destination][$conn->id()] = $conn;
-        $conn->setAttribute('stomp.sub.' . $subId, $destination);
+        $conn->setAttribute('stomp.sub.'.$subId, $destination);
     }
 
     private function handleUnsubscribe(StompConnection $conn, array $headers): void
     {
-        $subId = (string)($headers['id'] ?? '');
-        $destination = (string)$conn->getAttribute('stomp.sub.' . $subId, '');
+        $subId = (string) ($headers['id'] ?? '');
+        $destination = (string) $conn->getAttribute('stomp.sub.'.$subId, '');
         if ($destination === '') {
             return;
         }
@@ -286,7 +296,7 @@ final class Server extends AbstractAdapter
         if (empty($this->subIndex[$destination])) {
             unset($this->subIndex[$destination]);
         }
-        $conn->setAttribute('stomp.sub.' . $subId, null);
+        $conn->setAttribute('stomp.sub.'.$subId, null);
     }
 
     private function findSubIdForConn(StompConnection $conn, string $destination): ?string
@@ -296,6 +306,7 @@ final class Server extends AbstractAdapter
                 return substr($k, strlen('stomp.sub.'));
             }
         }
+
         return null;
     }
 }

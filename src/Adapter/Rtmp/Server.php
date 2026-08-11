@@ -11,6 +11,8 @@ use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\RtmpException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+use Throwable;
 
 /**
  * RTMP 服务端（嵌入式 / 直播源对接）
@@ -34,20 +36,26 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
+
     /** @var array<string, RtmpConnection> peer → connection */
     private array $connections = [];
+
     /** @var array<string, string> peer → 输入缓冲 */
     private array $buffers = [];
+
     /** @var array<int, int> peer → csid 4 状态 */
     private array $handshakeStep = [];
+
     private int $nextMessageStreamId = 1;
+
     private ?ServerBuilder $builder = null;
 
-    /** @var RateLimiterInterface|null 连接级限流器（按 IP 限连接数） */
+    /** @var null|RateLimiterInterface 连接级限流器（按 IP 限连接数） */
     private ?RateLimiterInterface $connectionLimiter = null;
-    /** @var RateLimiterInterface|null 命令级限流器（按 connection_id 限 AMF0 命令） */
+
+    /** @var null|RateLimiterInterface 命令级限流器（按 connection_id 限 AMF0 命令） */
     private ?RateLimiterInterface $commandLimiter = null;
 
     /** 触发限流时主动断开连接的回调列表（用于业务层清理资源） */
@@ -98,10 +106,10 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'chunk_size'         => 4096,
-            'window_ack_size'    => 2_500_000,
-            'peer_bandwidth'     => 2_500_000,
-            'app'                => 'live',
+            'chunk_size' => 4096,
+            'window_ack_size' => 2_500_000,
+            'peer_bandwidth' => 2_500_000,
+            'app' => 'live',
         ];
     }
 
@@ -134,7 +142,7 @@ final class Server extends AbstractAdapter
 
             foreach ($this->connections as $peer => $conn) {
                 $sock = $conn->stream();
-                if (!is_resource($sock)) {
+                if (! is_resource($sock)) {
                     continue;
                 }
                 $chunk = @fread($sock, 4096);
@@ -151,7 +159,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('RTMP Server 不支持 connect()');
+        throw new LogicException('RTMP Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -184,18 +192,19 @@ final class Server extends AbstractAdapter
         // 连接级限流（按 IP 限并发连接数）
         if ($this->connectionLimiter !== null) {
             $ip = $this->extractIp($peer);
-            $key = 'rtmp:conn:' . $ip;
-            if (!$this->connectionLimiter->allow($key, 1)) {
+            $key = 'rtmp:conn:'.$ip;
+            if (! $this->connectionLimiter->allow($key, 1)) {
                 $this->emitLimited('connection', $peer, [
-                    'ip'           => $ip,
-                    'wait_time'    => $this->connectionLimiter->getWaitTime($key),
-                    'remaining'    => $this->connectionLimiter->getRemaining($key),
+                    'ip' => $ip,
+                    'wait_time' => $this->connectionLimiter->getWaitTime($key),
+                    'remaining' => $this->connectionLimiter->getRemaining($key),
                 ]);
                 $this->builder?->emit('error.protocol', [
-                    'peer'  => $peer,
+                    'peer' => $peer,
                     'error' => '连接级限流触发',
                 ]);
                 @fclose($socket);
+
                 return;
             }
         }
@@ -218,7 +227,7 @@ final class Server extends AbstractAdapter
             return;
         }
         $sock = $conn->stream();
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         $buf = &$this->buffers[$peer];
@@ -234,6 +243,7 @@ final class Server extends AbstractAdapter
             if ($c0 !== "\x03") {
                 $this->builder?->emit('error.protocol', ['peer' => $peer, 'error' => 'C0 协议版本错误']);
                 $this->closePeer($peer);
+
                 return;
             }
             $c1 = substr($buf, 1, 1536);
@@ -250,7 +260,7 @@ final class Server extends AbstractAdapter
             $buf = substr($buf, 1536);
             $this->handshakeStep[$peer] = 2;
             // 发送协议控制消息（Set Chunk Size）
-            $this->sendSetChunkSize($conn, (int)($this->config['chunk_size'] ?? 4096));
+            $this->sendSetChunkSize($conn, (int) ($this->config['chunk_size'] ?? 4096));
         }
 
         // chunk 解析
@@ -288,11 +298,11 @@ final class Server extends AbstractAdapter
                     $body,
                     'rtmp',
                     context: [
-                        'connection_id'  => $conn->id(),
+                        'connection_id' => $conn->id(),
                         'remote_address' => $conn->remoteAddress(),
-                        'rtmp_type'      => $type,
-                        'timestamp'      => $msg['timestamp'],
-                        'csid'           => $csid,
+                        'rtmp_type' => $type,
+                        'timestamp' => $msg['timestamp'],
+                        'csid' => $csid,
                     ],
                 );
                 $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $streamMessage]);
@@ -302,7 +312,7 @@ final class Server extends AbstractAdapter
                 $conn->setChunkSizeIn($size);
                 break;
             default:
-                $this->logger->debug("RTMP 未知消息类型: 0x" . dechex($type));
+                $this->logger->debug('RTMP 未知消息类型: 0x'.dechex($type));
         }
     }
 
@@ -310,18 +320,19 @@ final class Server extends AbstractAdapter
     {
         // 命令级限流（按 connection_id）
         if ($this->commandLimiter !== null) {
-            $key = 'rtmp:cmd:' . $conn->id();
-            if (!$this->commandLimiter->allow($key, 1)) {
+            $key = 'rtmp:cmd:'.$conn->id();
+            if (! $this->commandLimiter->allow($key, 1)) {
                 $this->emitLimited('command', $conn->remoteAddress(), [
                     'connection_id' => $conn->id(),
-                    'wait_time'     => $this->commandLimiter->getWaitTime($key),
-                    'remaining'     => $this->commandLimiter->getRemaining($key),
+                    'wait_time' => $this->commandLimiter->getWaitTime($key),
+                    'remaining' => $this->commandLimiter->getRemaining($key),
                 ]);
                 $this->builder?->emit('error.protocol', [
-                    'peer'  => $conn->remoteAddress(),
+                    'peer' => $conn->remoteAddress(),
                     'error' => '命令级限流触发',
                 ]);
                 $this->closePeer($conn->remoteAddress());
+
                 return;
             }
         }
@@ -333,12 +344,12 @@ final class Server extends AbstractAdapter
         $msg = Msg::fromRaw(
             $body,
             'rtmp',
-            event: (string)$commandName,
-            topic: (string)($commandObject['app'] ?? 'live'),
+            event: (string) $commandName,
+            topic: (string) ($commandObject['app'] ?? 'live'),
             context: [
-                'connection_id'  => $conn->id(),
+                'connection_id' => $conn->id(),
                 'remote_address' => $conn->remoteAddress(),
-                'command'        => $commandName,
+                'command' => $commandName,
                 'transaction_id' => $transactionId,
                 'command_object' => $commandObject,
             ],
@@ -349,22 +360,22 @@ final class Server extends AbstractAdapter
         switch ($commandName) {
             case 'connect':
                 // 发送 _result
-                $respBody = Amf0::encode('_result') . Amf0::encode($transactionId)
-                    . Amf0::encode([
-                        'fmsVer'       => 'FMS/3,0,1,123',
+                $respBody = Amf0::encode('_result').Amf0::encode($transactionId)
+                    .Amf0::encode([
+                        'fmsVer' => 'FMS/3,0,1,123',
                         'capabilities' => 31,
                     ])
-                    . Amf0::encode([
-                        'level'         => 'status',
-                        'code'          => 'NetConnection.Connect.Success',
-                        'description'   => 'Connection succeeded',
+                    .Amf0::encode([
+                        'level' => 'status',
+                        'code' => 'NetConnection.Connect.Success',
+                        'description' => 'Connection succeeded',
                         'objectEncoding' => 0,
                     ]);
                 $conn->sendRtmpChunk(3, 0x14, 0, $respBody);
                 break;
             case 'createStream':
                 $streamId = $this->nextMessageStreamId++;
-                $respBody = Amf0::encode('_result') . Amf0::encode($transactionId) . Amf0::encode(null) . Amf0::encode($streamId);
+                $respBody = Amf0::encode('_result').Amf0::encode($transactionId).Amf0::encode(null).Amf0::encode($streamId);
                 $conn->sendRtmpChunk(3, 0x14, 0, $respBody);
                 break;
             case 'publish':
@@ -384,12 +395,12 @@ final class Server extends AbstractAdapter
         $msg = Msg::fromRaw(
             $body,
             'rtmp',
-            event: (string)$name,
+            event: (string) $name,
             context: [
-                'connection_id'  => $conn->id(),
+                'connection_id' => $conn->id(),
                 'remote_address' => $conn->remoteAddress(),
-                'data_name'      => $name,
-                'data_payload'   => $payload,
+                'data_name' => $name,
+                'data_payload' => $payload,
             ],
         );
         $this->builder?->emit('message.received', ['connection' => $conn, 'message' => $msg]);
@@ -397,10 +408,10 @@ final class Server extends AbstractAdapter
 
     private function respondStatus(RtmpConnection $conn, float $txnId, string $code, string $description): void
     {
-        $body = Amf0::encode('onStatus') . Amf0::encode(0) . Amf0::encode(null)
-            . Amf0::encode([
-                'level'       => 'status',
-                'code'        => $code,
+        $body = Amf0::encode('onStatus').Amf0::encode(0).Amf0::encode(null)
+            .Amf0::encode([
+                'level' => 'status',
+                'code' => $code,
                 'description' => $description,
             ]);
         $conn->sendRtmpChunk(3, 0x14, 0, $body);
@@ -429,6 +440,7 @@ final class Server extends AbstractAdapter
         if (str_starts_with($ip, '[') && str_ends_with($ip, ']')) {
             $ip = substr($ip, 1, -1);
         }
+
         return $ip !== '' ? $ip : $peer;
     }
 
@@ -438,17 +450,17 @@ final class Server extends AbstractAdapter
     private function emitLimited(string $type, string $peer, array $info): void
     {
         $payload = [
-            'type'        => $type,
-            'peer'        => $peer,
-            'limiter'     => 'kode/limiting',
-            'info'        => $info,
+            'type' => $type,
+            'peer' => $peer,
+            'limiter' => 'kode/limiting',
+            'info' => $info,
         ];
         $this->builder?->emit('rate_limit.exceeded', $payload);
         foreach ($this->onLimitedCallbacks as $cb) {
             try {
                 $cb($payload);
-            } catch (\Throwable $e) {
-                $this->logger->error('onLimited callback error: ' . $e->getMessage());
+            } catch (Throwable $e) {
+                $this->logger->error('onLimited callback error: '.$e->getMessage());
             }
         }
     }

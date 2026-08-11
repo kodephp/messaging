@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Exception;
 
+use RuntimeException;
+use Throwable;
+
 /**
  * Messaging 统一异常基类
  *
@@ -14,7 +17,7 @@ namespace Kode\Messaging\Exception;
  *   - 4xx：业务可恢复错误（鉴权失败、限流、协议客户端错误）
  *   - 5xx：协议/传输层错误
  */
-class MessagingException extends \RuntimeException
+class MessagingException extends RuntimeException
 {
     /**
      * @param array<string, mixed> $context 错误上下文（用于日志/事件）
@@ -23,7 +26,7 @@ class MessagingException extends \RuntimeException
         string $message = '',
         int $code = 0,
         public readonly array $context = [],
-        ?\Throwable $previous = null,
+        ?Throwable $previous = null,
     ) {
         parent::__construct($message, $code, $previous);
     }
@@ -47,8 +50,8 @@ class MessagingException extends \RuntimeException
     {
         return [
             'message' => $this->getMessage(),
-            'code'    => $this->getCode(),
-            'type'    => static::class,
+            'code' => $this->getCode(),
+            'type' => static::class,
             'context' => $this->context,
         ];
     }

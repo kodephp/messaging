@@ -25,21 +25,21 @@ final class WebSocketFrameTest extends TestCase
 {
     // ===================== 文本帧 =====================
 
-    public function testTextFrameShortPayload(): void
+    public function test_text_frame_short_payload(): void
     {
         $frame = new Frame(true, OpCode::TEXT, 'hello');
         $bytes = $frame->encode();
         $this->assertSame("\x81\x05hello", $bytes);
     }
 
-    public function testTextFrameEmptyPayload(): void
+    public function test_text_frame_empty_payload(): void
     {
         $frame = new Frame(true, OpCode::TEXT, '');
         $bytes = $frame->encode();
         $this->assertSame("\x81\x00", $bytes);
     }
 
-    public function testTextFrameExtendedPayload126(): void
+    public function test_text_frame_extended_payload126(): void
     {
         // 126 字节载荷 → 触发 16-bit 扩展长度
         $payload = str_repeat('x', 126);
@@ -52,7 +52,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame($payload, substr($bytes, 4));
     }
 
-    public function testTextFrameExtendedPayload125(): void
+    public function test_text_frame_extended_payload125(): void
     {
         // 125 字节 → 仍在短载荷范围
         $payload = str_repeat('a', 125);
@@ -62,7 +62,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame($payload, substr($bytes, 2));
     }
 
-    public function testTextFrameLargePayload65536(): void
+    public function test_text_frame_large_payload65536(): void
     {
         // 65536 字节 → 触发 64-bit 扩展长度
         $payload = str_repeat('b', 65536);
@@ -77,7 +77,7 @@ final class WebSocketFrameTest extends TestCase
 
     // ===================== 控制帧 =====================
 
-    public function testCloseFrame(): void
+    public function test_close_frame(): void
     {
         $frame = new Frame(true, OpCode::CLOSE, '');
         $bytes = $frame->encode();
@@ -85,7 +85,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame(0x00, ord($bytes[1]));
     }
 
-    public function testPingFrame(): void
+    public function test_ping_frame(): void
     {
         $frame = new Frame(true, OpCode::PING, 'ping');
         $bytes = $frame->encode();
@@ -94,7 +94,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame('ping', substr($bytes, 2));
     }
 
-    public function testPongFrame(): void
+    public function test_pong_frame(): void
     {
         $frame = new Frame(true, OpCode::PONG, 'pong');
         $bytes = $frame->encode();
@@ -103,7 +103,7 @@ final class WebSocketFrameTest extends TestCase
 
     // ===================== 分片帧 =====================
 
-    public function testFragmentedFrameFinFalse(): void
+    public function test_fragmented_frame_fin_false(): void
     {
         $frame = new Frame(false, OpCode::TEXT, 'part1');
         $bytes = $frame->encode();
@@ -112,7 +112,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame('part1', substr($bytes, 2));
     }
 
-    public function testContinuationFrame(): void
+    public function test_continuation_frame(): void
     {
         $frame = new Frame(false, OpCode::CONTINUATION, 'part2');
         $bytes = $frame->encode();
@@ -122,7 +122,7 @@ final class WebSocketFrameTest extends TestCase
 
     // ===================== Mask =====================
 
-    public function testMaskedFrameHasMaskBit(): void
+    public function test_masked_frame_has_mask_bit(): void
     {
         $frame = new Frame(true, OpCode::TEXT, 'test');
         $bytes = $frame->encode(masked: true);
@@ -132,7 +132,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame(4 + 4, strlen($bytes) - 2);
     }
 
-    public function testUnmaskedFrameNoMaskBit(): void
+    public function test_unmasked_frame_no_mask_bit(): void
     {
         $frame = new Frame(true, OpCode::TEXT, 'test');
         $bytes = $frame->encode(masked: false);
@@ -142,13 +142,13 @@ final class WebSocketFrameTest extends TestCase
 
     // ===================== 异常 =====================
 
-    public function testDecodeTooShort(): void
+    public function test_decode_too_short(): void
     {
         $this->expectException(WebSocketException::class);
         Frame::decode("\x81", mustMask: false);
     }
 
-    public function testDecodeClientMustMask(): void
+    public function test_decode_client_must_mask(): void
     {
         // 服务端发送的帧不应 mask
         $frame = new Frame(true, OpCode::TEXT, 'hello');
@@ -158,7 +158,7 @@ final class WebSocketFrameTest extends TestCase
         Frame::decode($bytes, mustMask: true);
     }
 
-    public function testDecodeServerShouldNotMask(): void
+    public function test_decode_server_should_not_mask(): void
     {
         $frame = new Frame(true, OpCode::TEXT, 'hello');
         $bytes = $frame->encode(masked: true);
@@ -169,7 +169,7 @@ final class WebSocketFrameTest extends TestCase
 
     // ===================== 往返测试 =====================
 
-    public function testRoundTripUnmasked(): void
+    public function test_round_trip_unmasked(): void
     {
         $original = new Frame(true, OpCode::TEXT, 'Hello WebSocket!');
         $bytes = $original->encode(masked: false);
@@ -179,7 +179,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame('Hello WebSocket!', $decoded->payload);
     }
 
-    public function testRoundTripMasked(): void
+    public function test_round_trip_masked(): void
     {
         $original = new Frame(true, OpCode::BINARY, "\x01\x02\x03\x04\x05");
         $bytes = $original->encode(masked: true);
@@ -189,7 +189,7 @@ final class WebSocketFrameTest extends TestCase
         $this->assertSame("\x01\x02\x03\x04\x05", $decoded->payload);
     }
 
-    public function testRoundTripLargePayload(): void
+    public function test_round_trip_large_payload(): void
     {
         $payload = str_repeat('Z', 10000);
         $original = new Frame(true, OpCode::TEXT, $payload);

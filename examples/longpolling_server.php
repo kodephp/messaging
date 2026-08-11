@@ -19,17 +19,17 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Messaging;
 
 $builder = Messaging::server('poll://0.0.0.0:8083')
-    ->on('connection.open', function ($conn) {
+    ->on('connection.open', function ($conn): void {
         echo "[open] {$conn->id()} from {$conn->remoteAddress()}\n";
     })
-    ->on('message.received', function ($conn, $message) {
+    ->on('message.received', function ($conn, $message): void {
         $topic = $message->topic() ?? 'default';
-        echo "[recv] {$conn->id()} topic={$topic} payload=" . substr((string)$message->payload(), 0, 80) . "\n";
+        echo "[recv] {$conn->id()} topic={$topic} payload=".substr((string) $message->payload(), 0, 80)."\n";
 
         // 模拟业务：监听 /tmp/lp-push-{topic} 文件
         $file = "/tmp/lp-push-{$topic}";
@@ -37,12 +37,12 @@ $builder = Messaging::server('poll://0.0.0.0:8083')
             $data = file_get_contents($file);
             @unlink($file);
             $conn->send(['topic' => $topic, 'data' => $data, 'ts' => time()]);
-        } else {
-            // 不立即响应 → 保持 hold
-            // 真实业务场景：可由另一个协程 / 进程触发 $conn->send()
         }
+        // 不立即响应 → 保持 hold
+        // 真实业务场景：可由另一个协程 / 进程触发 $conn->send()
+
     })
-    ->on('connection.close', function ($conn) {
+    ->on('connection.close', function ($conn): void {
         echo "[close] {$conn->id()}\n";
     });
 

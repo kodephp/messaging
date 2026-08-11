@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class HandshakeTest extends TestCase
 {
-    public function testClientRequestFormat(): void
+    public function test_client_request_format(): void
     {
         $req = Handshake::clientRequest('example.com:8080', '/ws', 'https://app.com', 'chat-v1');
         $this->assertStringStartsWith('GET /ws HTTP/1.1', $req);
@@ -22,7 +22,7 @@ final class HandshakeTest extends TestCase
         $this->assertStringContainsString('Sec-WebSocket-Protocol: chat-v1', $req);
     }
 
-    public function testAcceptKeyComputation(): void
+    public function test_accept_key_computation(): void
     {
         // 官方 RFC 6455 示例
         $key = 'dGhlIHNhbXBsZSBub25jZQ==';
@@ -30,30 +30,30 @@ final class HandshakeTest extends TestCase
         $this->assertSame($expected, Handshake::acceptKey($key));
     }
 
-    public function testServerResponse(): void
+    public function test_server_response(): void
     {
         $request = "GET /ws HTTP/1.1\r\n"
-            . "Host: example.com\r\n"
-            . "Upgrade: websocket\r\n"
-            . "Connection: Upgrade\r\n"
-            . "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
-            . "Sec-WebSocket-Version: 13\r\n"
-            . "\r\n";
+            ."Host: example.com\r\n"
+            ."Upgrade: websocket\r\n"
+            ."Connection: Upgrade\r\n"
+            ."Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+            ."Sec-WebSocket-Version: 13\r\n"
+            ."\r\n";
         $response = Handshake::serverResponse($request);
         $this->assertStringStartsWith('HTTP/1.1 101 Switching Protocols', $response);
         $this->assertStringContainsString('Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=', $response);
     }
 
-    public function testOriginCheck(): void
+    public function test_origin_check(): void
     {
         $request = "GET /ws HTTP/1.1\r\n"
-            . "Host: example.com\r\n"
-            . "Upgrade: websocket\r\n"
-            . "Connection: Upgrade\r\n"
-            . "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
-            . "Sec-WebSocket-Version: 13\r\n"
-            . "Origin: https://evil.com\r\n"
-            . "\r\n";
+            ."Host: example.com\r\n"
+            ."Upgrade: websocket\r\n"
+            ."Connection: Upgrade\r\n"
+            ."Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+            ."Sec-WebSocket-Version: 13\r\n"
+            ."Origin: https://evil.com\r\n"
+            ."\r\n";
         $this->expectException(\Kode\Messaging\Exception\WebSocketException::class);
         Handshake::serverResponse($request, [
             'allowed_origins' => ['https://app.com'],

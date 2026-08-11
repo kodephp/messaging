@@ -18,6 +18,7 @@ final class FakeConnection extends Connection
     public function send(mixed $payload, array $options = []): bool
     {
         self::$sendCount++;
+
         return true;
     }
 }

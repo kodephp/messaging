@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class StompCodecTest extends TestCase
 {
-    public function testEncodeDecodeFrame(): void
+    public function test_encode_decode_frame(): void
     {
         $frame = StompCodec::encodeFrame(
             StompCodec::COMMAND_SEND,
@@ -27,21 +27,21 @@ final class StompCodecTest extends TestCase
         $this->assertSame(strlen($frame), $decoded['consumed']);
     }
 
-    public function testEncodeConnect(): void
+    public function test_encode_connect(): void
     {
         $out = StompCodec::encodeConnect(['host' => 'broker', 'login' => 'u']);
-        $this->assertStringStartsWith('CONNECT' . StompCodec::LF, $out);
-        $this->assertStringContainsString('host:broker' . StompCodec::LF, $out);
-        $this->assertStringContainsString('login:u' . StompCodec::LF, $out);
+        $this->assertStringStartsWith('CONNECT'.StompCodec::LF, $out);
+        $this->assertStringContainsString('host:broker'.StompCodec::LF, $out);
+        $this->assertStringContainsString('login:u'.StompCodec::LF, $out);
     }
 
-    public function testEncodeStomp(): void
+    public function test_encode_stomp(): void
     {
         $out = StompCodec::encodeStomp([]);
-        $this->assertStringStartsWith('STOMP' . StompCodec::LF, $out);
+        $this->assertStringStartsWith('STOMP'.StompCodec::LF, $out);
     }
 
-    public function testEncodeSubscribe(): void
+    public function test_encode_subscribe(): void
     {
         $out = StompCodec::encodeSubscribe('/queue/a', 'sub-1');
         $decoded = StompCodec::decodeFrame($out);
@@ -52,7 +52,7 @@ final class StompCodecTest extends TestCase
         $this->assertSame('auto', $decoded['headers']['ack']);
     }
 
-    public function testEncodeSend(): void
+    public function test_encode_send(): void
     {
         $out = StompCodec::encodeSend('/queue/x', 'body');
         $decoded = StompCodec::decodeFrame($out);
@@ -63,7 +63,7 @@ final class StompCodecTest extends TestCase
         $this->assertSame('body', $decoded['body']);
     }
 
-    public function testEncodeConnected(): void
+    public function test_encode_connected(): void
     {
         $out = StompCodec::encodeConnected();
         $decoded = StompCodec::decodeFrame($out);
@@ -72,7 +72,7 @@ final class StompCodecTest extends TestCase
         $this->assertSame('1.2', $decoded['headers']['version']);
     }
 
-    public function testEncodeAck(): void
+    public function test_encode_ack(): void
     {
         $out = StompCodec::encodeAck('msg-1');
         $decoded = StompCodec::decodeFrame($out);

@@ -19,7 +19,7 @@ final class ChannelBus extends Bus
         \Psr\Log\LoggerInterface $logger = new \Psr\Log\NullLogger(),
     ) {
         parent::__construct($config, $logger);
-        if (!class_exists(\Kode\Process\Channel\Client::class)) {
+        if (! class_exists(\Kode\Process\Channel\Client::class)) {
             throw new MessagingException(
                 'ChannelBus 需要 kode/process 包',
                 5009,
@@ -41,7 +41,7 @@ final class ChannelBus extends Bus
     protected function onSubscribe(string $topic, array $options): void
     {
         $client = \Kode\Process\Channel\Client::instance();
-        $client->on($topic, function (mixed $payload) use ($topic) {
+        $client->on($topic, function (mixed $payload) use ($topic): void {
             if (is_array($payload)) {
                 $this->dispatch($topic, $payload);
             }

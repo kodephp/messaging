@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Middleware\RateLimit;
 
+use function in_array;
+use function is_array;
+
 use Kode\Limiting\Algorithm\RateLimiterInterface;
 use Kode\Limiting\Enum\LimiterType;
 use Kode\Limiting\Enum\RedisMode;
@@ -12,8 +15,8 @@ use Kode\Limiting\Store\ApcuStore;
 use Kode\Limiting\Store\MemcachedStore;
 use Kode\Limiting\Store\MemoryStore;
 use Kode\Limiting\Store\PdoStore;
-use Kode\Limiting\Store\RedisStore;
 use Kode\Messaging\Exception\MessagingException;
+use PDO;
 
 /**
  * 限流器工厂（基于 kode/limiting 2.x）
@@ -81,12 +84,12 @@ final class RateLimitFactory
             throw new MessagingException('限流配置不能为空', 500);
         }
 
-        $driver   = (string)($config['driver'] ?? 'token_bucket');
-        $capacity = (int)($config['capacity'] ?? 100);
-        $rate     = (float)($config['rate'] ?? 1.0);
-        $window   = (float)($config['window'] ?? 1.0);
-        $storeKey = strtolower((string)($config['store'] ?? 'memory'));
-        $opts     = \is_array($config['store_opts'] ?? null) ? $config['store_opts'] : [];
+        $driver = (string) ($config['driver'] ?? 'token_bucket');
+        $capacity = (int) ($config['capacity'] ?? 100);
+        $rate = (float) ($config['rate'] ?? 1.0);
+        $window = (float) ($config['window'] ?? 1.0);
+        $storeKey = strtolower((string) ($config['store'] ?? 'memory'));
+        $opts = is_array($config['store_opts'] ?? null) ? $config['store_opts'] : [];
 
         $limiterType = self::resolveLimiterType($driver);
 
@@ -96,15 +99,16 @@ final class RateLimitFactory
                 $limiterType,
                 $capacity,
                 self::isWindowType($limiterType) ? $window : $rate,
-                (string)($opts['host']     ?? '127.0.0.1'),
-                (int)($opts['port']        ?? 6379),
+                (string) ($opts['host'] ?? '127.0.0.1'),
+                (int) ($opts['port'] ?? 6379),
                 $opts['password'] ?? null,
-                (int)($opts['database']    ?? 0),
-                self::resolveRedisMode((string)($opts['mode'] ?? 'standalone')),
-                \is_array($opts['sentinels'] ?? null) ? $opts['sentinels'] : ['127.0.0.1:26379'],
-                (string)($opts['master_name']  ?? 'mymaster'),
-                \is_array($opts['cluster_nodes'] ?? null) ? $opts['cluster_nodes'] : ['127.0.0.1:7000'],
+                (int) ($opts['database'] ?? 0),
+                self::resolveRedisMode((string) ($opts['mode'] ?? 'standalone')),
+                is_array($opts['sentinels'] ?? null) ? $opts['sentinels'] : ['127.0.0.1:26379'],
+                (string) ($opts['master_name'] ?? 'mymaster'),
+                is_array($opts['cluster_nodes'] ?? null) ? $opts['cluster_nodes'] : ['127.0.0.1:7000'],
             );
+
             return $limiter->build();
         }
 
@@ -112,11 +116,11 @@ final class RateLimitFactory
         $store = self::resolveStore($storeKey, $opts);
 
         return (match ($limiterType) {
-            LimiterType::TOKEN_BUCKET            => Limiter::tokenBucket($capacity, $rate, $store),
-            LimiterType::LEAKY_BUCKET            => Limiter::leakyBucket($capacity, $rate, $store),
-            LimiterType::SLIDING_WINDOW         => Limiter::slidingWindow($capacity, $window, $store),
-            LimiterType::SLIDING_WINDOW_COUNTER => Limiter::slidingWindowCounter($capacity, (int)$window, $store),
-            LimiterType::COUNTER                 => Limiter::counter($capacity, (int)$window, $store),
+            LimiterType::TOKEN_BUCKET => Limiter::tokenBucket($capacity, $rate, $store),
+            LimiterType::LEAKY_BUCKET => Limiter::leakyBucket($capacity, $rate, $store),
+            LimiterType::SLIDING_WINDOW => Limiter::slidingWindow($capacity, $window, $store),
+            LimiterType::SLIDING_WINDOW_COUNTER => Limiter::slidingWindowCounter($capacity, (int) $window, $store),
+            LimiterType::COUNTER => Limiter::counter($capacity, (int) $window, $store),
         })->build();
     }
 
@@ -131,7 +135,7 @@ final class RateLimitFactory
     public static function middleware(array $config, string $keyPrefix = ''): \Kode\Messaging\Contract\MiddlewareInterface
     {
         $limiter = self::create($config);
-        $driver  = strtolower((string)($config['driver'] ?? 'token_bucket'));
+        $driver = strtolower((string) ($config['driver'] ?? 'token_bucket'));
 
         return str_starts_with($driver, 'sliding_window')
             ? SlidingWindowMiddleware::wrap($limiter, $keyPrefix)
@@ -141,11 +145,11 @@ final class RateLimitFactory
     private static function resolveLimiterType(string $driver): LimiterType
     {
         return match (strtolower($driver)) {
-            'token_bucket'            => LimiterType::TOKEN_BUCKET,
-            'sliding_window'          => LimiterType::SLIDING_WINDOW,
-            'sliding_window_counter'  => LimiterType::SLIDING_WINDOW_COUNTER,
-            'leaky_bucket'            => LimiterType::LEAKY_BUCKET,
-            'counter'                 => LimiterType::COUNTER,
+            'token_bucket' => LimiterType::TOKEN_BUCKET,
+            'sliding_window' => LimiterType::SLIDING_WINDOW,
+            'sliding_window_counter' => LimiterType::SLIDING_WINDOW_COUNTER,
+            'leaky_bucket' => LimiterType::LEAKY_BUCKET,
+            'counter' => LimiterType::COUNTER,
             default => throw new MessagingException(
                 sprintf(
                     '不支持的限流算法: %s（支持 token_bucket / sliding_window / sliding_window_counter / leaky_bucket / counter）',
@@ -158,15 +162,15 @@ final class RateLimitFactory
 
     private static function isWindowType(LimiterType $type): bool
     {
-        return \in_array($type, self::WINDOW_TYPES, true);
+        return in_array($type, self::WINDOW_TYPES, true);
     }
 
     private static function resolveRedisMode(string $mode): RedisMode
     {
         return match (strtolower($mode)) {
             'sentinel' => RedisMode::SENTINEL,
-            'cluster'  => RedisMode::CLUSTER,
-            default    => RedisMode::STANDALONE,
+            'cluster' => RedisMode::CLUSTER,
+            default => RedisMode::STANDALONE,
         };
     }
 
@@ -176,22 +180,22 @@ final class RateLimitFactory
     private static function resolveStore(string $storeKey, array $opts): \Kode\Limiting\Store\StoreInterface
     {
         return match ($storeKey) {
-            'memory'    => new MemoryStore(),
-            'apcu'      => ApcuStore::create(
-                (string)($opts['prefix'] ?? 'kode:limiting:'),
+            'memory' => new MemoryStore(),
+            'apcu' => ApcuStore::create(
+                (string) ($opts['prefix'] ?? 'kode:limiting:'),
             ),
             'memcached' => MemcachedStore::create(
-                (string)($opts['host'] ?? '127.0.0.1'),
-                (int)($opts['port']    ?? 11211),
+                (string) ($opts['host'] ?? '127.0.0.1'),
+                (int) ($opts['port'] ?? 11211),
             ),
-            'pdo'       => new PdoStore(
-                new \PDO(
-                    (string)($opts['dsn'] ?? 'sqlite::memory:'),
+            'pdo' => new PdoStore(
+                new PDO(
+                    (string) ($opts['dsn'] ?? 'sqlite::memory:'),
                     $opts['username'] ?? null,
                     $opts['password'] ?? null,
                 ),
             ),
-            'redis'     => throw new MessagingException('resolveStore 不应处理 redis，请走 Limiter::redis()', 500),
+            'redis' => throw new MessagingException('resolveStore 不应处理 redis，请走 Limiter::redis()', 500),
             default => throw new MessagingException(
                 \sprintf('不支持的限流存储: %s（支持 memory / redis / memcached / pdo / apcu）', $storeKey),
                 500,

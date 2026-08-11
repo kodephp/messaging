@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Messaging\Adapter\Stomp;
 
 use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
+use Throwable;
 
 /**
  * STOMP 客户端连接
@@ -32,9 +33,9 @@ class StompConnection extends WebSocketConnection
      */
     public function dispatchMessage(array $headers, string $body): void
     {
-        $destination = (string)($headers['destination'] ?? '');
-        $subscription = (string)($headers['subscription'] ?? '');
-        $messageId = (string)($headers['message-id'] ?? '');
+        $destination = (string) ($headers['destination'] ?? '');
+        $subscription = (string) ($headers['subscription'] ?? '');
+        $messageId = (string) ($headers['message-id'] ?? '');
 
         $msg = \Kode\Messaging\Message\Message::of(
             $body,
@@ -43,10 +44,10 @@ class StompConnection extends WebSocketConnection
             context: [
                 'connection_id' => $this->connId,
                 'remote_address' => $this->remoteAddress,
-                'destination'   => $destination,
-                'subscription'  => $subscription,
-                'message_id'    => $messageId,
-                'headers'       => $headers,
+                'destination' => $destination,
+                'subscription' => $subscription,
+                'message_id' => $messageId,
+                'headers' => $headers,
             ],
         );
 
@@ -54,15 +55,16 @@ class StompConnection extends WebSocketConnection
         if ($subscription !== '' && isset($this->subHandlers[$subscription])) {
             try {
                 ($this->subHandlers[$subscription])(['headers' => $headers, 'body' => $body, 'message' => $msg]);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
+
             return;
         }
         // 其次按 destination 派发
         if ($destination !== '' && isset($this->destHandlers[$destination])) {
             try {
                 ($this->destHandlers[$destination])(['headers' => $headers, 'body' => $body, 'message' => $msg]);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }

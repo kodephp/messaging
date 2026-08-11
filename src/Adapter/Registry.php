@@ -42,7 +42,7 @@ final class Registry
     /**
      * 查找适配器。
      *
-     * @return class-string<AdapterInterface>|null
+     * @return null|class-string<AdapterInterface>
      */
     public static function find(string $scheme): ?string
     {
@@ -60,6 +60,7 @@ final class Registry
         if ($found === null) {
             throw AdapterNotFoundException::forScheme($scheme, self::schemes());
         }
+
         return $found;
     }
 
@@ -69,6 +70,7 @@ final class Registry
     public static function make(string $scheme): AdapterInterface
     {
         $class = self::findOrFail($scheme);
+
         return new $class();
     }
 

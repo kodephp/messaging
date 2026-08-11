@@ -9,6 +9,7 @@ use Kode\Messaging\Contract\MessageInterface;
 use Kode\Messaging\Router\Match\MatcherInterface;
 use Kode\Messaging\Router\Match\PrefixMatcher;
 use Kode\Messaging\Router\Match\RegexMatcher;
+use Throwable;
 
 /**
  * 消息路由器
@@ -35,16 +36,17 @@ final class Router
     /** @var array<string, callable> 正则匹配 */
     private array $regex = [];
 
-    /** @var callable|null 未命中任何路由时的兜底处理器 */
+    /** @var null|callable 未命中任何路由时的兜底处理器 */
     private $fallbackHandler = null;
 
-    /** @var callable|null handler 抛异常时的回调：fn(\Throwable, ConnectionInterface, MessageInterface): void */
+    /** @var null|callable handler 抛异常时的回调：fn(\Throwable, ConnectionInterface, MessageInterface): void */
     private $errorHandler = null;
 
     public function on(string $pattern, callable $handler): self
     {
         if (str_starts_with($pattern, '/') && str_ends_with($pattern, '/')) {
             $this->regex[$pattern] = $handler;
+
             return $this;
         }
         if (str_contains($pattern, '*') || str_contains($pattern, '#')) {
@@ -53,9 +55,11 @@ final class Router
                 'matcher' => $this->buildMatcher($pattern),
                 'handler' => $handler,
             ];
+
             return $this;
         }
         $this->exact[$pattern] = $handler;
+
         return $this;
     }
 
@@ -65,6 +69,7 @@ final class Router
     public function off(string $pattern): self
     {
         unset($this->exact[$pattern], $this->patterns[$pattern], $this->regex[$pattern]);
+
         return $this;
     }
 
@@ -74,17 +79,19 @@ final class Router
     public function fallback(?callable $handler): self
     {
         $this->fallbackHandler = $handler;
+
         return $this;
     }
 
     /**
      * handler 抛异常时的回调（传 null 恢复静默）。
      *
-     * @param (callable(\Throwable, ConnectionInterface, MessageInterface): void)|null $handler
+     * @param null|(callable(Throwable, ConnectionInterface, MessageInterface): void) $handler
      */
     public function onError(?callable $handler): self
     {
         $this->errorHandler = $handler;
+
         return $this;
     }
 
@@ -127,6 +134,7 @@ final class Router
         // 1. 精确
         if (isset($this->exact[$key])) {
             $this->call($this->exact[$key], $conn, $message);
+
             return true;
         }
 
@@ -134,14 +142,16 @@ final class Router
         foreach ($this->patterns as $entry) {
             if ($entry['matcher']->match($key)) {
                 $this->call($entry['handler'], $conn, $message);
+
                 return true;
             }
         }
 
         // 3. 正则
         foreach ($this->regex as $pattern => $handler) {
-            if ((bool)preg_match($pattern, $key)) {
+            if ((bool) preg_match($pattern, $key)) {
                 $this->call($handler, $conn, $message);
+
                 return true;
             }
         }
@@ -150,6 +160,7 @@ final class Router
         if ($this->fallbackHandler !== null) {
             $this->call($this->fallbackHandler, $conn, $message);
         }
+
         return false;
     }
 
@@ -164,14 +175,15 @@ final class Router
     {
         $escaped = preg_quote($pattern, '#');
         $regex = str_replace(['\\*', '\\#'], ['[^/]+', '.*'], $escaped);
-        return '#^' . $regex . '$#';
+
+        return '#^'.$regex.'$#';
     }
 
     private function call(callable $handler, ConnectionInterface $conn, MessageInterface $message): void
     {
         try {
             $handler($conn, $message);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             if ($this->errorHandler !== null) {
                 ($this->errorHandler)($e, $conn, $message);
             }

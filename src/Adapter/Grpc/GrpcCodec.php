@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Grpc;
 
-use Kode\Messaging\Exception\GrpcException;
-
 /**
  * gRPC 帧（Length-Prefixed Message）编解码
  *
@@ -20,38 +18,38 @@ use Kode\Messaging\Exception\GrpcException;
 final class GrpcCodec
 {
     public const COMPRESSED = 0x01;
-    public const IDENTITY   = 0x00;
+    public const IDENTITY = 0x00;
 
-    public const STATUS_OK                  = 0;
-    public const STATUS_CANCELLED           = 1;
-    public const STATUS_UNKNOWN             = 2;
-    public const STATUS_INVALID_ARGUMENT    = 3;
-    public const STATUS_DEADLINE_EXCEEDED   = 4;
-    public const STATUS_NOT_FOUND           = 5;
-    public const STATUS_ALREADY_EXISTS      = 6;
-    public const STATUS_PERMISSION_DENIED   = 7;
-    public const STATUS_RESOURCE_EXHAUSTED  = 8;
+    public const STATUS_OK = 0;
+    public const STATUS_CANCELLED = 1;
+    public const STATUS_UNKNOWN = 2;
+    public const STATUS_INVALID_ARGUMENT = 3;
+    public const STATUS_DEADLINE_EXCEEDED = 4;
+    public const STATUS_NOT_FOUND = 5;
+    public const STATUS_ALREADY_EXISTS = 6;
+    public const STATUS_PERMISSION_DENIED = 7;
+    public const STATUS_RESOURCE_EXHAUSTED = 8;
     public const STATUS_FAILED_PRECONDITION = 9;
-    public const STATUS_ABORTED             = 10;
-    public const STATUS_OUT_OF_RANGE        = 11;
-    public const STATUS_UNIMPLEMENTED       = 12;
-    public const STATUS_INTERNAL            = 13;
-    public const STATUS_UNAVAILABLE         = 14;
-    public const STATUS_DATA_LOSS           = 15;
-    public const STATUS_UNAUTHENTICATED     = 16;
+    public const STATUS_ABORTED = 10;
+    public const STATUS_OUT_OF_RANGE = 11;
+    public const STATUS_UNIMPLEMENTED = 12;
+    public const STATUS_INTERNAL = 13;
+    public const STATUS_UNAVAILABLE = 14;
+    public const STATUS_DATA_LOSS = 15;
+    public const STATUS_UNAUTHENTICATED = 16;
 
     /**
      * 编码 gRPC 帧。
      */
     public static function encode(string $payload, bool $compressed = false): string
     {
-        return chr($compressed ? self::COMPRESSED : self::IDENTITY) . pack('N', strlen($payload)) . $payload;
+        return chr($compressed ? self::COMPRESSED : self::IDENTITY).pack('N', strlen($payload)).$payload;
     }
 
     /**
      * 解码 gRPC 帧（从 buffer 中取一帧）。
      *
-     * @return array{compressed: bool, payload: string, consumed: int}|null
+     * @return null|array{compressed: bool, payload: string, consumed: int}
      */
     public static function decode(string $buffer, int $offset = 0): ?array
     {
@@ -66,10 +64,11 @@ final class GrpcCodec
             return null;
         }
         $payload = substr($buffer, $payloadStart, $length);
+
         return [
-            'compressed' => (bool)($flag & self::COMPRESSED),
-            'payload'    => $payload,
-            'consumed'   => 5 + $length,
+            'compressed' => (bool) ($flag & self::COMPRESSED),
+            'payload' => $payload,
+            'consumed' => 5 + $length,
         ];
     }
 
@@ -80,8 +79,9 @@ final class GrpcCodec
     {
         $trailers = "grpc-status: {$statusCode}\r\n";
         if ($message !== '') {
-            $trailers .= "grpc-message: " . self::percentEncode($message) . "\r\n";
+            $trailers .= 'grpc-message: '.self::percentEncode($message)."\r\n";
         }
+
         return $trailers;
     }
 
@@ -92,11 +92,12 @@ final class GrpcCodec
      */
     public static function parseStatus(array $headers): array
     {
-        $status = (int)($headers['grpc-status'] ?? self::STATUS_OK);
+        $status = (int) ($headers['grpc-status'] ?? self::STATUS_OK);
         $message = $headers['grpc-message'] ?? '';
         if ($message !== '') {
             $message = self::percentDecode($message);
         }
+
         return ['status' => $status, 'message' => $message];
     }
 

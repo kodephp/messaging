@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 final class CoapCodecTest extends TestCase
 {
-    public function testCodeEncodeDecode(): void
+    public function test_code_encode_decode(): void
     {
         $this->assertSame(0x01, CoapCode::encode(CoapCode::GET));
         $this->assertSame(0x02, CoapCode::encode(CoapCode::POST));
@@ -24,7 +24,7 @@ final class CoapCodecTest extends TestCase
         $this->assertSame(CoapCode::INTERNAL_SERVER_ERROR, CoapCode::decode(0xA0));
     }
 
-    public function testTypeName(): void
+    public function test_type_name(): void
     {
         $this->assertSame('CON', CoapType::name(CoapType::CON));
         $this->assertSame('NON', CoapType::name(CoapType::NON));
@@ -32,7 +32,7 @@ final class CoapCodecTest extends TestCase
         $this->assertSame('RST', CoapType::name(CoapType::RST));
     }
 
-    public function testSimplePacketEncode(): void
+    public function test_simple_packet_encode(): void
     {
         $packet = new CoapPacket(
             type: CoapType::CON,
@@ -53,12 +53,12 @@ final class CoapCodecTest extends TestCase
         // MID=0x1234 → 0x12 0x34
         // Options: Uri-Path "sensors" (delta 11, len 7) → 0xB7, "sensors"
         //          Uri-Path "temp" (delta 0, len 4) → 0x04, "temp"
-        $this->assertSame("\x40\x01\x12\x34" . "\xB7" . "sensors" . "\x04" . "temp", $bytes);
+        $this->assertSame("\x40\x01\x12\x34"."\xB7".'sensors'."\x04".'temp', $bytes);
     }
 
-    public function testPacketDecode(): void
+    public function test_packet_decode(): void
     {
-        $bytes = "\x40\x01\x12\x34" . "\xB7" . "sensors" . "\x04" . "temp";
+        $bytes = "\x40\x01\x12\x34"."\xB7".'sensors'."\x04".'temp';
         $packet = CoapPacket::decode($bytes);
 
         $this->assertSame(CoapType::CON, $packet->type);
@@ -71,7 +71,7 @@ final class CoapCodecTest extends TestCase
         $this->assertSame('temp', $packet->options[1]['value']);
     }
 
-    public function testPacketWithToken(): void
+    public function test_packet_with_token(): void
     {
         $packet = new CoapPacket(
             type: CoapType::ACK,
@@ -98,7 +98,7 @@ final class CoapCodecTest extends TestCase
         $this->assertSame('{"v":1}', $decoded->payload);
     }
 
-    public function testLargeOptionDelta(): void
+    public function test_large_option_delta(): void
     {
         // delta 269 → 14 + 0x0000
         $packet = new CoapPacket(
@@ -119,7 +119,7 @@ final class CoapCodecTest extends TestCase
         $this->assertSame(280, $decoded->options[1]['number']);
     }
 
-    public function testPacketTooShortThrows(): void
+    public function test_packet_too_short_throws(): void
     {
         $this->expectException(\Kode\Messaging\Exception\CoapException::class);
         CoapPacket::decode("\x40\x01");

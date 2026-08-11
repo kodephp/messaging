@@ -8,6 +8,7 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\WebTransportException;
+use LogicException;
 
 /**
  * WebTransport 客户端（HTTP/2-fallback 传输）
@@ -23,8 +24,9 @@ use Kode\Messaging\Exception\WebTransportException;
  */
 final class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
+
     private ?WebTransportConnection $conn = null;
 
     public static function scheme(): string
@@ -41,15 +43,15 @@ final class Client extends AbstractAdapter
     {
         return [
             'subprotocol' => 'wt-bidi',
-            'host'        => '127.0.0.1',
-            'port'        => 4433,
+            'host' => '127.0.0.1',
+            'port' => 4433,
         ];
     }
 
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 4433);
+        $port = (int) ($config['port'] ?? 4433);
         $remote = "tcp://{$host}:{$port}";
         $errno = 0;
         $errstr = '';
@@ -64,12 +66,13 @@ final class Client extends AbstractAdapter
             stream_socket_get_name($this->stream, true) ?: "{$host}:{$port}",
             $this->stream,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('WebTransport Client 不支持 listen()');
+        throw new LogicException('WebTransport Client 不支持 listen()');
     }
 
     public function run(): void

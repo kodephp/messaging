@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Messaging;
 
@@ -28,7 +28,7 @@ use Kode\Messaging\Messaging;
 // App / 网页管理后台通过 ws:// 连接，承载 MQTT 协议
 $wsServer = Messaging::server('mqtt+ws://0.0.0.0:8083')
     ->on('connection.open', fn($conn) => print "[ws] 客户端连接: {$conn->remoteAddress()}\n")
-    ->on('message.received', function ($conn, $msg) {
+    ->on('message.received', function ($conn, $msg): void {
         $topic = $msg->topic() ?? '(unknown)';
         $payload = is_string($msg->payload()) ? $msg->payload() : json_encode($msg->payload());
         echo "[ws] 收到消息 topic={$topic} payload={$payload}\n";
@@ -41,7 +41,7 @@ $wsServer = Messaging::server('mqtt+ws://0.0.0.0:8083')
 // 充电桩 / 手表等设备端通过 tcp:// 连接
 $mqttServer = Messaging::server('mqtt://0.0.0.0:1883')
     ->on('connection.open', fn($conn) => print "[mqtt] 设备连接: {$conn->remoteAddress()}\n")
-    ->on('message.received', function ($conn, $msg) {
+    ->on('message.received', function ($conn, $msg): void {
         $topic = $msg->topic() ?? '(unknown)';
         $payload = is_string($msg->payload()) ? $msg->payload() : json_encode($msg->payload());
         echo "[mqtt] 设备消息 topic={$topic} payload={$payload}\n";

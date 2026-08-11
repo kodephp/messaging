@@ -6,6 +6,7 @@ namespace Kode\Messaging\Transport;
 
 use Kode\Messaging\Exception\TransportException;
 use Swow\Socket as SwowSocket;
+use Throwable;
 
 /**
  * 基于 Swow 协程 Socket 的传输层实现。
@@ -29,7 +30,7 @@ final class SwowTransport implements TransportInterface
      */
     public function __construct()
     {
-        if (!class_exists(SwowSocket::class)) {
+        if (! class_exists(SwowSocket::class)) {
             throw TransportException::openFailed(
                 'swow',
                 'ext-swow 未加载或 \Swow\Socket 类不存在',
@@ -57,7 +58,7 @@ final class SwowTransport implements TransportInterface
 
         try {
             $socket->bind("{$host}:{$port}");
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw TransportException::openFailed(
                 "{$protocol}://{$host}:{$port}",
                 $e->getMessage(),
@@ -69,7 +70,7 @@ final class SwowTransport implements TransportInterface
         if ($protocol !== 'udp') {
             try {
                 $socket->listen(512);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 throw TransportException::openFailed(
                     "{$protocol}://{$host}:{$port}",
                     $e->getMessage(),
@@ -86,13 +87,13 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $serverSocket 服务端 socket 对象
      *
-     * @return SwowSocket|false 客户端 socket 对象；无连接返回 false
+     * @return false|SwowSocket 客户端 socket 对象；无连接返回 false
      */
     public function accept(mixed $serverSocket): mixed
     {
         try {
             return $serverSocket->accept();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -116,7 +117,7 @@ final class SwowTransport implements TransportInterface
 
         try {
             $socket->connect("{$host}:{$port}");
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw TransportException::openFailed(
                 "{$protocol}://{$host}:{$port}",
                 $e->getMessage(),
@@ -132,8 +133,6 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      * @param int        $length 期望读取的最大字节数
-     *
-     * @return string|false
      */
     public function read(mixed $socket, int $length): string|false
     {
@@ -143,7 +142,7 @@ final class SwowTransport implements TransportInterface
 
         try {
             return $socket->recvString($length);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -153,14 +152,12 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      * @param string     $data   待写入数据
-     *
-     * @return int|false
      */
     public function write(mixed $socket, string $data): int|false
     {
         try {
             return $socket->sendString($data);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -174,7 +171,7 @@ final class SwowTransport implements TransportInterface
     {
         try {
             $socket->close();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // 忽略关闭错误
         }
     }
@@ -186,8 +183,7 @@ final class SwowTransport implements TransportInterface
      * select() 退化为轮询检测可读性。
      *
      * @param array<int, SwowSocket>      $read
-     * @param array<int, SwowSocket>|null $write
-     * @param int                         $timeoutMicroseconds
+     * @param null|array<int, SwowSocket> $write
      *
      * @return array{0: array<int, SwowSocket>, 1: array<int, SwowSocket>}|false
      */
@@ -203,11 +199,11 @@ final class SwowTransport implements TransportInterface
         // 协程模型下，select 退化为轮询检测可读
         foreach ($read as $socket) {
             try {
-                $peek = $socket->recvString(1, \Swow\Socket::READ_PEEK);
-                if ($peek !== '' ) {
+                $peek = $socket->recvString(1, SwowSocket::READ_PEEK);
+                if ($peek !== '') {
                     $readable[] = $socket;
                 }
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // 出错视为可读以便上层处理 EOF
                 $readable[] = $socket;
             }
@@ -249,8 +245,6 @@ final class SwowTransport implements TransportInterface
      * {@inheritdoc}
      *
      * @param SwowSocket $socket socket 对象
-     *
-     * @return string|false
      */
     public function getPeerName(mixed $socket): string|false
     {
@@ -264,7 +258,7 @@ final class SwowTransport implements TransportInterface
             }
 
             return $name !== '' ? $name : false;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }

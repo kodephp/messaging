@@ -14,8 +14,7 @@ class Event
     public function __construct(
         public readonly string $name,
         public readonly array $payload = [],
-    ) {
-    }
+    ) {}
 
     private bool $stopped = false;
 

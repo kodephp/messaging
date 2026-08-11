@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Grpc;
 
+use Generator;
 use Kode\Messaging\Adapter\Registry;
-use Kode\Messaging\Adapter\WebSocket\WebSocketConnection;
 use Kode\Messaging\Exception\GrpcException;
-use Kode\Messaging\Message\Message as Msg;
+use LogicException;
 
 /**
  * gRPC 客户端
@@ -28,9 +28,11 @@ use Kode\Messaging\Message\Message as Msg;
  */
 final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
-    private ?\Kode\Messaging\Adapter\Grpc\GrpcConnection $conn = null;
+
+    private ?GrpcConnection $conn = null;
+
     private string $buffer = '';
 
     public static function scheme(): string
@@ -46,19 +48,19 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'tls'             => false,
-            'timeout'         => 5.0,
+            'tls' => false,
+            'timeout' => 5.0,
             'max_message_size' => 4 * 1024 * 1024,
-            'user_agent'      => 'kode-messaging/grpc',
+            'user_agent' => 'kode-messaging/grpc',
         ];
     }
 
     public function connect(array $config = []): \Kode\Messaging\Contract\ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 50051);
-        $tls  = (bool)($config['tls'] ?? false);
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $port = (int) ($config['port'] ?? 50051);
+        $tls = (bool) ($config['tls'] ?? false);
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
 
         $errno = 0;
         $errstr = '';
@@ -74,12 +76,13 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
             stream_socket_get_name($this->stream, true) ?: "{$host}:{$port}",
             $this->stream,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('gRPC Client 不支持 listen()');
+        throw new LogicException('gRPC Client 不支持 listen()');
     }
 
     public function run(): void
@@ -87,7 +90,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         if ($this->conn === null) {
             $this->connect($this->config);
         }
-        while (!feof($this->stream)) {
+        while (! feof($this->stream)) {
             $chunk = @fread($this->stream, 4096);
             if ($chunk === false || $chunk === '') {
                 usleep(10_000);
@@ -100,7 +103,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
 
     private function consumeBuffer(): void
     {
-        while (strlen($this->buffer) > 0) {
+        while ($this->buffer !== '') {
             $frame = GrpcCodec::decode($this->buffer);
             if ($frame === null) {
                 return;
@@ -133,32 +136,33 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
             $this->connect($this->config);
         }
         $host = $this->config['host'] ?? '127.0.0.1';
-        $port = (int)($this->config['port'] ?? 50051);
+        $port = (int) ($this->config['port'] ?? 50051);
         $headers = [
-            'POST ' . $path . ' HTTP/1.1',
-            'Host: ' . $host . ':' . $port,
-            'Content-Type: ' . GrpcCodec::contentType(),
+            'POST '.$path.' HTTP/1.1',
+            'Host: '.$host.':'.$port,
+            'Content-Type: '.GrpcCodec::contentType(),
             'TE: trailers',
-            'User-Agent: ' . ($this->config['user_agent'] ?? 'kode-messaging/grpc'),
+            'User-Agent: '.($this->config['user_agent'] ?? 'kode-messaging/grpc'),
             'Transfer-Encoding: chunked',
         ];
         foreach ($metadata as $k => $v) {
             $headers[] = "{$k}: {$v}";
         }
         $body = GrpcCodec::encode($payload);
-        $chunked = dechex(strlen($body)) . "\r\n" . $body . "\r\n" . "0\r\n\r\n";
+        $chunked = dechex(strlen($body))."\r\n".$body."\r\n"."0\r\n\r\n";
 
-        $request = implode("\r\n", $headers) . "\r\n\r\n" . $chunked;
+        $request = implode("\r\n", $headers)."\r\n\r\n".$chunked;
         @fwrite($this->stream, $request);
+
         return $this->awaitUnaryResponse($timeout);
     }
 
     /**
      * 业务层 API：Server Streaming。
      *
-     * @return \Generator<string>
+     * @return Generator<string>
      */
-    public function callServerStreaming(string $path, string $payload, array $metadata = [], float $timeout = 30.0): \Generator
+    public function callServerStreaming(string $path, string $payload, array $metadata = [], float $timeout = 30.0): Generator
     {
         $response = $this->call($path, $payload, $metadata, $timeout);
         yield $response;
@@ -181,7 +185,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
                 $headerPart = substr($this->buffer, 0, $headerEnd);
                 $body = substr($this->buffer, $headerEnd + 4);
                 $headers = $this->parseHttpHeaders($headerPart);
-                $status = (int)($headers['__status'] ?? 0);
+                $status = (int) ($headers['__status'] ?? 0);
                 if ($status === 0) {
                     continue;
                 }
@@ -198,6 +202,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
                 }
             }
         }
+
         throw GrpcException::unavailable('Unary 调用超时');
     }
 
@@ -208,9 +213,9 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         $reason = '';
         $headers = [];
         if (isset($lines[0]) && preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
-            $status = (int)$m[1];
+            $status = (int) $m[1];
             $reason = $m[2] ?? '';
-            $headers['__status'] = (string)$status;
+            $headers['__status'] = (string) $status;
             $headers['__reason'] = $reason;
             array_shift($lines);
         }
@@ -223,6 +228,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
             $val = trim(substr($line, $pos + 1));
             $headers[$key] = $val;
         }
+
         return $headers;
     }
 
@@ -236,7 +242,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
             if ($crlf === false) {
                 break;
             }
-            $size = (int)hexdec(trim(substr($body, $offset, $crlf - $offset)));
+            $size = (int) hexdec(trim(substr($body, $offset, $crlf - $offset)));
             if ($size === 0) {
                 break;
             }
@@ -244,6 +250,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
             $decoded .= substr($body, $offset, $size);
             $offset += $size + 2; // skip trailing \r\n
         }
+
         return $decoded;
     }
 
@@ -251,15 +258,15 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
     {
         return match (true) {
             $code >= 200 && $code < 300 => GrpcCodec::STATUS_OK,
-            $code === 400               => GrpcCodec::STATUS_INVALID_ARGUMENT,
-            $code === 401               => GrpcCodec::STATUS_UNAUTHENTICATED,
-            $code === 403               => GrpcCodec::STATUS_PERMISSION_DENIED,
-            $code === 404               => GrpcCodec::STATUS_UNIMPLEMENTED,
-            $code === 429               => GrpcCodec::STATUS_RESOURCE_EXHAUSTED,
-            $code === 501               => GrpcCodec::STATUS_UNIMPLEMENTED,
-            $code === 503               => GrpcCodec::STATUS_UNAVAILABLE,
-            $code === 504               => GrpcCodec::STATUS_DEADLINE_EXCEEDED,
-            default                     => GrpcCodec::STATUS_UNKNOWN,
+            $code === 400 => GrpcCodec::STATUS_INVALID_ARGUMENT,
+            $code === 401 => GrpcCodec::STATUS_UNAUTHENTICATED,
+            $code === 403 => GrpcCodec::STATUS_PERMISSION_DENIED,
+            $code === 404 => GrpcCodec::STATUS_UNIMPLEMENTED,
+            $code === 429 => GrpcCodec::STATUS_RESOURCE_EXHAUSTED,
+            $code === 501 => GrpcCodec::STATUS_UNIMPLEMENTED,
+            $code === 503 => GrpcCodec::STATUS_UNAVAILABLE,
+            $code === 504 => GrpcCodec::STATUS_DEADLINE_EXCEEDED,
+            default => GrpcCodec::STATUS_UNKNOWN,
         };
     }
 }

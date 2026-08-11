@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * RTMP 服务端示例（含限流）
@@ -18,7 +18,7 @@
  *  3. 消息级（业务层通过中间件管道，对所有 message.received 限流）
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Adapter\Rtmp\Server;
 use Kode\Messaging\Messaging;
@@ -26,13 +26,13 @@ use Kode\Messaging\Middleware\RateLimit\RateLimitFactory;
 use Kode\Messaging\Middleware\RateLimit\SlidingWindowMiddleware;
 use Kode\Messaging\Middleware\RateLimit\TokenBucketMiddleware;
 
-$config = require __DIR__ . '/../config/messaging.php';
+$config = require __DIR__.'/../config/messaging.php';
 
 $builder = Messaging::server('rtmp://0.0.0.0:1935')
-    ->on('connection.open', function ($conn) {
+    ->on('connection.open', function ($conn): void {
         fwrite(STDOUT, "[rtmp] client connected: {$conn->remoteAddress()}\n");
     })
-    ->on('message.received', function ($conn, $message) {
+    ->on('message.received', function ($conn, $message): void {
         $event = $message->event();
         $topic = $message->topic();
         $ctx = $message->context();
@@ -46,14 +46,14 @@ $builder = Messaging::server('rtmp://0.0.0.0:1935')
             fwrite(STDOUT, "[rtmp] event={$event} topic={$topic} body={$message->payload()}\n");
         }
     })
-    ->on('connection.close', function ($conn) {
+    ->on('connection.close', function ($conn): void {
         fwrite(STDOUT, "[rtmp] client disconnected: {$conn->remoteAddress()}\n");
     })
-    ->on('rate_limit.exceeded', function (array $payload) {
-        $type  = $payload['type'];
-        $peer  = $payload['peer'];
-        $info  = $payload['info'];
-        $wait  = $info['wait_time'] ?? 0;
+    ->on('rate_limit.exceeded', function (array $payload): void {
+        $type = $payload['type'];
+        $peer = $payload['peer'];
+        $info = $payload['info'];
+        $wait = $info['wait_time'] ?? 0;
         fwrite(STDERR, "[rtmp] ⚠ rate limited: type={$type} peer={$peer} wait={$wait}s\n");
     });
 
@@ -67,7 +67,7 @@ if ($rlConfig !== null) {
     $adapter = $builder->adapter();
 
     $connLimiter = RateLimitFactory::create($rlConfig['connection']);
-    $cmdLimiter  = RateLimitFactory::create($rlConfig['command']);
+    $cmdLimiter = RateLimitFactory::create($rlConfig['command']);
     $adapter->setRateLimiters($connLimiter, $cmdLimiter);
 
     // 业务层消息级限流（中间件）

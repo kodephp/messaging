@@ -7,17 +7,21 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use Kode\Messaging\Messaging;
 
 $client = Messaging::client('ws://echo.websocket.org')
-    ->on('open',    function () use ($client) {
+    ->on('open', function () use ($client): void {
         echo "[open]\n";
         $client->send('hello from kode/messaging');
     })
-    ->on('message', function ($m) { echo "[recv] " . $m->payload() . "\n"; })
-    ->on('close',   function () { echo "[close]\n"; })
+    ->on('message', function ($m): void {
+        echo '[recv] '.$m->payload()."\n";
+    })
+    ->on('close', function (): void {
+        echo "[close]\n";
+    })
     ->connect();
 
 $client->loop();

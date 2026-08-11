@@ -8,6 +8,8 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\WebTransportException;
+use LogicException;
+use Throwable;
 
 /**
  * WebTransport 服务端（HTTP/2-fallback 占位）
@@ -21,14 +23,18 @@ use Kode\Messaging\Exception\WebTransportException;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
+
     private ?\Kode\Messaging\Server\Builder $builder = null;
-    /** @var array<string, callable(string $payload, array $meta): void> */
+
+    /** @var array<string, callable(string, array): void> */
     private array $bidiHandlers = [];
-    /** @var array<string, callable(string $payload, array $meta): void> */
+
+    /** @var array<string, callable(string, array): void> */
     private array $unidiHandlers = [];
-    /** @var array<string, callable(string $payload, array $meta): void> */
+
+    /** @var array<string, callable(string, array): void> */
     private array $dgramHandlers = [];
 
     public static function scheme(): string
@@ -44,7 +50,8 @@ final class Server extends AbstractAdapter
     public function setBuilder(\Kode\Messaging\Server\Builder $builder): void
     {
         $this->builder = $builder;
-        $builder->on('wt.dispatched', function () { /* 业务可订阅 */ });
+        $builder->on('wt.dispatched', function (): void { /* 业务可订阅 */
+        });
     }
 
     public function builder(): ?\Kode\Messaging\Server\Builder
@@ -55,18 +62,21 @@ final class Server extends AbstractAdapter
     public function onBidirectional(string $session, callable $cb): self
     {
         $this->bidiHandlers[$session] = $cb;
+
         return $this;
     }
 
     public function onUnidirectional(string $session, callable $cb): self
     {
         $this->unidiHandlers[$session] = $cb;
+
         return $this;
     }
 
     public function onDatagram(string $session, callable $cb): self
     {
         $this->dgramHandlers[$session] = $cb;
+
         return $this;
     }
 
@@ -106,11 +116,11 @@ final class Server extends AbstractAdapter
                 continue;
             }
             // 占位响应：告知业务已接入但需要 HTTP/3 后端
-            $body = "WebTransport over HTTP/3 required. Use a HTTP/3 backend (aioquic / msquic).";
+            $body = 'WebTransport over HTTP/3 required. Use a HTTP/3 backend (aioquic / msquic).';
             $resp = "HTTP/1.1 426 Upgrade Required\r\n"
-                . "Content-Type: text/plain\r\n"
-                . "Content-Length: " . strlen($body) . "\r\n"
-                . "Connection: close\r\n\r\n" . $body;
+                ."Content-Type: text/plain\r\n"
+                .'Content-Length: '.strlen($body)."\r\n"
+                ."Connection: close\r\n\r\n".$body;
             @fwrite($new, $resp);
             @fclose($new);
         }
@@ -118,7 +128,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('WebTransport Server 不支持 connect()');
+        throw new LogicException('WebTransport Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -144,7 +154,7 @@ final class Server extends AbstractAdapter
         if ($cb !== null) {
             try {
                 $cb($payload, $meta);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }
@@ -155,7 +165,7 @@ final class Server extends AbstractAdapter
         if ($cb !== null) {
             try {
                 $cb($payload, $meta);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }
@@ -166,7 +176,7 @@ final class Server extends AbstractAdapter
         if ($cb !== null) {
             try {
                 $cb($payload, $meta);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
     }

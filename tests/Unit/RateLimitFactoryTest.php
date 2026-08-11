@@ -37,25 +37,25 @@ final class RateLimitFactoryTest extends TestCase
     /**
      * @dataProvider algorithmProvider
      */
-    public function testCreateWithMemoryStoreForEachAlgorithm(string $driver): void
+    public function test_create_with_memory_store_for_each_algorithm(string $driver): void
     {
         $limiter = RateLimitFactory::create([
-            'driver'   => $driver,
+            'driver' => $driver,
             'capacity' => 5,
-            'store'    => 'memory',
+            'store' => 'memory',
         ]);
 
         $this->assertInstanceOf(RateLimiterInterface::class, $limiter);
         // 全新 key 首次请求应被放行
-        $this->assertTrue($limiter->allow('unit:' . $driver . ':fresh', 1));
+        $this->assertTrue($limiter->allow('unit:'.$driver.':fresh', 1));
     }
 
-    public function testPdoStoreBuildsAndAllows(): void
+    public function test_pdo_store_builds_and_allows(): void
     {
         $limiter = RateLimitFactory::create([
-            'driver'     => 'token_bucket',
-            'capacity'   => 5,
-            'store'      => 'pdo',
+            'driver' => 'token_bucket',
+            'capacity' => 5,
+            'store' => 'pdo',
             'store_opts' => ['dsn' => 'sqlite::memory:'],
         ]);
 
@@ -63,16 +63,16 @@ final class RateLimitFactoryTest extends TestCase
         $this->assertTrue($limiter->allow('pdo:fresh', 1));
     }
 
-    public function testApcuStoreBuildsWhenAvailable(): void
+    public function test_apcu_store_builds_when_available(): void
     {
-        if (!ApcuStore::isAvailable()) {
+        if (! ApcuStore::isAvailable()) {
             $this->markTestSkipped('APCu 扩展不可用，跳过 apcu 存储测试');
         }
 
         $limiter = RateLimitFactory::create([
-            'driver'     => 'token_bucket',
-            'capacity'   => 5,
-            'store'      => 'apcu',
+            'driver' => 'token_bucket',
+            'capacity' => 5,
+            'store' => 'apcu',
             'store_opts' => ['prefix' => 'messaging:test:'],
         ]);
 
@@ -80,36 +80,36 @@ final class RateLimitFactoryTest extends TestCase
         $this->assertTrue($limiter->allow('apcu:fresh', 1));
     }
 
-    public function testUnknownDriverThrows(): void
+    public function test_unknown_driver_throws(): void
     {
         $this->expectException(MessagingException::class);
         RateLimitFactory::create([
             'driver' => 'unknown_algo',
-            'store'  => 'memory',
+            'store' => 'memory',
         ]);
     }
 
-    public function testUnknownStoreThrows(): void
+    public function test_unknown_store_throws(): void
     {
         $this->expectException(MessagingException::class);
         RateLimitFactory::create([
             'driver' => 'token_bucket',
-            'store'  => 'nonexistent',
+            'store' => 'nonexistent',
         ]);
     }
 
-    public function testEmptyConfigThrows(): void
+    public function test_empty_config_throws(): void
     {
         $this->expectException(MessagingException::class);
         RateLimitFactory::create([]);
     }
 
-    public function testMiddlewareWrapsAlgorithmAgnostic(): void
+    public function test_middleware_wraps_algorithm_agnostic(): void
     {
         $mw = RateLimitFactory::middleware([
-            'driver'   => 'leaky_bucket',
+            'driver' => 'leaky_bucket',
             'capacity' => 5,
-            'store'    => 'memory',
+            'store' => 'memory',
         ], 'tenant-a:');
 
         $this->assertInstanceOf(\Kode\Messaging\Contract\MiddlewareInterface::class, $mw);

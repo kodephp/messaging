@@ -8,6 +8,7 @@ use Kode\Messaging\Adapter\AbstractAdapter;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\UdpException;
+use LogicException;
 
 /**
  * UDP 客户端
@@ -18,7 +19,7 @@ use Kode\Messaging\Exception\UdpException;
  */
 final class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
 
     private ?UdpConnection $conn = null;
@@ -36,7 +37,7 @@ final class Client extends AbstractAdapter
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 8082);
+        $port = (int) ($config['port'] ?? 8082);
         $peer = "{$host}:{$port}";
 
         $errno = 0;
@@ -59,12 +60,13 @@ final class Client extends AbstractAdapter
             $this->socket,
             $peer,
         );
+
         return $this->conn;
     }
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('UDP Client 不支持 listen()');
+        throw new LogicException('UDP Client 不支持 listen()');
     }
 
     public function run(): void
@@ -81,7 +83,7 @@ final class Client extends AbstractAdapter
                 'udp',
                 topic: null,
                 context: [
-                    'connection_id'  => $this->conn?->id(),
+                    'connection_id' => $this->conn?->id(),
                     'remote_address' => $peer,
                 ],
             );

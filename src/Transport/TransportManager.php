@@ -27,8 +27,6 @@ final class TransportManager
      *
      * 首次调用时通过 TransportFactory 自动检测并创建；
      * 后续调用返回同一实例（单例）。
-     *
-     * @return TransportInterface
      */
     public static function get(): TransportInterface
     {

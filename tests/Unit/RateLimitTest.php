@@ -13,62 +13,62 @@ use PHPUnit\Framework\TestCase;
 
 final class RateLimitTest extends TestCase
 {
-    public function testTokenBucketMemoryAllowsBurstUpToCapacity(): void
+    public function test_token_bucket_memory_allows_burst_up_to_capacity(): void
     {
         $mw = TokenBucketMiddleware::memory(capacity: 5, refillRate: 0.001);
 
         $msg = $this->makeMessage('cid-1');
         for ($i = 0; $i < 5; $i++) {
-            $result = $mw->process($msg, fn (MessageInterface $m) => $m);
+            $result = $mw->process($msg, fn(MessageInterface $m) => $m);
             $this->assertInstanceOf(MessageInterface::class, $result);
         }
     }
 
-    public function testTokenBucketMemoryBlocksWhenExhausted(): void
+    public function test_token_bucket_memory_blocks_when_exhausted(): void
     {
         $mw = TokenBucketMiddleware::memory(capacity: 2, refillRate: 0.001);
 
         $msg = $this->makeMessage('cid-2');
-        $mw->process($msg, fn (MessageInterface $m) => $m);
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
 
         $this->expectException(MessagingException::class);
         $this->expectExceptionMessage('限流触发（令牌桶）');
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
     }
 
-    public function testTokenBucketIsolatesBucketsByConnectionId(): void
+    public function test_token_bucket_isolates_buckets_by_connection_id(): void
     {
         $mw = TokenBucketMiddleware::memory(capacity: 1, refillRate: 0.001);
 
         $a = $this->makeMessage('cid-A');
         $b = $this->makeMessage('cid-B');
 
-        $mw->process($a, fn (MessageInterface $m) => $m);
+        $mw->process($a, fn(MessageInterface $m) => $m);
         // cid-A 已耗尽，cid-B 不应受影响
-        $result = $mw->process($b, fn (MessageInterface $m) => $m);
+        $result = $mw->process($b, fn(MessageInterface $m) => $m);
         $this->assertInstanceOf(MessageInterface::class, $result);
     }
 
-    public function testTokenBucketFallsBackToRemoteAddress(): void
+    public function test_token_bucket_falls_back_to_remote_address(): void
     {
         $mw = TokenBucketMiddleware::memory(capacity: 1, refillRate: 0.001);
         $a = $this->makeMessage('', ['remote_address' => '1.2.3.4:5678']);
         $b = $this->makeMessage('', ['remote_address' => '5.6.7.8:1234']);
 
-        $mw->process($a, fn (MessageInterface $m) => $m);
-        $result = $mw->process($b, fn (MessageInterface $m) => $m);
+        $mw->process($a, fn(MessageInterface $m) => $m);
+        $result = $mw->process($b, fn(MessageInterface $m) => $m);
         $this->assertInstanceOf(MessageInterface::class, $result);
     }
 
-    public function testTokenBucketExceptionCarriesDiagnostics(): void
+    public function test_token_bucket_exception_carries_diagnostics(): void
     {
         $mw = TokenBucketMiddleware::memory(capacity: 1, refillRate: 0.001);
         $msg = $this->makeMessage('cid-x');
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
 
         try {
-            $mw->process($msg, fn (MessageInterface $m) => $m);
+            $mw->process($msg, fn(MessageInterface $m) => $m);
             $this->fail('应该抛 MessagingException');
         } catch (MessagingException $e) {
             $this->assertSame(429, $e->getCode());
@@ -81,41 +81,41 @@ final class RateLimitTest extends TestCase
         }
     }
 
-    public function testTokenBucketWrapAcceptsCustomLimiter(): void
+    public function test_token_bucket_wrap_accepts_custom_limiter(): void
     {
         $limiter = \Kode\Limiting\Limiter::tokenBucket(1, 0.001)->build();
         $mw = TokenBucketMiddleware::wrap($limiter, 'custom:');
         $msg = $this->makeMessage('cid-wrap');
 
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
 
         $this->expectException(MessagingException::class);
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
     }
 
-    public function testSlidingWindowMemoryBlocksAtCapacity(): void
+    public function test_sliding_window_memory_blocks_at_capacity(): void
     {
         $mw = SlidingWindowMiddleware::memory(capacity: 3, windowSize: 60.0);
         $msg = $this->makeMessage('cid-sw');
 
         for ($i = 0; $i < 3; $i++) {
-            $result = $mw->process($msg, fn (MessageInterface $m) => $m);
+            $result = $mw->process($msg, fn(MessageInterface $m) => $m);
             $this->assertInstanceOf(MessageInterface::class, $result);
         }
 
         $this->expectException(MessagingException::class);
         $this->expectExceptionMessage('限流触发（滑动窗口）');
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
     }
 
-    public function testSlidingWindowExceptionCarriesAlgorithmInfo(): void
+    public function test_sliding_window_exception_carries_algorithm_info(): void
     {
         $mw = SlidingWindowMiddleware::memory(capacity: 1, windowSize: 1.0);
         $msg = $this->makeMessage('cid-sw-2');
-        $mw->process($msg, fn (MessageInterface $m) => $m);
+        $mw->process($msg, fn(MessageInterface $m) => $m);
 
         try {
-            $mw->process($msg, fn (MessageInterface $m) => $m);
+            $mw->process($msg, fn(MessageInterface $m) => $m);
             $this->fail('应该抛 MessagingException');
         } catch (MessagingException $e) {
             $info = $e->context();
@@ -125,63 +125,63 @@ final class RateLimitTest extends TestCase
         }
     }
 
-    public function testFactoryCreatesTokenBucket(): void
+    public function test_factory_creates_token_bucket(): void
     {
         $limiter = RateLimitFactory::create([
-            'driver'   => 'token_bucket',
+            'driver' => 'token_bucket',
             'capacity' => 10,
-            'rate'     => 5.0,
-            'store'    => 'memory',
+            'rate' => 5.0,
+            'store' => 'memory',
         ]);
         $this->assertInstanceOf(\Kode\Limiting\Algorithm\RateLimiterInterface::class, $limiter);
         $this->assertTrue($limiter->allow('test:1'));
     }
 
-    public function testFactoryCreatesSlidingWindow(): void
+    public function test_factory_creates_sliding_window(): void
     {
         $limiter = RateLimitFactory::create([
-            'driver'   => 'sliding_window',
+            'driver' => 'sliding_window',
             'capacity' => 10,
-            'window'   => 1.0,
-            'store'    => 'memory',
+            'window' => 1.0,
+            'store' => 'memory',
         ]);
         $this->assertInstanceOf(\Kode\Limiting\Algorithm\RateLimiterInterface::class, $limiter);
         $this->assertTrue($limiter->allow('test:1'));
     }
 
-    public function testFactoryRejectsUnknownDriver(): void
+    public function test_factory_rejects_unknown_driver(): void
     {
         $this->expectException(MessagingException::class);
         $this->expectExceptionMessage('不支持的限流算法');
         RateLimitFactory::create([
-            'driver'   => 'unknown_algo',
+            'driver' => 'unknown_algo',
             'capacity' => 10,
-            'store'    => 'memory',
+            'store' => 'memory',
         ]);
     }
 
-    public function testFactoryRejectsEmptyConfig(): void
+    public function test_factory_rejects_empty_config(): void
     {
         $this->expectException(MessagingException::class);
         $this->expectExceptionMessage('限流配置不能为空');
         RateLimitFactory::create([]);
     }
 
-    public function testFactoryMiddlewareReturnsCorrectType(): void
+    public function test_factory_middleware_returns_correct_type(): void
     {
         $tb = RateLimitFactory::middleware([
-            'driver'   => 'token_bucket',
+            'driver' => 'token_bucket',
             'capacity' => 10,
-            'rate'     => 1.0,
-            'store'    => 'memory',
+            'rate' => 1.0,
+            'store' => 'memory',
         ]);
         $this->assertInstanceOf(TokenBucketMiddleware::class, $tb);
 
         $sw = RateLimitFactory::middleware([
-            'driver'   => 'sliding_window',
+            'driver' => 'sliding_window',
             'capacity' => 10,
-            'window'   => 1.0,
-            'store'    => 'memory',
+            'window' => 1.0,
+            'store' => 'memory',
         ]);
         $this->assertInstanceOf(SlidingWindowMiddleware::class, $sw);
     }

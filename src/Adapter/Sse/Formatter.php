@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kode\Messaging\Adapter\Sse;
 
-use Kode\Messaging\Adapter\WebSocket\Server as WsServer;
 use Kode\Messaging\Message\Message as Msg;
 
 /**
@@ -27,20 +26,21 @@ final class Formatter
     ): string {
         $output = '';
         if ($id !== null) {
-            $output .= 'id: ' . self::sanitize($id) . "\n";
+            $output .= 'id: '.self::sanitize($id)."\n";
         }
         if ($event !== null) {
-            $output .= 'event: ' . self::sanitize($event) . "\n";
+            $output .= 'event: '.self::sanitize($event)."\n";
         }
         if ($retry !== null) {
-            $output .= 'retry: ' . $retry . "\n";
+            $output .= 'retry: '.$retry."\n";
         }
         // data 可多行
         $lines = explode("\n", $data);
         foreach ($lines as $line) {
-            $output .= 'data: ' . self::sanitize($line) . "\n";
+            $output .= 'data: '.self::sanitize($line)."\n";
         }
         $output .= "\n";
+
         return $output;
     }
 
@@ -50,11 +50,12 @@ final class Formatter
     public static function fromMessage(Msg $message): string
     {
         $payload = $message->payload();
-        $data = is_string($payload) ? $payload : (string)json_encode(
+        $data = is_string($payload) ? $payload : (string) json_encode(
             $payload,
             JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         );
         $id = $message->id();
+
         return self::format($data, $message->event(), $id);
     }
 

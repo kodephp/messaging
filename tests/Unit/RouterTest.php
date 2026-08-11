@@ -9,6 +9,8 @@ use Kode\Messaging\Router\Match\PrefixMatcher;
 use Kode\Messaging\Router\Router;
 use Kode\Messaging\Tests\Unit\_fixtures\FakeConnection;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
 /**
  * 消息路由器单元测试
@@ -32,7 +34,7 @@ final class RouterTest extends TestCase
         return Message::of('payload', 'ws', event: $event, topic: $topic);
     }
 
-    public function testExactMatch(): void
+    public function test_exact_match(): void
     {
         $hit = [];
         $router = (new Router())->on('chat.send', function () use (&$hit): void {
@@ -43,7 +45,7 @@ final class RouterTest extends TestCase
         $this->assertSame(['exact'], $hit);
     }
 
-    public function testPrefixWildcardMatch(): void
+    public function test_prefix_wildcard_match(): void
     {
         $hit = [];
         $router = (new Router())->on('chat.*', function () use (&$hit): void {
@@ -55,7 +57,7 @@ final class RouterTest extends TestCase
         $this->assertSame(['prefix'], $hit);
     }
 
-    public function testHashWildcardMatch(): void
+    public function test_hash_wildcard_match(): void
     {
         $hit = 0;
         $router = (new Router())->on('sensors/#', function () use (&$hit): void {
@@ -67,7 +69,7 @@ final class RouterTest extends TestCase
         $this->assertSame(2, $hit);
     }
 
-    public function testRegexMatch(): void
+    public function test_regex_match(): void
     {
         $hit = [];
         $router = (new Router())->on('/^order\.\d+$/', function () use (&$hit): void {
@@ -79,7 +81,7 @@ final class RouterTest extends TestCase
         $this->assertSame(['regex'], $hit);
     }
 
-    public function testExactWinsOverWildcard(): void
+    public function test_exact_wins_over_wildcard(): void
     {
         $order = [];
         $router = (new Router())
@@ -94,7 +96,7 @@ final class RouterTest extends TestCase
         $this->assertSame(['exact'], $order);
     }
 
-    public function testCompiledMatcherReusedAcrossDispatches(): void
+    public function test_compiled_matcher_reused_across_dispatches(): void
     {
         $count = 0;
         $router = (new Router())->on('a.*', function () use (&$count): void {
@@ -102,12 +104,12 @@ final class RouterTest extends TestCase
         });
 
         for ($i = 0; $i < 50; $i++) {
-            $this->assertTrue($router->dispatch($this->conn(), $this->msg('a.' . $i)));
+            $this->assertTrue($router->dispatch($this->conn(), $this->msg('a.'.$i)));
         }
         $this->assertSame(50, $count);
     }
 
-    public function testFallsBackToTopicWhenEventMissing(): void
+    public function test_falls_back_to_topic_when_event_missing(): void
     {
         $hit = false;
         $router = (new Router())->on('orders/created', function () use (&$hit): void {
@@ -118,7 +120,7 @@ final class RouterTest extends TestCase
         $this->assertTrue($hit);
     }
 
-    public function testEmptyKeyIsNotDispatched(): void
+    public function test_empty_key_is_not_dispatched(): void
     {
         $router = (new Router())->on('x', function (): void {
             self::fail('不应被调用');
@@ -126,12 +128,11 @@ final class RouterTest extends TestCase
         $this->assertFalse($router->dispatch($this->conn(), $this->msg(null, null)));
     }
 
-    public function testFallbackHandler(): void
+    public function test_fallback_handler(): void
     {
         $missed = [];
         $router = (new Router())
-            ->on('known', function (): void {
-            })
+            ->on('known', function (): void {})
             ->fallback(function ($conn, $message) use (&$missed): void {
                 $missed[] = $message->event();
             });
@@ -145,14 +146,14 @@ final class RouterTest extends TestCase
         $this->assertSame(['unknown'], $missed);
     }
 
-    public function testHandlerExceptionIsIsolatedAndReportedToErrorHandler(): void
+    public function test_handler_exception_is_isolated_and_reported_to_error_handler(): void
     {
         $errors = [];
         $router = (new Router())
             ->on('boom', function (): void {
-                throw new \RuntimeException('handler failed');
+                throw new RuntimeException('handler failed');
             })
-            ->onError(function (\Throwable $e) use (&$errors): void {
+            ->onError(function (Throwable $e) use (&$errors): void {
                 $errors[] = $e->getMessage();
             });
 
@@ -161,20 +162,20 @@ final class RouterTest extends TestCase
         $this->assertSame(['handler failed'], $errors);
     }
 
-    public function testHandlerExceptionSilentWithoutErrorHandler(): void
+    public function test_handler_exception_silent_without_error_handler(): void
     {
         $router = (new Router())->on('boom', function (): void {
-            throw new \RuntimeException('x');
+            throw new RuntimeException('x');
         });
         $this->assertTrue($router->dispatch($this->conn(), $this->msg('boom')));
     }
 
-    public function testOffRemovesRoute(): void
+    public function test_off_removes_route(): void
     {
         $router = (new Router())
-            ->on('a', fn () => null)
-            ->on('b.*', fn () => null)
-            ->on('/^c$/', fn () => null);
+            ->on('a', fn() => null)
+            ->on('b.*', fn() => null)
+            ->on('/^c$/', fn() => null);
 
         $this->assertSame(3, $router->count());
         $this->assertTrue($router->has('b.*'));
@@ -185,17 +186,17 @@ final class RouterTest extends TestCase
         $this->assertFalse($router->dispatch($this->conn(), $this->msg('b.1')));
     }
 
-    public function testPatternsListing(): void
+    public function test_patterns_listing(): void
     {
         $router = (new Router())
-            ->on('a', fn () => null)
-            ->on('b.*', fn () => null)
-            ->on('/^c$/', fn () => null);
+            ->on('a', fn() => null)
+            ->on('b.*', fn() => null)
+            ->on('/^c$/', fn() => null);
 
         $this->assertSame(['a', 'b.*', '/^c$/'], $router->patterns());
     }
 
-    public function testPrefixMatcherCompilesOnceAndExposesPattern(): void
+    public function test_prefix_matcher_compiles_once_and_exposes_pattern(): void
     {
         $matcher = new PrefixMatcher('chat.*');
         $this->assertSame('chat.*', $matcher->pattern());

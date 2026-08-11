@@ -32,7 +32,7 @@ final class NatsCodec
      */
     public static function encodeInfo(array $info): string
     {
-        return 'INFO ' . json_encode($info, JSON_UNESCAPED_SLASHES) . self::CRLF;
+        return 'INFO '.json_encode($info, JSON_UNESCAPED_SLASHES).self::CRLF;
     }
 
     /**
@@ -43,14 +43,15 @@ final class NatsCodec
     public static function encodeConnect(array $options = []): string
     {
         $payload = array_replace([
-            'verbose'    => false,
-            'pedantic'   => false,
-            'name'       => 'kode-messaging',
-            'lang'       => 'php',
-            'version'    => '1.0',
-            'protocol'   => 1,
+            'verbose' => false,
+            'pedantic' => false,
+            'name' => 'kode-messaging',
+            'lang' => 'php',
+            'version' => '1.0',
+            'protocol' => 1,
         ], $options);
-        return 'CONNECT ' . json_encode($payload, JSON_UNESCAPED_SLASHES) . self::CRLF;
+
+        return 'CONNECT '.json_encode($payload, JSON_UNESCAPED_SLASHES).self::CRLF;
     }
 
     /**
@@ -59,9 +60,10 @@ final class NatsCodec
     public static function encodePub(string $subject, string $payload, ?string $replyTo = null): string
     {
         $prefix = $replyTo !== null
-            ? "PUB {$subject} {$replyTo} " . strlen($payload)
-            : "PUB {$subject} " . strlen($payload);
-        return $prefix . self::CRLF . $payload . self::CRLF;
+            ? "PUB {$subject} {$replyTo} ".strlen($payload)
+            : "PUB {$subject} ".strlen($payload);
+
+        return $prefix.self::CRLF.$payload.self::CRLF;
     }
 
     /**
@@ -72,7 +74,8 @@ final class NatsCodec
         $line = $queueGroup !== null
             ? "SUB {$subject} {$queueGroup} {$sid}"
             : "SUB {$subject} {$sid}";
-        return $line . self::CRLF;
+
+        return $line.self::CRLF;
     }
 
     /**
@@ -83,7 +86,8 @@ final class NatsCodec
         $line = $maxMsgs !== null
             ? "UNSUB {$sid} {$maxMsgs}"
             : "UNSUB {$sid}";
-        return $line . self::CRLF;
+
+        return $line.self::CRLF;
     }
 
     /**
@@ -91,7 +95,7 @@ final class NatsCodec
      */
     public static function encodePing(): string
     {
-        return 'PING' . self::CRLF;
+        return 'PING'.self::CRLF;
     }
 
     /**
@@ -99,7 +103,7 @@ final class NatsCodec
      */
     public static function encodePong(): string
     {
-        return 'PONG' . self::CRLF;
+        return 'PONG'.self::CRLF;
     }
 
     /**
@@ -107,7 +111,7 @@ final class NatsCodec
      */
     public static function encodeOk(): string
     {
-        return '+OK' . self::CRLF;
+        return '+OK'.self::CRLF;
     }
 
     /**
@@ -115,7 +119,7 @@ final class NatsCodec
      */
     public static function encodeErr(string $message): string
     {
-        return '-ERR ' . trim($message) . self::CRLF;
+        return '-ERR '.trim($message).self::CRLF;
     }
 
     /**
@@ -124,9 +128,10 @@ final class NatsCodec
     public static function encodeMsg(string $subject, int $sid, string $payload, ?string $replyTo = null): string
     {
         $prefix = $replyTo !== null
-            ? "MSG {$subject} {$sid} {$replyTo} " . strlen($payload)
-            : "MSG {$subject} {$sid} " . strlen($payload);
-        return $prefix . self::CRLF . $payload . self::CRLF;
+            ? "MSG {$subject} {$sid} {$replyTo} ".strlen($payload)
+            : "MSG {$subject} {$sid} ".strlen($payload);
+
+        return $prefix.self::CRLF.$payload.self::CRLF;
     }
 
     /**
@@ -145,9 +150,9 @@ final class NatsCodec
         $args = $parts;
 
         return [
-            'op'      => $op,
-            'args'    => $args,
-            'rest'    => $line,
+            'op' => $op,
+            'args' => $args,
+            'rest' => $line,
             'payload' => '',
         ];
     }
@@ -158,7 +163,7 @@ final class NatsCodec
      * PUB subject [reply] <#bytes>\r\n<payload>\r\n
      * MSG subject sid [reply] <#bytes>\r\n<payload>\r\n
      *
-     * @return array{parsed: int, command: array<string, mixed>}|null
+     * @return null|array{parsed: int, command: array<string, mixed>}
      */
     public static function parseWithPayload(string $buffer, int $offset = 0): ?array
     {
@@ -173,7 +178,7 @@ final class NatsCodec
             return null;
         }
         $op = strtoupper($parts[0]);
-        if (!in_array($op, ['PUB', 'MSG', 'HPUB', 'HMSG'], true)) {
+        if (! in_array($op, ['PUB', 'MSG', 'HPUB', 'HMSG'], true)) {
             return [
                 'parsed' => $crlfPos + 2,
                 'command' => ['op' => $op, 'args' => array_slice($parts, 1), 'payload' => ''],
@@ -183,9 +188,9 @@ final class NatsCodec
         // 解析参数，最后一个参数是 #bytes
         $args = array_slice($parts, 1);
         if ($args === []) {
-            throw NatsException::invalidMessage('缺少参数: ' . $line);
+            throw NatsException::invalidMessage('缺少参数: '.$line);
         }
-        $size = (int)array_pop($args);
+        $size = (int) array_pop($args);
         $payloadStart = $crlfPos + 2;
         $payloadEnd = $payloadStart + $size;
         if (strlen($buffer) < $payloadEnd) {
@@ -198,12 +203,12 @@ final class NatsCodec
         }
 
         return [
-            'parsed'  => $payloadEnd + 2,
+            'parsed' => $payloadEnd + 2,
             'command' => [
-                'op'      => $op,
-                'args'    => $args,
+                'op' => $op,
+                'args' => $args,
                 'payload' => $payload,
-                'size'    => $size,
+                'size' => $size,
             ],
         ];
     }

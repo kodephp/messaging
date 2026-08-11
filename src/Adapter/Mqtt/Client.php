@@ -16,13 +16,14 @@ use Kode\Messaging\Adapter\Mqtt\Packet\Subscribe;
 use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\MqttException;
+use LogicException;
 
 /**
  * MQTT 客户端适配器
  */
 class Client extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $stream = null;
 
     private ?MqttConnection $conn = null;
@@ -45,23 +46,23 @@ class Client extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'version'       => '3.1.1',
-            'keepalive'     => 60,
+            'version' => '3.1.1',
+            'keepalive' => 60,
             'clean_session' => true,
             'auto_reconnect' => true,
-            'max_inflight'  => 1000,
+            'max_inflight' => 1000,
         ];
     }
 
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
-        $port = (int)($config['port'] ?? 1883);
-        $tls  = (bool)($config['tls'] ?? false);
+        $port = (int) ($config['port'] ?? 1883);
+        $tls = (bool) ($config['tls'] ?? false);
 
         $errno = 0;
         $errstr = '';
-        $remote = ($tls ? 'tls' : 'tcp') . "://{$host}:{$port}";
+        $remote = ($tls ? 'tls' : 'tcp')."://{$host}:{$port}";
         $this->stream = @stream_socket_client($remote, $errno, $errstr, 5.0, STREAM_CLIENT_CONNECT);
         if ($this->stream === false) {
             throw MqttException::connectFailed("无法连接 {$remote}: {$errstr}", [
@@ -70,7 +71,7 @@ class Client extends AbstractAdapter
         }
         stream_set_blocking($this->stream, true);
 
-        $clientId = (string)($config['client_id'] ?? ('kode-' . bin2hex(random_bytes(4))));
+        $clientId = (string) ($config['client_id'] ?? ('kode-'.bin2hex(random_bytes(4))));
         $will = $config['will'] ?? null;
         $version = $this->version();
 
@@ -78,16 +79,16 @@ class Client extends AbstractAdapter
         $connectProperties = [];
         if ($version === '5.0') {
             if (isset($config['session_expiry_interval'])) {
-                $connectProperties[Properties::SESSION_EXPIRY_INTERVAL] = (int)$config['session_expiry_interval'];
+                $connectProperties[Properties::SESSION_EXPIRY_INTERVAL] = (int) $config['session_expiry_interval'];
             }
             if (isset($config['receive_maximum'])) {
-                $connectProperties[Properties::RECEIVE_MAXIMUM] = (int)$config['receive_maximum'];
+                $connectProperties[Properties::RECEIVE_MAXIMUM] = (int) $config['receive_maximum'];
             }
             if (isset($config['maximum_packet_size'])) {
-                $connectProperties[Properties::MAXIMUM_PACKET_SIZE] = (int)$config['maximum_packet_size'];
+                $connectProperties[Properties::MAXIMUM_PACKET_SIZE] = (int) $config['maximum_packet_size'];
             }
             if (isset($config['topic_alias_maximum'])) {
-                $connectProperties[Properties::TOPIC_ALIAS_MAXIMUM] = (int)$config['topic_alias_maximum'];
+                $connectProperties[Properties::TOPIC_ALIAS_MAXIMUM] = (int) $config['topic_alias_maximum'];
             }
             if (isset($config['user_properties'])) {
                 $connectProperties[Properties::USER_PROPERTY] = $config['user_properties'];
@@ -98,8 +99,8 @@ class Client extends AbstractAdapter
             $clientId,
             $config['username'] ?? null,
             $config['password'] ?? null,
-            (int)($config['keepalive'] ?? 60),
-            (bool)($config['clean_session'] ?? true),
+            (int) ($config['keepalive'] ?? 60),
+            (bool) ($config['clean_session'] ?? true),
             $will,
             $version,
             $connectProperties,
@@ -121,7 +122,7 @@ class Client extends AbstractAdapter
 
     public function listen(string $host, int $port): void
     {
-        throw new \LogicException('MQTT Client 不支持 listen()');
+        throw new LogicException('MQTT Client 不支持 listen()');
     }
 
     public function run(): void
@@ -148,7 +149,7 @@ class Client extends AbstractAdapter
     private function readLoop(): void
     {
         $buf = '';
-        while (!feof($this->stream)) {
+        while (! feof($this->stream)) {
             $chunk = @fread($this->stream, 4096);
             if ($chunk === false || $chunk === '') {
                 usleep(10_000);
@@ -160,6 +161,7 @@ class Client extends AbstractAdapter
                 $byte0 = ord($buf[0]);
                 $type = ($byte0 >> 4) & 0x0F;
                 $offset = 1;
+
                 try {
                     $remainingLen = Codec::decodeRemainingLength($buf, $offset);
                 } catch (MqttException) {
@@ -245,7 +247,7 @@ class Client extends AbstractAdapter
         // 解析固定头
         $type = (ord($buf[0]) >> 4) & 0x0F;
         if ($type !== PacketType::CONNACK) {
-            throw MqttException::malformedPacket('期望 CONNACK，得到类型 ' . $type);
+            throw MqttException::malformedPacket('期望 CONNACK，得到类型 '.$type);
         }
 
         $offset = 1;
@@ -286,7 +288,7 @@ class Client extends AbstractAdapter
             ? ReasonCode::isSuccess($code)
             : $code === 0;
 
-        if (!$isSuccess) {
+        if (! $isSuccess) {
             $description = $version === '5.0'
                 ? ReasonCode::description($code)
                 : match ($code) {
@@ -297,9 +299,10 @@ class Client extends AbstractAdapter
                     5 => 'not authorized',
                     default => "unknown ({$code})",
                 };
+
             throw MqttException::connectFailed("CONNACK 拒绝: {$description}", [
-                'code'       => $code,
-                'version'    => $version,
+                'code' => $code,
+                'version' => $version,
                 'properties' => $connackProperties,
             ]);
         }
@@ -328,6 +331,7 @@ class Client extends AbstractAdapter
         }
         @fwrite($this->stream, Subscribe::encode($pid, $topics));
         $this->pendingSubs[] = [$topics, $pid];
+
         return $pid;
     }
 

@@ -9,6 +9,8 @@ use Kode\Messaging\Adapter\Registry;
 use Kode\Messaging\Contract\ConnectionInterface;
 use Kode\Messaging\Exception\GrpcException;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+use Throwable;
 
 /**
  * gRPC 简易服务端
@@ -21,15 +23,20 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
-    /** @var array<string, callable(string $payload, array $meta): string> */
+
+    /** @var array<string, callable(string, array): string> */
     private array $methodHandlers = [];
+
     /** @var array<int, resource> 已接受的连接（fd → stream） */
     private array $clientSocks = [];
+
     /** @var array<int, array{path: string, headers: array<string, string>, body: string, buffer: string}> fd → 解析中 */
     private array $pending = [];
+
     private int $fdSeq = 1;
+
     private ?ServerBuilder $builder = null;
 
     public static function scheme(): string
@@ -55,6 +62,7 @@ final class Server extends AbstractAdapter
     public function registerMethod(string $path, callable $handler): self
     {
         $this->methodHandlers[$path] = $handler;
+
         return $this;
     }
 
@@ -108,7 +116,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config): ConnectionInterface
     {
-        throw new \LogicException('gRPC Server 不支持 connect()');
+        throw new LogicException('gRPC Server 不支持 connect()');
     }
 
     public function shutdown(): void
@@ -133,7 +141,7 @@ final class Server extends AbstractAdapter
     private function tryHandleRequest(int $fd): void
     {
         $sock = $this->clientSocks[$fd] ?? null;
-        if (!is_resource($sock)) {
+        if (! is_resource($sock)) {
             return;
         }
         $state = &$this->pending[$fd];
@@ -146,9 +154,10 @@ final class Server extends AbstractAdapter
         $headerPart = substr($buf, 0, $headerEnd);
         $body = substr($buf, $headerEnd + 4);
         $headers = $this->parseRequestHeaders($headerPart);
-        if (!isset($headers['__method']) || !isset($headers['__path'])) {
+        if (! isset($headers['__method']) || ! isset($headers['__path'])) {
             @fclose($sock);
             unset($this->clientSocks[$fd], $this->pending[$fd]);
+
             return;
         }
         $method = $headers['__method'];
@@ -157,6 +166,7 @@ final class Server extends AbstractAdapter
         if ($method !== 'POST') {
             $this->respondError($sock, 405, GrpcCodec::STATUS_UNIMPLEMENTED, '仅支持 POST');
             unset($this->clientSocks[$fd], $this->pending[$fd]);
+
             return;
         }
 
@@ -167,7 +177,7 @@ final class Server extends AbstractAdapter
                 return; // 等更多数据
             }
         } elseif (isset($headers['content-length'])) {
-            $cl = (int)$headers['content-length'];
+            $cl = (int) $headers['content-length'];
             if (strlen($body) < $cl) {
                 return; // 等更多数据
             }
@@ -175,6 +185,7 @@ final class Server extends AbstractAdapter
         } else {
             $this->respondError($sock, 411, GrpcCodec::STATUS_INVALID_ARGUMENT, '缺少 Content-Length');
             unset($this->clientSocks[$fd], $this->pending[$fd]);
+
             return;
         }
 
@@ -183,6 +194,7 @@ final class Server extends AbstractAdapter
         if ($frame === null) {
             $this->respondError($sock, 400, GrpcCodec::STATUS_INVALID_ARGUMENT, 'gRPC 帧解析失败');
             unset($this->clientSocks[$fd], $this->pending[$fd]);
+
             return;
         }
         $payload = $frame['payload'];
@@ -194,22 +206,24 @@ final class Server extends AbstractAdapter
             $this->respondError($sock, 404, GrpcCodec::STATUS_UNIMPLEMENTED, "未注册方法: {$path}");
             @fclose($sock);
             unset($this->clientSocks[$fd]);
+
             return;
         }
 
         $meta = [];
         foreach ($headers as $k => $v) {
-            if (!str_starts_with($k, '__')) {
+            if (! str_starts_with($k, '__')) {
                 $meta[$k] = $v;
             }
         }
 
         try {
             $responsePayload = $handler($payload, $meta);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->respondError($sock, 500, GrpcCodec::STATUS_INTERNAL, $e->getMessage());
             @fclose($sock);
             unset($this->clientSocks[$fd]);
+
             return;
         }
 
@@ -236,6 +250,7 @@ final class Server extends AbstractAdapter
             $val = trim(substr($line, $pos + 1));
             $headers[$key] = $val;
         }
+
         return $headers;
     }
 
@@ -249,7 +264,7 @@ final class Server extends AbstractAdapter
             if ($crlf === false) {
                 return null; // 等更多数据
             }
-            $size = (int)hexdec(trim(substr($body, $offset, $crlf - $offset)));
+            $size = (int) hexdec(trim(substr($body, $offset, $crlf - $offset)));
             if ($size === 0) {
                 return $decoded;
             }
@@ -260,32 +275,33 @@ final class Server extends AbstractAdapter
             $decoded .= substr($body, $offset, $size);
             $offset += $size + 2;
         }
+
         return $decoded;
     }
 
     private function respondOk($sock, string $payload): void
     {
         $grpcBody = GrpcCodec::encode($payload);
-        $chunked = dechex(strlen($grpcBody)) . "\r\n" . $grpcBody . "\r\n0\r\n" . GrpcCodec::encodeTrailers(GrpcCodec::STATUS_OK) . "\r\n";
+        $chunked = dechex(strlen($grpcBody))."\r\n".$grpcBody."\r\n0\r\n".GrpcCodec::encodeTrailers(GrpcCodec::STATUS_OK)."\r\n";
         $headers = [
             'HTTP/1.1 200 OK',
-            'Content-Type: ' . GrpcCodec::contentType(),
+            'Content-Type: '.GrpcCodec::contentType(),
             'Trailer: Grpc-Status, Grpc-Message',
             'Transfer-Encoding: chunked',
         ];
-        @fwrite($sock, implode("\r\n", $headers) . "\r\n\r\n" . $chunked);
+        @fwrite($sock, implode("\r\n", $headers)."\r\n\r\n".$chunked);
     }
 
     private function respondError($sock, int $http, int $grpcCode, string $msg): void
     {
         $headers = [
             "HTTP/1.1 {$http} Error",
-            'Content-Type: ' . GrpcCodec::contentType(),
+            'Content-Type: '.GrpcCodec::contentType(),
             'Trailer: Grpc-Status, Grpc-Message',
             'Transfer-Encoding: chunked',
         ];
-        $body = GrpcCodec::encodeTrailers($grpcCode, $msg) . "\r\n";
-        $chunked = dechex(strlen($body)) . "\r\n" . $body . "\r\n0\r\n\r\n";
-        @fwrite($sock, implode("\r\n", $headers) . "\r\n\r\n" . $chunked);
+        $body = GrpcCodec::encodeTrailers($grpcCode, $msg)."\r\n";
+        $chunked = dechex(strlen($body))."\r\n".$body."\r\n0\r\n\r\n";
+        @fwrite($sock, implode("\r\n", $headers)."\r\n\r\n".$chunked);
     }
 }

@@ -37,6 +37,7 @@ final class JsonCodec implements MiddlewareInterface
             );
             $result = $result->withPayload($encoded);
         }
+
         return $result;
     }
 
@@ -52,14 +53,14 @@ final class JsonCodec implements MiddlewareInterface
             return $m;
         }
         // 使用 PhpCompat 兼容层校验 JSON（8.3 基线用 json_validate）
-        if (!PhpCompat::jsonValidate($raw)) {
+        if (! PhpCompat::jsonValidate($raw)) {
             return $m; // 非 JSON，保持原样
         }
-        /** @var mixed $decoded */
         $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         if (is_array($decoded) && isset($decoded['event']) && is_string($decoded['event'])) {
             return $m->withEvent($decoded['event'])->withPayload($decoded);
         }
+
         return $m->withPayload($decoded);
     }
 }

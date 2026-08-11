@@ -15,11 +15,11 @@ final class Connect
      * 编码 CONNECT 包。
      *
      * @param string             $clientId      客户端 ID
-     * @param string|null        $username      用户名（可选）
-     * @param string|null        $password      密码（可选）
+     * @param null|string        $username      用户名（可选）
+     * @param null|string        $password      密码（可选）
      * @param int                $keepalive     心跳间隔（秒）
      * @param bool               $cleanSession  Clean Session（3.1.1）/ Clean Start（5.0）
-     * @param array|null         $will          遗嘱消息 {topic, payload, qos, retain}
+     * @param null|array         $will          遗嘱消息 {topic, payload, qos, retain}
      * @param string             $version       '3.1.1' 或 '5.0'
      * @param array<int, mixed>  $properties    MQTT 5.0 CONNECT 属性（仅 5.0 生效）
      *
@@ -48,8 +48,8 @@ final class Connect
         if ($will !== null) {
             $flags |= 0x04; // Will Flag
             $flags |= match ($will['qos'] ?? 0) {
-                1       => 0x08,
-                2       => 0x10,
+                1 => 0x08,
+                2 => 0x10,
                 default => 0x00,
             };
             if ($will['retain'] ?? false) {
@@ -78,7 +78,7 @@ final class Connect
                 $payload .= Properties::encode($willProps);
             }
             $payload .= Codec::encodeString($will['topic'] ?? '');
-            $payload .= Codec::encodeBinary((string)($will['payload'] ?? ''));
+            $payload .= Codec::encodeBinary((string) ($will['payload'] ?? ''));
         }
         if ($username !== null) {
             $payload .= Codec::encodeString($username);
@@ -87,8 +87,9 @@ final class Connect
             $payload .= Codec::encodeString($password);
         }
 
-        $body = $varHeader . $payload;
-        return Codec::encodeFixedHeader(PacketType::CONNECT, 0, strlen($body)) . $body;
+        $body = $varHeader.$payload;
+
+        return Codec::encodeFixedHeader(PacketType::CONNECT, 0, strlen($body)).$body;
     }
 
     /**
@@ -165,23 +166,23 @@ final class Connect
         }
 
         return [
-            'protocol_name'    => $protocolName,
-            'protocol_level'   => $protocolLevel,
-            'clean_session'    => $cleanSession,
-            'will_flag'        => $willFlag,
-            'will_qos'         => $willQos,
-            'will_retain'      => $willRetain,
-            'username_flag'    => $usernameFlag,
-            'password_flag'    => $passwordFlag,
-            'keepalive'        => $keepalive,
-            'client_id'        => $clientId,
-            'will_topic'       => $willTopic,
-            'will_payload'     => $willPayload,
-            'username'         => $username,
-            'password'         => $password,
-            'properties'       => $properties,
-            'will_properties'  => $willProperties,
-            'version'          => $isV5 ? '5.0' : '3.1.1',
+            'protocol_name' => $protocolName,
+            'protocol_level' => $protocolLevel,
+            'clean_session' => $cleanSession,
+            'will_flag' => $willFlag,
+            'will_qos' => $willQos,
+            'will_retain' => $willRetain,
+            'username_flag' => $usernameFlag,
+            'password_flag' => $passwordFlag,
+            'keepalive' => $keepalive,
+            'client_id' => $clientId,
+            'will_topic' => $willTopic,
+            'will_payload' => $willPayload,
+            'username' => $username,
+            'password' => $password,
+            'properties' => $properties,
+            'will_properties' => $willProperties,
+            'version' => $isV5 ? '5.0' : '3.1.1',
         ];
     }
 }

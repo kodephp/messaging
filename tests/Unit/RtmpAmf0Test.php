@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 final class RtmpAmf0Test extends TestCase
 {
-    public function testEncodeDecodeNumber(): void
+    public function test_encode_decode_number(): void
     {
         $encoded = Amf0::encode(3.14);
         $offset = 0;
@@ -19,28 +19,28 @@ final class RtmpAmf0Test extends TestCase
         $this->assertEqualsWithDelta(3.14, $decoded, 0.0001);
     }
 
-    public function testEncodeDecodeBoolean(): void
+    public function test_encode_decode_boolean(): void
     {
         $encoded = Amf0::encode(true);
         $offset = 0;
         $this->assertTrue(Amf0::decode($encoded, $offset));
     }
 
-    public function testEncodeDecodeString(): void
+    public function test_encode_decode_string(): void
     {
         $encoded = Amf0::encode('hello');
         $offset = 0;
         $this->assertSame('hello', Amf0::decode($encoded, $offset));
     }
 
-    public function testEncodeDecodeNull(): void
+    public function test_encode_decode_null(): void
     {
         $encoded = Amf0::encode(null);
         $offset = 0;
         $this->assertNull(Amf0::decode($encoded, $offset));
     }
 
-    public function testEncodeDecodeObject(): void
+    public function test_encode_decode_object(): void
     {
         $value = ['app' => 'live', 'flashVer' => 'FMLE/3.0'];
         $encoded = Amf0::encode($value);
@@ -50,7 +50,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame('FMLE/3.0', $decoded['flashVer']);
     }
 
-    public function testEncodeDecodeArray(): void
+    public function test_encode_decode_array(): void
     {
         $value = [1, 2, 3];
         $encoded = Amf0::encode($value);
@@ -62,7 +62,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertEqualsWithDelta(3, $decoded[2], 0.0001);
     }
 
-    public function testEncodeBasicHeaderSmallCsid(): void
+    public function test_encode_basic_header_small_csid(): void
     {
         $header = RtmpChunk::encodeBasicHeader(RtmpChunk::FMT_FULL, 4);
         $this->assertSame(1, strlen($header));
@@ -71,7 +71,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame(4, $b & 0x3F);
     }
 
-    public function testEncodeBasicHeaderLargeCsid(): void
+    public function test_encode_basic_header_large_csid(): void
     {
         $header = RtmpChunk::encodeBasicHeader(RtmpChunk::FMT_FULL, 200);
         $this->assertSame(2, strlen($header));
@@ -79,7 +79,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame(200 - 64, ord($header[1]));
     }
 
-    public function testDecodeBasicHeader(): void
+    public function test_decode_basic_header(): void
     {
         $encoded = RtmpChunk::encodeBasicHeader(RtmpChunk::FMT_SAME_STREAM, 3);
         $decoded = RtmpChunk::decodeBasicHeader($encoded);
@@ -88,7 +88,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame(3, $decoded['csid']);
     }
 
-    public function testEncodeDecodeMessageHeaderFull(): void
+    public function test_encode_decode_message_header_full(): void
     {
         $header = RtmpChunk::encodeMessageHeader(
             RtmpChunk::FMT_FULL,
@@ -105,7 +105,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame(0x14, $decoded['messageType']);
     }
 
-    public function testEncodeDecodeMessageHeaderExtendedTimestamp(): void
+    public function test_encode_decode_message_header_extended_timestamp(): void
     {
         $header = RtmpChunk::encodeMessageHeader(
             RtmpChunk::FMT_FULL,
@@ -121,7 +121,7 @@ final class RtmpAmf0Test extends TestCase
         $this->assertSame(50, $decoded['messageLength']);
     }
 
-    public function testBuildHandshakeResponse(): void
+    public function test_build_handshake_response(): void
     {
         $c1 = random_bytes(1536);
         $resp = RtmpChunk::buildHandshakeResponse($c1);

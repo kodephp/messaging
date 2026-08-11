@@ -10,6 +10,8 @@ use Kode\Messaging\Connection\Connection;
 use Kode\Messaging\Exception\UdpException;
 use Kode\Messaging\Message\Message as Msg;
 use Kode\Messaging\Server\Builder as ServerBuilder;
+use LogicException;
+use Socket;
 
 /**
  * UDP 服务端（Datagram 抽象）
@@ -25,7 +27,7 @@ use Kode\Messaging\Server\Builder as ServerBuilder;
  */
 final class Server extends AbstractAdapter
 {
-    /** @var resource|null */
+    /** @var null|resource */
     private $socket = null;
 
     /** @var array<string, UdpConnection> 按 ip:port 缓存的逻辑连接 */
@@ -51,10 +53,10 @@ final class Server extends AbstractAdapter
     protected function defaultConfig(): array
     {
         return [
-            'max_packet_size'  => 65_507,
+            'max_packet_size' => 65_507,
             'enable_broadcast' => true,
             'enable_multicast' => true,
-            'socket_timeout'   => 30,
+            'socket_timeout' => 30,
         ];
     }
 
@@ -72,7 +74,7 @@ final class Server extends AbstractAdapter
             throw UdpException::bindFailed($host, $port, $errstr);
         }
 
-        $timeout = (int)($this->config['socket_timeout'] ?? 30);
+        $timeout = (int) ($this->config['socket_timeout'] ?? 30);
         if ($timeout > 0) {
             stream_set_timeout($this->socket, $timeout);
         }
@@ -88,11 +90,12 @@ final class Server extends AbstractAdapter
     /**
      * 将 stream resource 转为 ext-sockets 的 socket 资源（可选）。
      */
-    private function toSocket($stream): \Socket|false
+    private function toSocket($stream): Socket|false
     {
         if (extension_loaded('sockets')) {
             return @socket_import_stream($stream);
         }
+
         return false;
     }
 
@@ -100,18 +103,18 @@ final class Server extends AbstractAdapter
     {
         $this->running = true;
         while ($this->running) {
-            $buf = @stream_socket_recvfrom($this->socket, (int)($this->config['max_packet_size'] ?? 65_507), 0, $peer);
+            $buf = @stream_socket_recvfrom($this->socket, (int) ($this->config['max_packet_size'] ?? 65_507), 0, $peer);
             if ($buf === false || $buf === '') {
                 usleep(1_000);
                 continue;
             }
-            $this->handleDatagram($buf, (string)$peer);
+            $this->handleDatagram($buf, (string) $peer);
         }
     }
 
     private function handleDatagram(string $data, string $peer): void
     {
-        if (!isset($this->connections[$peer])) {
+        if (! isset($this->connections[$peer])) {
             $this->connections[$peer] = new UdpConnection(
                 Connection::generateId('udp'),
                 'udp',
@@ -129,7 +132,7 @@ final class Server extends AbstractAdapter
             'udp',
             topic: null,
             context: [
-                'connection_id'  => $conn->id(),
+                'connection_id' => $conn->id(),
                 'remote_address' => $peer,
             ],
         );
@@ -138,7 +141,7 @@ final class Server extends AbstractAdapter
 
     public function connect(array $config = []): \Kode\Messaging\Contract\ConnectionInterface
     {
-        throw new \LogicException('UDP Server 不支持 connect()');
+        throw new LogicException('UDP Server 不支持 connect()');
     }
 
     public function shutdown(): void

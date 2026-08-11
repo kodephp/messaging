@@ -26,14 +26,14 @@ final class MqttV5Test extends TestCase
 {
     // ===================== Properties 编解码 =====================
 
-    public function testPropertiesEncodeEmpty(): void
+    public function test_properties_encode_empty(): void
     {
         $encoded = Properties::encode([]);
         // 空属性 = 剩余长度 0 = 1 字节 0x00
         $this->assertSame("\x00", $encoded);
     }
 
-    public function testPropertiesEncodeDecodeByte(): void
+    public function test_properties_encode_decode_byte(): void
     {
         $props = [Properties::PAYLOAD_FORMAT_INDICATOR => 1];
         $encoded = Properties::encode($props);
@@ -42,7 +42,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(1, $decoded[Properties::PAYLOAD_FORMAT_INDICATOR]);
     }
 
-    public function testPropertiesEncodeDecodeUint16(): void
+    public function test_properties_encode_decode_uint16(): void
     {
         $props = [Properties::RECEIVE_MAXIMUM => 65535];
         $encoded = Properties::encode($props);
@@ -51,7 +51,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(65535, $decoded[Properties::RECEIVE_MAXIMUM]);
     }
 
-    public function testPropertiesEncodeDecodeUint32(): void
+    public function test_properties_encode_decode_uint32(): void
     {
         $props = [Properties::SESSION_EXPIRY_INTERVAL => 3600];
         $encoded = Properties::encode($props);
@@ -60,7 +60,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(3600, $decoded[Properties::SESSION_EXPIRY_INTERVAL]);
     }
 
-    public function testPropertiesEncodeDecodeString(): void
+    public function test_properties_encode_decode_string(): void
     {
         $props = [Properties::CONTENT_TYPE => 'application/json'];
         $encoded = Properties::encode($props);
@@ -69,7 +69,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame('application/json', $decoded[Properties::CONTENT_TYPE]);
     }
 
-    public function testPropertiesEncodeDecodeBinary(): void
+    public function test_properties_encode_decode_binary(): void
     {
         $props = [Properties::CORRELATION_DATA => "\x01\x02\x03"];
         $encoded = Properties::encode($props);
@@ -78,7 +78,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame("\x01\x02\x03", $decoded[Properties::CORRELATION_DATA]);
     }
 
-    public function testPropertiesEncodeDecodeVarInt(): void
+    public function test_properties_encode_decode_var_int(): void
     {
         $props = [Properties::SUBSCRIPTION_IDENTIFIER => [1, 2, 3]];
         $encoded = Properties::encode($props);
@@ -87,7 +87,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame([1, 2, 3], $decoded[Properties::SUBSCRIPTION_IDENTIFIER]);
     }
 
-    public function testPropertiesEncodeDecodeUserProperty(): void
+    public function test_properties_encode_decode_user_property(): void
     {
         $props = [Properties::USER_PROPERTY => [['key1', 'val1'], ['key2', 'val2']]];
         $encoded = Properties::encode($props);
@@ -96,13 +96,13 @@ final class MqttV5Test extends TestCase
         $this->assertSame([['key1', 'val1'], ['key2', 'val2']], $decoded[Properties::USER_PROPERTY]);
     }
 
-    public function testPropertiesEncodeDecodeMultiple(): void
+    public function test_properties_encode_decode_multiple(): void
     {
         $props = [
-            Properties::SESSION_EXPIRY_INTERVAL  => 600,
-            Properties::RECEIVE_MAXIMUM          => 100,
-            Properties::MAXIMUM_PACKET_SIZE      => 268435455,
-            Properties::REASON_STRING            => 'test reason',
+            Properties::SESSION_EXPIRY_INTERVAL => 600,
+            Properties::RECEIVE_MAXIMUM => 100,
+            Properties::MAXIMUM_PACKET_SIZE => 268435455,
+            Properties::REASON_STRING => 'test reason',
         ];
         $encoded = Properties::encode($props);
         $offset = 0;
@@ -115,7 +115,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== ReasonCode =====================
 
-    public function testReasonCodeIsSuccess(): void
+    public function test_reason_code_is_success(): void
     {
         $this->assertTrue(ReasonCode::isSuccess(ReasonCode::SUCCESS));
         $this->assertTrue(ReasonCode::isSuccess(ReasonCode::GRANTED_QOS_1));
@@ -123,14 +123,14 @@ final class MqttV5Test extends TestCase
         $this->assertFalse(ReasonCode::isSuccess(ReasonCode::UNSUPPORTED_PROTOCOL_VERSION));
     }
 
-    public function testReasonCodeIsError(): void
+    public function test_reason_code_is_error(): void
     {
         $this->assertFalse(ReasonCode::isError(ReasonCode::SUCCESS));
         $this->assertTrue(ReasonCode::isError(ReasonCode::MALFORMED_PACKET));
         $this->assertTrue(ReasonCode::isError(ReasonCode::QUOTA_EXCEEDED));
     }
 
-    public function testReasonCodeDescription(): void
+    public function test_reason_code_description(): void
     {
         $this->assertSame('Success', ReasonCode::description(ReasonCode::SUCCESS));
         $this->assertSame('Not authorized', ReasonCode::description(ReasonCode::NOT_AUTHORIZED));
@@ -140,7 +140,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== CONNECT 5.0 编解码 =====================
 
-    public function testConnectEncodeV5ProtocolLevel(): void
+    public function test_connect_encode_v5_protocol_level(): void
     {
         $packet = Connect::encode('client-1', version: '5.0');
         // 解析固定头
@@ -165,11 +165,11 @@ final class MqttV5Test extends TestCase
         $this->assertSame('5.0', $info['version']);
     }
 
-    public function testConnectEncodeV5WithProperties(): void
+    public function test_connect_encode_v5_with_properties(): void
     {
         $properties = [
             Properties::SESSION_EXPIRY_INTERVAL => 300,
-            Properties::RECEIVE_MAXIMUM         => 50,
+            Properties::RECEIVE_MAXIMUM => 50,
         ];
         $packet = Connect::encode(
             'client-5',
@@ -195,13 +195,13 @@ final class MqttV5Test extends TestCase
         $this->assertSame(50, $info['properties'][Properties::RECEIVE_MAXIMUM]);
     }
 
-    public function testConnectEncodeV5WithWillProperties(): void
+    public function test_connect_encode_v5_with_will_properties(): void
     {
         $will = [
-            'topic'      => 'will/topic',
-            'payload'    => 'bye',
-            'qos'        => 1,
-            'retain'     => false,
+            'topic' => 'will/topic',
+            'payload' => 'bye',
+            'qos' => 1,
+            'retain' => false,
             'properties' => [Properties::MESSAGE_EXPIRY_INTERVAL => 60],
         ];
         $packet = Connect::encode(
@@ -228,7 +228,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(60, $info['will_properties'][Properties::MESSAGE_EXPIRY_INTERVAL]);
     }
 
-    public function testConnectEncodeV311NoProperties(): void
+    public function test_connect_encode_v311_no_properties(): void
     {
         $packet = Connect::encode('client-311', version: '3.1.1');
         $offset = 1;
@@ -251,7 +251,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== CONNACK 5.0 编码 =====================
 
-    public function testEncodeConnackV5Success(): void
+    public function test_encode_connack_v5_success(): void
     {
         $packet = Server::encodeConnackV5(ReasonCode::SUCCESS, false);
         $byte0 = ord($packet[0]);
@@ -275,11 +275,11 @@ final class MqttV5Test extends TestCase
         $this->assertSame(ReasonCode::SUCCESS, $reasonCode);
     }
 
-    public function testEncodeConnackV5WithProperties(): void
+    public function test_encode_connack_v5_with_properties(): void
     {
         $props = [
             Properties::ASSIGNED_CLIENT_IDENTIFIER => 'auto-abc123',
-            Properties::MAXIMUM_QOS                => 1,
+            Properties::MAXIMUM_QOS => 1,
         ];
         $packet = Server::encodeConnackV5(ReasonCode::SUCCESS, true, $props);
 
@@ -305,7 +305,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(1, $decodedProps[Properties::MAXIMUM_QOS]);
     }
 
-    public function testEncodeConnackV5Reject(): void
+    public function test_encode_connack_v5_reject(): void
     {
         $packet = Server::encodeConnackV5(ReasonCode::UNSUPPORTED_PROTOCOL_VERSION);
         $offset = 1;
@@ -324,7 +324,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== DISCONNECT 5.0 编码 =====================
 
-    public function testEncodeDisconnectV5(): void
+    public function test_encode_disconnect_v5(): void
     {
         $packet = Server::encodeDisconnectV5(ReasonCode::SERVER_BUSY);
         $byte0 = ord($packet[0]);
@@ -347,7 +347,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== PUBACK / PUBREC / PUBREL / PUBCOMP 5.0 =====================
 
-    public function testEncodePubackV5(): void
+    public function test_encode_puback_v5(): void
     {
         $packet = Server::encodePubackV5(42, ReasonCode::SUCCESS);
         $byte0 = ord($packet[0]);
@@ -370,7 +370,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(ReasonCode::SUCCESS, $reasonCode);
     }
 
-    public function testEncodePubrecV5(): void
+    public function test_encode_pubrec_v5(): void
     {
         $packet = Server::encodePubrecV5(99, ReasonCode::SUCCESS);
         $byte0 = ord($packet[0]);
@@ -378,7 +378,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(PacketType::PUBREC, $type);
     }
 
-    public function testEncodePubrelV5(): void
+    public function test_encode_pubrel_v5(): void
     {
         $packet = Server::encodePubrelV5(7, ReasonCode::SUCCESS);
         $byte0 = ord($packet[0]);
@@ -386,7 +386,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(PacketType::PUBREL, $type);
     }
 
-    public function testEncodePubcompV5(): void
+    public function test_encode_pubcomp_v5(): void
     {
         $packet = Server::encodePubcompV5(7, ReasonCode::SUCCESS);
         $byte0 = ord($packet[0]);
@@ -396,7 +396,7 @@ final class MqttV5Test extends TestCase
 
     // ===================== Server 接受 5.0 =====================
 
-    public function testServerAcceptsV5Connect(): void
+    public function test_server_accepts_v5_connect(): void
     {
         // 构造一个 MQTT 5.0 CONNECT 包
         $connectPacket = Connect::encode(
@@ -424,7 +424,7 @@ final class MqttV5Test extends TestCase
         $this->assertSame(600, $info['properties'][Properties::SESSION_EXPIRY_INTERVAL]);
     }
 
-    public function testServerAcceptsV311Connect(): void
+    public function test_server_accepts_v311_connect(): void
     {
         $connectPacket = Connect::encode('test-v311-client', version: '3.1.1');
         $offset = 1;
@@ -445,24 +445,24 @@ final class MqttV5Test extends TestCase
 
     // ===================== 往返测试 =====================
 
-    public function testConnectDecodeEncodeRoundTripV5(): void
+    public function test_connect_decode_encode_round_trip_v5(): void
     {
         $original = [
-            'clientId'    => 'round-trip-5',
-            'username'    => 'user1',
-            'password'    => 'pass1',
-            'keepalive'   => 120,
-            'cleanSession'=> false,
-            'will'        => [
-                'topic'   => 'last/will',
+            'clientId' => 'round-trip-5',
+            'username' => 'user1',
+            'password' => 'pass1',
+            'keepalive' => 120,
+            'cleanSession' => false,
+            'will' => [
+                'topic' => 'last/will',
                 'payload' => 'goodbye',
-                'qos'     => 1,
-                'retain'  => true,
+                'qos' => 1,
+                'retain' => true,
             ],
-            'version'     => '5.0',
-            'properties'  => [
+            'version' => '5.0',
+            'properties' => [
                 Properties::SESSION_EXPIRY_INTERVAL => 1800,
-                Properties::RECEIVE_MAXIMUM         => 200,
+                Properties::RECEIVE_MAXIMUM => 200,
             ],
         ];
 
