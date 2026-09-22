@@ -176,6 +176,20 @@ client.subscribe('sensors/+/temperature');
 client.on('message', (topic, payload) => console.log(topic, payload.toString()));
 ```
 
+### Pub/Sub 总线（进程内 / 跨进程 / 跨节点）
+
+```php
+use Kode\Messaging\Messaging;
+
+$bus = Messaging::pubsub();                    // 默认 memory；同参数恒返回同一实例
+$bus->subscribe('user.created', fn ($p) => handle($p));
+$bus->publish('user.created', ['id' => 1001]); // 命中上面的订阅，哪怕隔着一次调用
+```
+
+`Messaging::pubsub()` 返回的是**进程级共享实例**，订阅关系挂在它上面：常驻 Worker 里请启动期订阅、
+用完 `unsubscribe()`，别在每次请求里重复订阅。同 topic 订阅 N 次会得到 N 个各自独立的处理器，
+底层通道按 topic 引用计数，不会重复注册。详见 [docs/pubsub.md](./docs/pubsub.md)。
+
 ## 协议矩阵
 
 | 协议 | 方案 | 服务端 | 客户端 | 适用 |

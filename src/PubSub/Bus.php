@@ -20,6 +20,9 @@ abstract class Bus implements BusInterface
     /** @var array<string, array{id: string, topic: string, handler: callable, options: array<string, mixed>}> */
     protected array $subscribers = [];
 
+    /** @var array<string, int> topic => 订阅者条数；0→1 注册底层、1→0 注销底层 */
+    private array $topicRefs = [];
+
     /** @var array<string, string> 已编译的主题匹配正则缓存（按 pattern 维度） */
     private array $patternCache = [];
 
@@ -28,6 +31,14 @@ abstract class Bus implements BusInterface
         protected LoggerInterface $logger = new NullLogger(),
     ) {}
 
+    /**
+     * 订阅主题，返回订阅 ID（用于 unsubscribe）。
+     *
+     * 同一 topic 重复订阅只做「本地加人」：底层注册（redis channel 等）按 topic 引用计数，
+     * 只在 0→1 时发生一次。否则订阅 N 次就会注册 N 个底层回调，一条消息分发 N 倍。
+     * 由此带来的约束：底层注册用的是**首个**订阅者的 $options，后续同 topic 订阅者的
+     * options 仅作用于本地记录。
+     */
     public function subscribe(string $topic, callable $handler, array $options = []): string
     {
         $id = IdGenerator::next('sub');
@@ -37,18 +48,39 @@ abstract class Bus implements BusInterface
             'handler' => $handler,
             'options' => $options,
         ];
-        $this->onSubscribe($topic, $options);
+
+        $refs = ($this->topicRefs[$topic] ?? 0) + 1;
+        $this->topicRefs[$topic] = $refs;
+        if ($refs === 1) {
+            $this->onSubscribe($topic, $options);
+        }
 
         return $id;
     }
 
+    /**
+     * 取消订阅：最后一个订阅者走了才拆底层注册。
+     *
+     * 早先是「任一订阅者退订就 onUnsubscribe($topic)」，同 topic 的其他订阅者会被连带断供。
+     */
     public function unsubscribe(string $subscriptionId): void
     {
-        if (isset($this->subscribers[$subscriptionId])) {
-            $topic = $this->subscribers[$subscriptionId]['topic'];
-            unset($this->subscribers[$subscriptionId]);
-            $this->onUnsubscribe($topic);
+        if (! isset($this->subscribers[$subscriptionId])) {
+            return;
         }
+
+        $topic = $this->subscribers[$subscriptionId]['topic'];
+        unset($this->subscribers[$subscriptionId]);
+
+        $refs = $this->topicRefs[$topic] ?? 0;
+        if ($refs <= 1) {
+            unset($this->topicRefs[$topic]);
+            $this->onUnsubscribe($topic);
+
+            return;
+        }
+
+        $this->topicRefs[$topic] = $refs - 1;
     }
 
     /**

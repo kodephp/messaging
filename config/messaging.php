@@ -231,10 +231,12 @@ return [
     'pubsub' => [
         'default' => 'memory',                 // memory | channel | redis
         'redis' => [
-            'host'   => '127.0.0.1',
-            'port'   => 6379,
-            'db'     => 0,
-            'prefix' => 'messaging:',
+            'host'     => '127.0.0.1',
+            'port'     => 6379,
+            'db'       => 0,
+            'password' => null,                  // 有 AUTH 的 redis 必填，否则连接后第一条命令即 NOAUTH
+            'timeout'  => 2.0,
+            'prefix'   => 'messaging:',
         ],
         'channel' => [
             'driver' => 'kode-process',        // 依赖 kode/process

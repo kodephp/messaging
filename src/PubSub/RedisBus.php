@@ -25,8 +25,11 @@ final class RedisBus extends Bus
     /** @var null|\Predis\Client|Redis */
     private $redis = null;
 
-    /** @var array<int, callable> */
-    private array $loops = [];
+    /** @var array<string, string> topic => 底层 redis channel（底层订阅由 loop() 一次性建立） */
+    private array $channels = [];
+
+    /** @var bool loop() 是否正卡在阻塞式 subscribe 里 */
+    private bool $subscribing = false;
 
     public function __construct(array $config = [], \Psr\Log\LoggerInterface $logger = new \Psr\Log\NullLogger())
     {
@@ -41,7 +44,7 @@ final class RedisBus extends Bus
 
     public function publish(string $topic, array $payload, array $options = []): void
     {
-        $channel = $this->config['prefix'].$topic;
+        $channel = $this->channel($topic);
         $message = json_encode(
             ['topic' => $topic, 'payload' => $payload, 'time' => microtime(true)],
             JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
@@ -49,33 +52,79 @@ final class RedisBus extends Bus
         $this->redis->publish($channel, $message);
     }
 
+    /**
+     * 只登记映射：真正的底层订阅由 loop() 用一次 subscribe 覆盖全部 channel。
+     *
+     * 旧实现给每个订阅都塞一个「阻塞式 subscribe(单 channel)」闭包，loop() 顺序遍历时
+     * 第一个闭包就把循环卡死，第二个及之后的 topic 永远收不到消息。
+     */
     protected function onSubscribe(string $topic, array $options): void
     {
-        $channel = $this->config['prefix'].$topic;
-        // 每个总线实例一个 loop
-        $this->loops[] = function () use ($channel, $topic): void {
-            $this->redis->subscribe([$channel], function (Redis $r, string $chan, string $msg) use ($topic): void {
-                $decoded = json_decode($msg, true);
-                if (is_array($decoded) && isset($decoded['payload']) && is_array($decoded['payload'])) {
-                    $this->dispatch($decoded['topic'] ?? $topic, $decoded['payload']);
-                }
-            });
-        };
+        $this->channels[$topic] = $this->channel($topic);
     }
 
+    /**
+     * 注销 topic（基类按引用计数，最后一个订阅者走了才会走到这里）。
+     *
+     * 阻塞循环内无法即时感知集合变化，故只在客户端支持 unsubscribe 且正在订阅时尝试退出，
+     * 其余情况等本轮 loop() 返回后按最新集合重订。
+     */
     protected function onUnsubscribe(string $topic): void
     {
-        // Redis subscribe 在 close 时自动清理
+        $channel = $this->channels[$topic] ?? null;
+        unset($this->channels[$topic]);
+
+        if ($channel !== null && $this->subscribing && method_exists($this->redis, 'unsubscribe')) {
+            /* @var \Redis $this->redis */
+            $this->redis->unsubscribe($channel);
+        }
+    }
+
+    /** 已登记的 topic => channel 映射（可观测性 / 测试）。 */
+    public function channels(): array
+    {
+        return $this->channels;
     }
 
     /**
      * 启动订阅循环（阻塞；如需非阻塞，使用 setOption 配合 setOption(Redis::OPT_READ_TIMEOUT, ...)）。
+     *
+     * @param int<1, max> $rounds 订阅被服务端断开后最多重订几轮（默认 1 轮，即只进一次）
      */
-    public function loop(): void
+    public function loop(int $rounds = 1): void
     {
-        foreach ($this->loops as $cb) {
-            $cb();
+        for ($i = 0; $i < $rounds; ++$i) {
+            // 每轮重新取快照：上一轮期间的 subscribe/unsubscribe 在这里生效
+            $channels = array_values($this->channels);
+            if ($channels === []) {
+                return;
+            }
+
+            $byChannel = array_flip($this->channels);
+            $this->subscribing = true;
+
+            try {
+                $this->redis->subscribe($channels, function ($redis, ?string $chan, ?string $msg) use ($byChannel): void {
+                    $decoded = json_decode((string) $msg, true);
+                    if (! is_array($decoded) || ! isset($decoded['payload']) || ! is_array($decoded['payload'])) {
+                        return;
+                    }
+
+                    $topic = $decoded['topic'] ?? $byChannel[(string) $chan] ?? null;
+                    if (is_string($topic)) {
+                        $this->dispatch($topic, $decoded['payload']);
+                    }
+                });
+            } finally {
+                $this->subscribing = false;
+            }
         }
+    }
+
+    /** 底层 channel 名：prefix 未配置时取空串（旧实现直接读 $this->config['prefix']，触发 undefined key 告警）。 */
+    private function channel(string $topic): string
+    {
+        return (string) ($this->config['prefix'] ?? '').$topic;
     }
 
     private function createRedisClient(): Redis|\Predis\Client
@@ -83,10 +132,15 @@ final class RedisBus extends Bus
         $host = $this->config['host'] ?? '127.0.0.1';
         $port = (int) ($this->config['port'] ?? 6379);
         $db = (int) ($this->config['db'] ?? 0);
+        $password = $this->config['password'] ?? null;
+        $timeout = (float) ($this->config['timeout'] ?? 2.0);
 
         if (class_exists(Redis::class) && extension_loaded('redis')) {
             $r = new Redis();
-            $r->connect($host, $port, 2.0);
+            $r->connect($host, $port, $timeout);
+            if (is_string($password) && $password !== '') {
+                $r->auth($password);
+            }
             if ($db > 0) {
                 $r->select($db);
             }
@@ -99,6 +153,7 @@ final class RedisBus extends Bus
                 'host' => $host,
                 'port' => $port,
                 'database' => $db,
+                'password' => is_string($password) && $password !== '' ? $password : null,
             ]);
         }
 

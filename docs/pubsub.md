@@ -42,14 +42,43 @@ $bus->subscribe('order:created', fn($p) => handle($p));
 
 ```php
 $bus = Messaging::pubsub('redis', [
-    'host' => '127.0.0.1',
-    'port' => 6379,
-    'db'   => 0,
-    'prefix' => 'messaging:',
+    'host'     => '127.0.0.1',
+    'port'     => 6379,
+    'db'       => 0,
+    'password' => null,      // 有 AUTH 的 redis 必填，否则连接后第一条命令即 NOAUTH
+    'timeout'  => 2.0,       // 连接超时（秒）
+    'prefix'   => 'messaging:',
 ]);
 
 $bus->publish('global:event', $data);
 ```
+
+订阅侧由 `loop()` 收流：**一次** `subscribe` 覆盖当前全部 topic，被服务端断开后按最新集合重订。
+
+```php
+$bus->subscribe('orders:created', $handlerA);
+$bus->subscribe('orders:paid', $handlerB);   // 与上一个 topic 共用同一条订阅
+
+$bus->loop();        // 阻塞，直到订阅被断开/超时（配 Redis::OPT_READ_TIMEOUT 可周期性返回）
+$bus->loop(30);      // 断开后最多重订 30 轮
+```
+
+## 2.4 总线实例是共享的（必读）
+
+`Messaging::pubsub()` 按「驱动 + 生效配置」缓存，同参数恒返回**同一个实例**；订阅关系挂在实例上，
+因此在常驻 Worker 里，上一次调用 `subscribe` 的处理器，下一次调用依然生效。
+
+```php
+Messaging::pubsub('memory')->subscribe('user.created', $handler);
+Messaging::pubsub('memory')->publish('user.created', ['id' => 1]); // 命中上面的 handler
+```
+
+由此带来两条约束：
+
+- 订阅是**进程级**状态：启动期订阅、用完 `unsubscribe($subscriptionId)` 退订，别在每次请求里订阅（会一直累积）。
+- 需要一次性、互不串流的总线时自行 `new MemoryBus()`；`configure()` 换配置后想让总线重建，调 `Messaging::resetBuses()`
+ （正在跑的订阅者会随之静默失效，平时别调）。
+
 
 ## 3. 与协议集成
 
@@ -108,6 +137,11 @@ $bus->subscribe('order.#', $handler);        // 匹配 order.created, order.crea
 // 共享订阅（集群负载均衡）
 $bus->subscribe('order.#', $handler, ['shared' => 'group-1']);
 ```
+
+同一 topic 订阅 N 次 = N 个各自独立的处理器：每条匹配消息**每个订阅者各收一份**，底层注册
+（redis channel 等）按 topic 引用计数，只在 0→1 时发生一次、最后一个订阅者退订时才注销。
+因此底层通道用的是**首个**订阅者的 `$options`，后续同 topic 订阅者的 options 仅作用于本地记录。
+
 
 ## 5. 消息确认
 

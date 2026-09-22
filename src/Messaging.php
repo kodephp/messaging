@@ -37,6 +37,9 @@ final class Messaging
     /** @var list<object> */
     private static array $globalMiddlewares = [];
 
+    /** @var array<string, Bus> 进程级总线实例表，键为「驱动|配置指纹」 */
+    private static array $buses = [];
+
     private function __construct() {}
 
     /**
@@ -110,26 +113,84 @@ final class Messaging
     }
 
     /**
-     * 创建一个发布订阅总线。
+     * 取得一个发布订阅总线（按「驱动 + 生效配置」缓存，同参数恒返回同一实例）。
+     *
+     * 为什么必须缓存：总线的订阅表挂在实例上，而框架侧 messaging()->bus() 每次调用都取总线。
+     * 若这里每次 new，上一条调用里 subscribe 的处理器在这条调用里根本不存在——publish
+     * 静默零投递，常驻 worker 里退订也无从谈起。需要一次性隔离的总线请自行 new MemoryBus()。
      *
      * @param null|string $driver memory | channel | redis
      * @param array<string, mixed> $config 驱动配置
      */
     public static function pubsub(?string $driver = null, array $config = []): Bus
     {
-        $driver ??= self::$config['pubsub']['default'] ?? 'memory';
+        $driver ??= (string) (self::$config['pubsub']['default'] ?? 'memory');
+        /** @var array<string, mixed> $resolved */
+        $resolved = array_replace_recursive(
+            (array) (self::$config['pubsub'][$driver] ?? []),
+            $config,
+        );
 
+        $signature = self::fingerprint($resolved);
+        if ($signature === null) {
+            // 配置里有对象/资源（闭包同理）：json_encode 会把它们静默压成 {}，
+            // 两份不同意图的配置就会被并成同一条总线，所以宁可不缓存。
+            return self::makeBus($driver, $resolved);
+        }
+
+        return self::$buses[$driver.'|'.$signature] ??= self::makeBus($driver, $resolved);
+    }
+
+    /**
+     * 生效配置的稳定指纹；含对象/资源等无法稳定标识的值时返回 null（调用方据此放弃缓存）。
+     *
+     * 递归排序键：同一份配置换个写法（键序不同）必须落进同一个桶，
+     * 否则又会退化成「两条总线、订阅互不可见」。
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private static function fingerprint(array $config): ?string
+    {
+        ksort($config);
+        foreach ($config as $key => $value) {
+            if (is_array($value)) {
+                $nested = self::fingerprint($value);
+                if ($nested === null) {
+                    return null;
+                }
+                $config[$key] = $nested;
+
+                continue;
+            }
+            if (is_object($value) || is_resource($value)) {
+                return null;
+            }
+        }
+
+        return sha1(serialize($config));
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function makeBus(string $driver, array $config): Bus
+    {
         return match ($driver) {
-            'redis' => new PubSub\RedisBus(
-                array_replace_recursive(self::$config['pubsub']['redis'] ?? [], $config),
-                self::logger(),
-            ),
-            'channel' => new PubSub\ChannelBus(
-                array_replace_recursive(self::$config['pubsub']['channel'] ?? [], $config),
-                self::logger(),
-            ),
+            'redis' => new PubSub\RedisBus($config, self::logger()),
+            'channel' => new PubSub\ChannelBus($config, self::logger()),
             default => new MemoryBus($config, self::logger()),
         };
+    }
+
+    /**
+     * 丢弃已缓存的总线实例（订阅关系一并作废）。
+     *
+     * configure() 之后想换一套总线配置、或测试需要干净状态时调用；
+     * 平时别调——正在跑的订阅者会静默失效。
+     */
+    public static function resetBuses(): void
+    {
+        self::$buses = [];
     }
 
     /**

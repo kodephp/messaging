@@ -8,13 +8,13 @@ use function constant;
 use function sprintf;
 
 /**
- * 包版本号（与 composer.json 中 version 字段保持一致）。
+ * 包版本号（与 git tag 保持一致；本包 composer.json 不写 version 字段）。
  */
 final class Version
 {
     public const MAJOR = 3;
-    public const MINOR = 3;
-    public const PATCH = 1;
+    public const MINOR = 4;
+    public const PATCH = 0;
     public const PRE_RELEASE = '';
 
     public static function get(): string
