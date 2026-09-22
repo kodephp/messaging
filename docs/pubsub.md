@@ -10,6 +10,19 @@
 | `channel` | 多进程（kode/process） | 极快 | 多 Worker 单机 |
 | `redis` | 跨节点 | 高 | 集群 |
 
+### 驱动名怎么解析（>= 3.4.1）
+
+```php
+Messaging::pubsub('redis');   // 显式名优先
+Messaging::pubsub(' redis '); // 两侧空白裁掉，同上
+Messaging::pubsub('');        // 空白 = 未指定 → 读 messaging.pubsub.default → 再退 memory
+Messaging::pubsub('redsi');   // InvalidArgumentException：未知的消息总线驱动 [redsi]，可用驱动：memory, channel, redis
+```
+
+3.4.0 及以前，任何认不出的名字都落进 `match` 的 default 分支变成 `MemoryBus`：笔误或 env 传进来的
+垃圾值会让「以为在用 redis 跨节点总线」的代码静默退回进程内实现，消息只在当前 worker 可见 ——
+故障形态是「订阅时灵时不灵」，且全程无异常。现在这类情况一律启动期即报错。
+
 ## 2. 基础用法
 
 ### 2.1 进程内

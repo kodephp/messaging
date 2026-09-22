@@ -186,6 +186,12 @@ $bus->subscribe('user.created', fn ($p) => handle($p));
 $bus->publish('user.created', ['id' => 1001]); // 命中上面的订阅，哪怕隔着一次调用
 ```
 
+驱动名的取值口径（>= 3.4.1）：`Messaging::pubsub($driver)` 只在 `$driver` **非空白**时用它，
+否则依次回退 `config('messaging.pubsub.default')`、`memory`；两侧空白会被裁掉（`' redis '` 等价于
+`'redis'`）。认不出的名字直接抛 `InvalidArgumentException` 并列出 `Messaging::BUS_DRIVERS`：
+以前 `'redsi'` 会静默落进 `match` 的 default 分支变成进程内 `MemoryBus`，跨 worker 不再互通，
+表现为「订阅时灵时不灵」而没有任何异常可定位。
+
 `Messaging::pubsub()` 返回的是**进程级共享实例**，订阅关系挂在它上面：常驻 Worker 里请启动期订阅、
 用完 `unsubscribe()`，别在每次请求里重复订阅。同 topic 订阅 N 次会得到 N 个各自独立的处理器，
 底层通道按 topic 引用计数，不会重复注册。详见 [docs/pubsub.md](./docs/pubsub.md)。

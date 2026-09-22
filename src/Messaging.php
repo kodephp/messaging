@@ -29,6 +29,13 @@ use Psr\Log\NullLogger;
  */
 final class Messaging
 {
+    /**
+     * 内置发布订阅总线驱动。
+     *
+     * @var list<string>
+     */
+    public const BUS_DRIVERS = ['memory', 'channel', 'redis'];
+
     /** @var array<string, mixed> */
     private static array $config = [];
 
@@ -119,12 +126,12 @@ final class Messaging
      * 若这里每次 new，上一条调用里 subscribe 的处理器在这条调用里根本不存在——publish
      * 静默零投递，常驻 worker 里退订也无从谈起。需要一次性隔离的总线请自行 new MemoryBus()。
      *
-     * @param null|string $driver memory | channel | redis
+     * @param null|string $driver memory | channel | redis；null 或空白串依次回退 pubsub.default、memory
      * @param array<string, mixed> $config 驱动配置
      */
     public static function pubsub(?string $driver = null, array $config = []): Bus
     {
-        $driver ??= (string) (self::$config['pubsub']['default'] ?? 'memory');
+        $driver = self::resolveBusDriver($driver);
         /** @var array<string, mixed> $resolved */
         $resolved = array_replace_recursive(
             (array) (self::$config['pubsub'][$driver] ?? []),
@@ -139,6 +146,40 @@ final class Messaging
         }
 
         return self::$buses[$driver.'|'.$signature] ??= self::makeBus($driver, $resolved);
+    }
+
+    /**
+     * 解析总线驱动名：null / 空白串都算「未指定」，依次回退 pubsub.default、memory。
+     *
+     * 为什么未知名字必须报错：match 的 default 分支原本是 MemoryBus，于是 'redsi' 这类笔误、
+     * 或 env('MESSAGING_BUS', '') 传进来的空串以外的垃圾值，会让「以为在用 redis 跨进程总线」
+     * 的代码静默退回进程内实现——消息只在当前 worker 可见，表现为「订阅时灵时不灵」，
+     * 且全程没有任何异常可定位。
+     *
+     * @return non-empty-string
+     */
+    private static function resolveBusDriver(?string $driver): string
+    {
+        $configured = self::$config['pubsub']['default'] ?? null;
+
+        foreach ([$driver, is_string($configured) ? $configured : null] as $candidate) {
+            $candidate = is_string($candidate) ? trim($candidate) : '';
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (! in_array($candidate, self::BUS_DRIVERS, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    '未知的消息总线驱动 [%s]，可用驱动：%s',
+                    $candidate,
+                    implode(', ', self::BUS_DRIVERS),
+                ));
+            }
+
+            return $candidate;
+        }
+
+        return 'memory';
     }
 
     /**
@@ -171,6 +212,7 @@ final class Messaging
     }
 
     /**
+     * @param string $driver 已由 resolveBusDriver() 校验过的驱动名
      * @param array<string, mixed> $config
      */
     private static function makeBus(string $driver, array $config): Bus
