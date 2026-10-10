@@ -335,7 +335,7 @@ Messaging::server('ws://0.0.0.0:8080', [
 
 | 维度 | 策略 |
 |---|---|
-| 单进程 | PHP 8.3+ 无锁 stream；UDP/CoAP 单机 10w+ QPS |
+| 单进程 | PHP 8.4+ 无锁 stream；UDP/CoAP 单机 10w+ QPS |
 | 多 Worker | `kode/process` 接管，零侵入 |
 | 跨节点 | Redis Pub/Sub 背板 |
 | 协程 | `kode/fibers` 协程化阻塞调用 |

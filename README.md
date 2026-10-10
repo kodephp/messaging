@@ -277,27 +277,27 @@ echo Kode::runtime(); // 'swoole' | 'swow' | 'workerman' | 'plain'
 - **推荐**：PHP 8.4 / 8.5
 - **已验证**：PHP 8.5
 
-支持的现代特性（通过 `PhpCompat` / `RuntimeDetector` 运行时检测，自动降级）：
+支持的现代特性（floor = PHP 8.4，8.4 及以下特性原生可用，不再走降级；仅 8.5 特性由 `PhpCompat` / `RuntimeDetector` 运行时探测并降级）：
 
 | 特性 | 用法 | 版本 | 降级方案 |
 |---|---|---|---|
-| `readonly class` | 不可变消息体 | ≥ 8.2（基线已含） | — |
-| `enum` | 协议状态机 | ≥ 8.1 | — |
-| `Fibers` | 协程 | ≥ 8.1 | — |
-| `json_validate()` | JSON 快速校验 | ≥ 8.3 | `json_decode` + `json_last_error` |
-| `Random\Randomizer` | 安全随机 | ≥ 8.3 | `random_bytes()` |
-| typed class constants | 协议常量 | ≥ 8.3 | 普通 `const`（当前使用） |
-| `#[\Override]` | 覆盖标记 | ≥ 8.3（基线） | — |
-| property hooks | 连接属性 | ≥ 8.4 | 传统 getter/setter |
+| `readonly class` | 不可变消息体 | ≥ 8.2（floor 已含） | — |
+| `enum` | 协议状态机 | ≥ 8.1（floor 已含） | — |
+| `Fibers` | 协程 | ≥ 8.1（floor 已含） | — |
+| `json_validate()` | JSON 快速校验 | ≥ 8.3（floor 已含） | — |
+| `Random\Randomizer` | 安全随机 | ≥ 8.3（floor 已含） | — |
+| typed class constants | 协议常量 | ≥ 8.3（floor 已含） | — |
+| `#[\Override]` | 覆盖标记 | ≥ 8.3（floor 已含） | — |
+| property hooks | 连接属性 | ≥ 8.4（floor 已含） | — |
 | pipe operator `\|>` | 链式构造 | ≥ 8.5 | `Kode::pipe()` foreach 模拟 |
 
 ```php
 use Kode\Messaging\Kode;
 
-// JSON 校验（8.3 基线直接用 json_validate）
+// JSON 校验（floor 8.4 直接用 json_validate）
 Kode::jsonValidate('{"ok":true}'); // bool
 
-// 安全随机（8.3 基线直接用 Randomizer）
+// 安全随机（floor 8.4 直接用 Randomizer）
 Kode::randomBytes(16); // string
 
 // 运行时环境检测

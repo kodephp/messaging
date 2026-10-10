@@ -21,8 +21,9 @@ use Throwable;
  * 同时提供 PHP 8.4/8.5 新特性的运行时检测，
  * 供业务代码在不确定运行时版本时做兼容降级。
  *
- * 注意：PHP 8.3 为最低基线，json_validate / Randomizer / #[\Override]
- * / typed class constants 均可直接使用，不再需要运行时判断。
+ * 注意：PHP 8.4 为最低基线（floor），json_validate / Randomizer / #[\Override]
+ * / typed class constants / property hooks / asymmetric visibility 均可直接使用，
+ * 不再需要运行时判断；仅 8.5 特性（如 |>）仍需探测。
  *
  * 用法：
  *   $rt = RuntimeDetector::runtime();        // 'swoole' | 'swow' | 'workerman' | 'plain'
@@ -192,7 +193,7 @@ final class RuntimeDetector
      */
     public static function hasPropertyHooks(): bool
     {
-        return PHP_VERSION_ID >= 80400;
+        return true;
     }
 
     /**
@@ -200,7 +201,7 @@ final class RuntimeDetector
      */
     public static function hasAsymmetricVisibility(): bool
     {
-        return PHP_VERSION_ID >= 80400;
+        return true;
     }
 
     /**

@@ -9,6 +9,8 @@ use function is_resource;
 
 use Kode\Limiting\Algorithm\RateLimiterInterface;
 use Kode\Limiting\DTO\LimiterResult;
+use Kode\Limiting\Store\MemoryStore;
+use Kode\Limiting\Store\StoreInterface;
 use Kode\Messaging\Adapter\Rtmp\Amf0;
 use Kode\Messaging\Adapter\Rtmp\RtmpConnection;
 use Kode\Messaging\Adapter\Rtmp\Server;
@@ -244,6 +246,11 @@ final class RtmpServerRateLimitTest extends TestCase
             {
                 $this->keys = [];
             }
+
+            public function getStore(): StoreInterface
+            {
+                return new MemoryStore();
+            }
         };
         $server->setRateLimiters(null, $limiter);
 
@@ -378,6 +385,11 @@ final class RtmpServerRateLimitTest extends TestCase
             }
 
             public function reset(string $key): void {}
+
+            public function getStore(): StoreInterface
+            {
+                return new MemoryStore();
+            }
         };
     }
 
@@ -415,6 +427,11 @@ final class RtmpServerRateLimitTest extends TestCase
             }
 
             public function reset(string $key): void {}
+
+            public function getStore(): StoreInterface
+            {
+                return new MemoryStore();
+            }
         };
     }
 

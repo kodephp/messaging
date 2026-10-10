@@ -7,16 +7,14 @@ namespace Kode\Messaging\Support;
 use Random\Randomizer;
 
 /**
- * PHP 8.3/8.4/8.5 特性兼容层
+ * PHP 8.4/8.5 特性兼容层
  *
- * 8.3 为最低基线，以下特性可直接使用，无需运行时判断：
+ * 8.4 为最低基线（floor），以下特性可直接使用，无需运行时判断：
  *   - json_validate()
  *   - Random\Randomizer
  *   - typed class constants
  *   - #[\Override]
  *   - readonly class / DNF types / true/false/null standalone types
- *
- * 8.4+ 特性需通过 {@see isPhp84()} 运行时判断：
  *   - property hooks（get/set）
  *   - asymmetric visibility
  *   - #[\Deprecated]
@@ -39,14 +37,6 @@ final class PhpCompat
     public static function versionId(): int
     {
         return self::$versionId ??= PHP_VERSION_ID;
-    }
-
-    /**
-     * 是否 PHP 8.3+（基线，始终为 true）。
-     */
-    public static function isPhp83(): bool
-    {
-        return self::versionId() >= 80_300;
     }
 
     /**

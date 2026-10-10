@@ -9,12 +9,6 @@ use PHPUnit\Framework\TestCase;
 
 final class PhpCompatTest extends TestCase
 {
-    public function test_version_is_at_least83(): void
-    {
-        $this->assertTrue(PhpCompat::isPhp83(), '需要 PHP 8.3 或更高');
-        $this->assertGreaterThanOrEqual(80_300, PhpCompat::versionId());
-    }
-
     public function test_json_validate_always_available(): void
     {
         // 8.3 基线：json_validate 始终可用
