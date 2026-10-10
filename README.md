@@ -271,10 +271,10 @@ echo Kode::runtime(); // 'swoole' | 'swow' | 'workerman' | 'plain'
 | HTTP 客户端 | `kode/http-client` | 长轮询回退 |
 | 鉴权 | `kode/jwt` | JWT 鉴权中间件 |
 
-## PHP 8.3 / 8.4 / 8.5 兼容
+## PHP 8.4 / 8.5 兼容
 
-- **最低**：PHP 8.3
-- **推荐**：PHP 8.3 / 8.4
+- **最低**：PHP 8.4
+- **推荐**：PHP 8.4 / 8.5
 - **已验证**：PHP 8.5
 
 支持的现代特性（通过 `PhpCompat` / `RuntimeDetector` 运行时检测，自动降级）：
