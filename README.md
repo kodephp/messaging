@@ -1,8 +1,8 @@
 # kode/messaging
 
-**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.3+ | PSR 合规 | 可插拔适配器**
+**统一消息层 | WebSocket / SSE / MQTT / UDP / Long-Polling / CoAP / NATS / STOMP / gRPC / WebTransport / RTMP | PHP 8.4+ | PSR 合规 | 可插拔适配器**
 
-[![PHP Version](https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat-square&logo=php)](https://php.net)
+[![PHP Version](https://img.shields.io/badge/PHP-8.4+-777BB4?style=flat-square&logo=php)](https://php.net)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
 [![kode](https://img.shields.io/badge/kode-family-blue?style=flat-square)](https://packagist.org/packages/kode/)
 [![Version](https://img.shields.io/packagist/v/kode/messaging?style=flat-square)](https://packagist.org/packages/kode/messaging)
@@ -355,7 +355,7 @@ Kode::inCoroutine();   // bool
 Apache-2.0
 
 
-1. 最低是PHP8.3+版本。相关的文档都要更新。
+1. 最低是PHP8.4+版本。相关的文档都要更新。
 2. 本包做好安全性，便捷开发，mqtt3+、5+版本实现相关功能。
 3. 相关服务端、客户端等 健壮性 架构规划和代码实现。
 4. 修补优化升级增强功能。
