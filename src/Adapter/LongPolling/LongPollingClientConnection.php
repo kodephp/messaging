@@ -166,12 +166,14 @@ final class LongPollingClientConnection extends LongPollingConnection
     /**
      * 关闭连接（客户端版本）。
      */
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         $this->stop = true;
         $this->open = false;
     }
 
+    #[\Override]
     public function isOpen(): bool
     {
         return ! $this->stop && $this->open;
@@ -180,6 +182,7 @@ final class LongPollingClientConnection extends LongPollingConnection
     /**
      * 客户端 send 没有意义（HTTP 是请求-响应，不是双向）。
      */
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         throw new LogicException('LongPolling 客户端连接不支持 send()，请使用 withBody()');

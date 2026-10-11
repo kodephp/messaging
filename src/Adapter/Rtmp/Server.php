@@ -62,11 +62,13 @@ final class Server extends AbstractAdapter
     /** @var list<callable> */
     private array $onLimitedCallbacks = [];
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'rtmp';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
@@ -103,6 +105,7 @@ final class Server extends AbstractAdapter
         $this->onLimitedCallbacks[] = $callback;
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -113,6 +116,7 @@ final class Server extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -130,6 +134,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("RTMP listening on {$host}:{$port}");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -157,11 +162,13 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         throw new LogicException('RTMP Server 不支持 connect()');
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

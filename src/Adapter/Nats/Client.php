@@ -37,16 +37,19 @@ final class Client extends AbstractAdapter
 
     private int $nextSid = 1;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'nats';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -58,6 +61,7 @@ final class Client extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -100,11 +104,13 @@ final class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('NATS Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         if ($this->conn === null) {
@@ -279,6 +285,7 @@ final class Client extends AbstractAdapter
         $this->publish($subject, $payload, $inbox);
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

@@ -55,11 +55,13 @@ abstract class AbstractAdapter implements AdapterInterface
         return $this->bus;
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
     }
 
+    #[\Override]
     public function boot(array $config): void
     {
         $this->config = array_replace_recursive($this->defaultConfig(), $config);
@@ -118,11 +120,13 @@ abstract class AbstractAdapter implements AdapterInterface
     /**
      * 子类实现：实际运行循环。
      */
+    #[\Override]
     abstract public function run(): void;
 
     /**
      * 默认 shutdown：标记状态，由子类具体执行。
      */
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

@@ -33,11 +33,13 @@ final class Server extends AbstractAdapter
 
     private ?ServerBuilder $builder = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'sse';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'html5';
@@ -48,6 +50,7 @@ final class Server extends AbstractAdapter
         $this->builder = $builder;
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -59,6 +62,7 @@ final class Server extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -77,6 +81,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("SSE listening on {$host}:{$port}");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -216,11 +221,13 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config = []): \Kode\Messaging\Contract\ConnectionInterface
     {
         throw new LogicException('SSE Server 不支持 connect()');
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

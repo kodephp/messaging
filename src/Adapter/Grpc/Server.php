@@ -39,11 +39,13 @@ final class Server extends AbstractAdapter
 
     private ?ServerBuilder $builder = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'grpc';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
@@ -66,6 +68,7 @@ final class Server extends AbstractAdapter
         return $this;
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -73,6 +76,7 @@ final class Server extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -90,6 +94,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("gRPC listening on {$host}:{$port}");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -114,11 +119,13 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         throw new LogicException('gRPC Server 不支持 connect()');
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

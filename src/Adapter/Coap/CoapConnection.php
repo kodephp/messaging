@@ -91,6 +91,7 @@ class CoapConnection extends Connection
         return $packet->messageId;
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         if (! $this->open) {
@@ -107,6 +108,7 @@ class CoapConnection extends Connection
         return $this->sendRequest($code, $path, $body, $options) > 0;
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         $this->open = false;

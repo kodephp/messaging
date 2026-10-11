@@ -37,11 +37,13 @@ final class RedisBus extends Bus
         $this->redis = $this->createRedisClient();
     }
 
+    #[\Override]
     public function driver(): string
     {
         return 'redis';
     }
 
+    #[\Override]
     public function publish(string $topic, array $payload, array $options = []): void
     {
         $channel = $this->channel($topic);
@@ -58,6 +60,7 @@ final class RedisBus extends Bus
      * 旧实现给每个订阅都塞一个「阻塞式 subscribe(单 channel)」闭包，loop() 顺序遍历时
      * 第一个闭包就把循环卡死，第二个及之后的 topic 永远收不到消息。
      */
+    #[\Override]
     protected function onSubscribe(string $topic, array $options): void
     {
         $this->channels[$topic] = $this->channel($topic);
@@ -69,6 +72,7 @@ final class RedisBus extends Bus
      * 阻塞循环内无法即时感知集合变化，故只在客户端支持 unsubscribe 且正在订阅时尝试退出，
      * 其余情况等本轮 loop() 返回后按最新集合重订。
      */
+    #[\Override]
     protected function onUnsubscribe(string $topic): void
     {
         $channel = $this->channels[$topic] ?? null;

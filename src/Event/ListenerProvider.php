@@ -20,6 +20,7 @@ final class ListenerProvider implements ListenerProviderInterface
         krsort($this->listeners[$event]);
     }
 
+    #[\Override]
     public function getListenersForEvent(object $event): iterable
     {
         $class = $event::class;

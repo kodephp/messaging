@@ -27,16 +27,19 @@ use Kode\Messaging\Exception\MqttException;
  */
 class MqttOverWsClient extends Client
 {
+    #[\Override]
     public static function scheme(): string
     {
         return 'mqtt+ws';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'mqtt-3.1.1-over-ws';
     }
 
+    #[\Override]
     public static function autoRegister(): void
     {
         Registry::register('mqtt+ws-client', self::class);
@@ -48,6 +51,7 @@ class MqttOverWsClient extends Client
      * @param array $config 配置（host, port, client_id, username, password, keep_alive, will_*）
      * @throws MqttException 连接或握手失败时抛出
      */
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';

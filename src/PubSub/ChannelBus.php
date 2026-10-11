@@ -27,17 +27,20 @@ final class ChannelBus extends Bus
         }
     }
 
+    #[\Override]
     public function driver(): string
     {
         return 'channel';
     }
 
+    #[\Override]
     public function publish(string $topic, array $payload, array $options = []): void
     {
         $client = \Kode\Process\Channel\Client::instance();
         $client->publish($topic, $payload);
     }
 
+    #[\Override]
     protected function onSubscribe(string $topic, array $options): void
     {
         $client = \Kode\Process\Channel\Client::instance();
@@ -48,6 +51,7 @@ final class ChannelBus extends Bus
         });
     }
 
+    #[\Override]
     protected function onUnsubscribe(string $topic): void
     {
         // Channel Client 不支持单 topic 注销，整个进程退出时清理

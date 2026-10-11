@@ -28,16 +28,19 @@ use LogicException;
  */
 final class Client extends AbstractAdapter
 {
+    #[\Override]
     public static function scheme(): string
     {
         return 'long-polling';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'http/1.1';
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -67,11 +70,13 @@ final class Client extends AbstractAdapter
         );
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('LongPolling Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         // 客户端在 Builder::loop() 中由 Connection::poll() 驱动

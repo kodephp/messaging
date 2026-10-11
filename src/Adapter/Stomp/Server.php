@@ -39,11 +39,13 @@ final class Server extends AbstractAdapter
 
     private ?ServerBuilder $builder = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'stomp';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.2';
@@ -54,6 +56,7 @@ final class Server extends AbstractAdapter
         $this->builder = $builder;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -71,6 +74,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("STOMP listening on {$host}:{$port}");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -105,11 +109,13 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         throw new LogicException('STOMP Server 不支持 connect()');
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

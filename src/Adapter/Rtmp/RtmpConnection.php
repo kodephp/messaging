@@ -147,6 +147,7 @@ class RtmpConnection extends WebSocketConnection
         return $messages;
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         // RTMP 由业务层使用 sendRtmpChunk；此处保留以满足接口

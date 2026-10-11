@@ -96,6 +96,7 @@ final class TokenBucketMiddleware implements MiddlewareInterface
         return new self($limiter, 0, 0.0, $keyPrefix);
     }
 
+    #[\Override]
     public function process(MessageInterface $message, callable $next): MessageInterface
     {
         $key = $this->bucketKey($message);

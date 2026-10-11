@@ -33,27 +33,32 @@ class Connection implements ConnectionInterface
         protected string $remoteAddress,
     ) {}
 
+    #[\Override]
     public function id(): string
     {
         return $this->connId;
     }
 
+    #[\Override]
     public function protocol(): string
     {
         return $this->protocol;
     }
 
+    #[\Override]
     public function remoteAddress(): string
     {
         return $this->remoteAddress;
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         // 由具体协议适配器覆盖
         return false;
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         if (! $this->open) {
@@ -74,26 +79,31 @@ class Connection implements ConnectionInterface
         $this->closeCallbacks = [];
     }
 
+    #[\Override]
     public function isOpen(): bool
     {
         return $this->open;
     }
 
+    #[\Override]
     public function attributes(): array
     {
         return $this->attrs;
     }
 
+    #[\Override]
     public function setAttribute(string $key, mixed $value): void
     {
         $this->attrs[$key] = $value;
     }
 
+    #[\Override]
     public function getAttribute(string $key, mixed $default = null): mixed
     {
         return $this->attrs[$key] ?? $default;
     }
 
+    #[\Override]
     public function onClose(callable $callback): void
     {
         $this->closeCallbacks[] = $callback;

@@ -35,16 +35,19 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
 
     private string $buffer = '';
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'grpc';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -55,6 +58,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function connect(array $config = []): \Kode\Messaging\Contract\ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -80,11 +84,13 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('gRPC Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         if ($this->conn === null) {
@@ -113,6 +119,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         }
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

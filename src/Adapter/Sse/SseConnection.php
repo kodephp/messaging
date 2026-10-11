@@ -26,6 +26,7 @@ class SseConnection extends Connection
         $this->stream = $stream;
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         if (! $this->open) {
@@ -48,6 +49,7 @@ class SseConnection extends Connection
         return true;
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         if (! $this->open) {

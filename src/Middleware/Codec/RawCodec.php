@@ -14,6 +14,7 @@ use Kode\Messaging\Contract\MiddlewareInterface;
  */
 final class RawCodec implements MiddlewareInterface
 {
+    #[\Override]
     public function process(MessageInterface $message, callable $next): MessageInterface
     {
         return $next($message);

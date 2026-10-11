@@ -19,6 +19,7 @@ final class PrefixMatcher implements MatcherInterface
         $this->regex = '#^'.str_replace('\\*', '.*', preg_quote($this->pattern, '#')).'$#';
     }
 
+    #[\Override]
     public function match(string $subject): bool
     {
         return (bool) preg_match($this->regex, $subject);

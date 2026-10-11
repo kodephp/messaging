@@ -37,11 +37,13 @@ final class Server extends AbstractAdapter
     /** @var array<string, callable(string, array): void> */
     private array $dgramHandlers = [];
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'webtransport';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
@@ -80,6 +82,7 @@ final class Server extends AbstractAdapter
         return $this;
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -87,6 +90,7 @@ final class Server extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         // 占位监听：实际业务应通过 HTTP/3 后端调用本 Server 的方法
@@ -105,6 +109,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("WebTransport 占位监听在 {$host}:{$port}（请使用 HTTP/3 后端）");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -126,11 +131,13 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         throw new LogicException('WebTransport Server 不支持 connect()');
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

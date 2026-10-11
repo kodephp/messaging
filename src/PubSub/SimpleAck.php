@@ -14,11 +14,13 @@ final class SimpleAck implements AcknowledgeInterface
 {
     private bool $acknowledged = false;
 
+    #[\Override]
     public function ack(): void
     {
         $this->acknowledged = true;
     }
 
+    #[\Override]
     public function nack(?Throwable $reason = null): void
     {
         $this->acknowledged = false;

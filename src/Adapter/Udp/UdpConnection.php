@@ -29,6 +29,7 @@ class UdpConnection extends Connection
         parent::__construct($connId, $protocol, $remoteAddress);
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         if (! $this->open) {
@@ -52,6 +53,7 @@ class UdpConnection extends Connection
         return true;
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         $this->open = false;

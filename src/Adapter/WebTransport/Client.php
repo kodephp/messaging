@@ -29,16 +29,19 @@ final class Client extends AbstractAdapter
 
     private ?WebTransportConnection $conn = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'webtransport';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.0';
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -48,6 +51,7 @@ final class Client extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -70,17 +74,20 @@ final class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('WebTransport Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         // HTTP/3 入口通常在外部进程中；
         // fallback 模式下业务可直接调用 sendBidirectional/sendDatagram。
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

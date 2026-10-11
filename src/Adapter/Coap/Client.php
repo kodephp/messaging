@@ -28,16 +28,19 @@ final class Client extends AbstractAdapter
 
     private ?string $peer = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'coap';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'rfc7252';
     }
 
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -70,16 +73,19 @@ final class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('CoAP Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         // 客户端的循环逻辑由业务直接驱动 sendRequest / 读响应
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         if ($this->socket !== null) {

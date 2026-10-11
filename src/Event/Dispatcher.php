@@ -17,6 +17,7 @@ final class Dispatcher implements EventDispatcherInterface
 {
     public function __construct(private ?ListenerProviderInterface $provider = null) {}
 
+    #[\Override]
     public function dispatch(object $event): object
     {
         if ($this->provider === null) {

@@ -20,16 +20,19 @@ final class Client extends AbstractAdapter
     /** @var null|resource */
     private $stream = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'sse';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'html5';
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -86,11 +89,13 @@ final class Client extends AbstractAdapter
         );
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('SSE Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         // 客户端在 Builder::loop() 中调用 read loop

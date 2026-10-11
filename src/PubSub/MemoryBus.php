@@ -12,21 +12,25 @@ namespace Kode\Messaging\PubSub;
  */
 final class MemoryBus extends Bus
 {
+    #[\Override]
     public function driver(): string
     {
         return 'memory';
     }
 
+    #[\Override]
     public function publish(string $topic, array $payload, array $options = []): void
     {
         $this->dispatch($topic, $payload);
     }
 
+    #[\Override]
     protected function onSubscribe(string $topic, array $options): void
     {
         // 内存总线无需外部系统
     }
 
+    #[\Override]
     protected function onUnsubscribe(string $topic): void
     {
         // 内存总线无需外部系统

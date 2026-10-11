@@ -33,16 +33,19 @@ class Client extends AbstractAdapter
     /** @var list<array{0: array<string, int>, 1: int}> 待重连后重新订阅 */
     private array $pendingSubs = [];
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'mqtt';
     }
 
+    #[\Override]
     public function version(): string
     {
         return $this->config['version'] ?? '3.1.1';
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -54,6 +57,7 @@ class Client extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -120,11 +124,13 @@ class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('MQTT Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         if ($this->conn === null) {
@@ -335,6 +341,7 @@ class Client extends AbstractAdapter
         return $pid;
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

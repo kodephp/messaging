@@ -29,6 +29,7 @@ final class StreamTransport implements TransportInterface
      *
      * @throws TransportException 监听失败
      */
+    #[\Override]
     public function createServer(string $host, int $port, string $protocol = 'tcp'): mixed
     {
         $scheme = $this->normalizeScheme($protocol);
@@ -73,6 +74,7 @@ final class StreamTransport implements TransportInterface
      *
      * @return false|resource 客户端 socket 资源；无连接返回 false
      */
+    #[\Override]
     public function accept(mixed $serverSocket): mixed
     {
         // 超时 0 表示非阻塞尝试
@@ -91,6 +93,7 @@ final class StreamTransport implements TransportInterface
      *
      * @throws TransportException 连接失败
      */
+    #[\Override]
     public function createClient(string $host, int $port, string $protocol = 'tcp', float $timeout = 5.0): mixed
     {
         $scheme = $this->normalizeScheme($protocol);
@@ -122,6 +125,7 @@ final class StreamTransport implements TransportInterface
      * @param resource $socket socket 资源
      * @param int      $length 期望读取的最大字节数
      */
+    #[\Override]
     public function read(mixed $socket, int $length): string|false
     {
         if ($length <= 0) {
@@ -137,6 +141,7 @@ final class StreamTransport implements TransportInterface
      * @param resource $socket socket 资源
      * @param string   $data   待写入数据
      */
+    #[\Override]
     public function write(mixed $socket, string $data): int|false
     {
         return @fwrite($socket, $data);
@@ -147,6 +152,7 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      */
+    #[\Override]
     public function close(mixed $socket): void
     {
         if (is_resource($socket)) {
@@ -162,6 +168,7 @@ final class StreamTransport implements TransportInterface
      *
      * @return array{0: array<int, resource>, 1: array<int, resource>}|false
      */
+    #[\Override]
     public function select(array $read, ?array $write, int $timeoutMicroseconds): array|false
     {
         if ($read === [] && ($write === null || $write === [])) {
@@ -189,6 +196,7 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      */
+    #[\Override]
     public function setNonBlocking(mixed $socket): void
     {
         @stream_set_blocking($socket, false);
@@ -199,6 +207,7 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      */
+    #[\Override]
     public function setBlocking(mixed $socket): void
     {
         @stream_set_blocking($socket, true);
@@ -209,6 +218,7 @@ final class StreamTransport implements TransportInterface
      *
      * @param resource $socket socket 资源
      */
+    #[\Override]
     public function getPeerName(mixed $socket): string|false
     {
         $name = @stream_socket_get_name($socket, true);
@@ -219,6 +229,7 @@ final class StreamTransport implements TransportInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function driver(): string
     {
         return self::DRIVER_STREAM;

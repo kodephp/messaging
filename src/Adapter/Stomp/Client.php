@@ -36,16 +36,19 @@ final class Client extends AbstractAdapter
 
     private int $nextSubId = 1;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'stomp';
     }
 
+    #[\Override]
     public function version(): string
     {
         return '1.2';
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -57,6 +60,7 @@ final class Client extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -97,11 +101,13 @@ final class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('STOMP Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         if ($this->conn === null) {
@@ -194,6 +200,7 @@ final class Client extends AbstractAdapter
         @fwrite($this->stream, StompCodec::encodeAck($messageId, $headers));
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

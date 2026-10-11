@@ -28,11 +28,13 @@ final class Server extends AbstractAdapter
 
     private ?ServerBuilder $builder = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'ws';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'rfc6455';
@@ -43,6 +45,7 @@ final class Server extends AbstractAdapter
         $this->builder = $builder;
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -56,6 +59,7 @@ final class Server extends AbstractAdapter
         ];
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -77,6 +81,7 @@ final class Server extends AbstractAdapter
         $this->logger->info("WebSocket listening on {$host}:{$port}");
     }
 
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -266,6 +271,7 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;
@@ -278,6 +284,7 @@ final class Server extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         throw new LogicException('Server 适配器不支持 connect()');

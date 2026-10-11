@@ -44,6 +44,7 @@ class LongPollingConnection extends Connection
         ], $headers);
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         if (! $this->open || $this->responded) {
@@ -103,6 +104,7 @@ class LongPollingConnection extends Connection
         $this->closeCallbacks = [];
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         if ($this->responded) {

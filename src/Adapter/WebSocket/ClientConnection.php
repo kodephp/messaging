@@ -9,6 +9,7 @@ namespace Kode\Messaging\Adapter\WebSocket;
  */
 final class ClientConnection extends WebSocketConnection
 {
+    #[\Override]
     protected function shouldMask(): bool
     {
         return true;

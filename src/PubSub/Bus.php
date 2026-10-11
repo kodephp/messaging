@@ -39,6 +39,7 @@ abstract class Bus implements BusInterface
      * 由此带来的约束：底层注册用的是**首个**订阅者的 $options，后续同 topic 订阅者的
      * options 仅作用于本地记录。
      */
+    #[\Override]
     public function subscribe(string $topic, callable $handler, array $options = []): string
     {
         $id = IdGenerator::next('sub');
@@ -63,6 +64,7 @@ abstract class Bus implements BusInterface
      *
      * 早先是「任一订阅者退订就 onUnsubscribe($topic)」，同 topic 的其他订阅者会被连带断供。
      */
+    #[\Override]
     public function unsubscribe(string $subscriptionId): void
     {
         if (! isset($this->subscribers[$subscriptionId])) {

@@ -36,6 +36,7 @@ final class BearerAuthMiddleware implements MiddlewareInterface
         }
     }
 
+    #[\Override]
     public function process(MessageInterface $message, callable $next): MessageInterface
     {
         $token = $this->extractToken($message);

@@ -55,6 +55,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @throws TransportException 监听失败
      */
+    #[\Override]
     public function createServer(string $host, int $port, string $protocol = 'tcp'): mixed
     {
         $scheme = $protocol === 'udp' ? 'udp' : 'tcp';
@@ -85,6 +86,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @return false 始终返回 false（Workerman 由事件循环驱动）
      */
+    #[\Override]
     public function accept(mixed $serverSocket): mixed
     {
         // Workerman 通过 onConnect 回调处理新连接，不使用同步 accept
@@ -106,6 +108,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @throws TransportException 连接失败
      */
+    #[\Override]
     public function createClient(string $host, int $port, string $protocol = 'tcp', float $timeout = 5.0): mixed
     {
         if ($protocol === 'udp') {
@@ -146,6 +149,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @return false 始终返回 false（Workerman 由事件循环驱动）
      */
+    #[\Override]
     public function read(mixed $socket, int $length): string|false
     {
         // Workerman 通过 onMessage 回调接收数据，不使用同步 read
@@ -162,6 +166,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @return false|int 实际发送字节数；失败返回 false/null（统一为 false）
      */
+    #[\Override]
     public function write(mixed $socket, string $data): int|false
     {
         $result = $socket->send($data);
@@ -176,6 +181,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @param AsyncTcpConnection|TcpConnection|Worker $socket 连接或 Worker 对象
      */
+    #[\Override]
     public function close(mixed $socket): void
     {
         try {
@@ -200,6 +206,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @return false 始终返回 false（Workerman 由事件循环驱动）
      */
+    #[\Override]
     public function select(array $read, ?array $write, int $timeoutMicroseconds): array|false
     {
         // Workerman 由事件循环调度，不使用 select
@@ -213,6 +220,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
+    #[\Override]
     public function setNonBlocking(mixed $socket): void
     {
         // Workerman 连接由事件循环管理，无需手动设置非阻塞
@@ -224,6 +232,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
+    #[\Override]
     public function setBlocking(mixed $socket): void
     {
         // Workerman 连接由事件循环管理，无需手动设置阻塞
@@ -235,6 +244,7 @@ final class WorkermanTransport implements TransportInterface
      *
      * @param AsyncTcpConnection|TcpConnection $socket 连接对象
      */
+    #[\Override]
     public function getPeerName(mixed $socket): string|false
     {
         $ip = $socket->getRemoteIp();
@@ -250,6 +260,7 @@ final class WorkermanTransport implements TransportInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function driver(): string
     {
         return self::DRIVER_WORKERMAN;

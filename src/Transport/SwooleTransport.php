@@ -49,6 +49,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @throws TransportException 监听失败
      */
+    #[\Override]
     public function createServer(string $host, int $port, string $protocol = 'tcp'): mixed
     {
         [$domain, $type, $proto] = $this->mapProtocol($protocol);
@@ -83,6 +84,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @return false|SwooleSocket 客户端 socket 对象；无连接返回 false
      */
+    #[\Override]
     public function accept(mixed $serverSocket): mixed
     {
         // 超时 0 表示非阻塞尝试（协程内仍会自动调度）
@@ -101,6 +103,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @throws TransportException 连接失败
      */
+    #[\Override]
     public function createClient(string $host, int $port, string $protocol = 'tcp', float $timeout = 5.0): mixed
     {
         [$domain, $type, $proto] = $this->mapProtocol($protocol);
@@ -124,6 +127,7 @@ final class SwooleTransport implements TransportInterface
      * @param SwooleSocket $socket socket 对象
      * @param int          $length 期望读取的最大字节数
      */
+    #[\Override]
     public function read(mixed $socket, int $length): string|false
     {
         if ($length <= 0) {
@@ -140,6 +144,7 @@ final class SwooleTransport implements TransportInterface
      * @param SwooleSocket $socket socket 对象
      * @param string       $data   待写入数据
      */
+    #[\Override]
     public function write(mixed $socket, string $data): int|false
     {
         return $socket->send($data, 0);
@@ -150,6 +155,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      */
+    #[\Override]
     public function close(mixed $socket): void
     {
         $socket->close();
@@ -166,6 +172,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @return array{0: array<int, SwooleSocket>, 1: array<int, SwooleSocket>}|false
      */
+    #[\Override]
     public function select(array $read, ?array $write, int $timeoutMicroseconds): array|false
     {
         if ($read === [] && ($write === null || $write === [])) {
@@ -202,6 +209,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      */
+    #[\Override]
     public function setNonBlocking(mixed $socket): void
     {
         // 协程 Socket 默认由调度器管理，无需手动设置非阻塞
@@ -213,6 +221,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      */
+    #[\Override]
     public function setBlocking(mixed $socket): void
     {
         // 协程 Socket 默认由调度器管理，无需手动设置阻塞
@@ -224,6 +233,7 @@ final class SwooleTransport implements TransportInterface
      *
      * @param SwooleSocket $socket socket 对象
      */
+    #[\Override]
     public function getPeerName(mixed $socket): string|false
     {
         $info = $socket->getpeername();
@@ -238,6 +248,7 @@ final class SwooleTransport implements TransportInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function driver(): string
     {
         return self::DRIVER_SWOOLE;

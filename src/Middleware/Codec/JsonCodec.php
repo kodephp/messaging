@@ -22,6 +22,7 @@ use Kode\Messaging\Support\PhpCompat;
  */
 final class JsonCodec implements MiddlewareInterface
 {
+    #[\Override]
     public function process(MessageInterface $message, callable $next): MessageInterface
     {
         $processed = $this->isBinaryLike($message)

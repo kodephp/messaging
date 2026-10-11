@@ -49,6 +49,7 @@ final class SwowTransport implements TransportInterface
      *
      * @throws TransportException 监听失败
      */
+    #[\Override]
     public function createServer(string $host, int $port, string $protocol = 'tcp'): mixed
     {
         $type = $this->mapType($protocol);
@@ -89,6 +90,7 @@ final class SwowTransport implements TransportInterface
      *
      * @return false|SwowSocket 客户端 socket 对象；无连接返回 false
      */
+    #[\Override]
     public function accept(mixed $serverSocket): mixed
     {
         try {
@@ -110,6 +112,7 @@ final class SwowTransport implements TransportInterface
      *
      * @throws TransportException 连接失败
      */
+    #[\Override]
     public function createClient(string $host, int $port, string $protocol = 'tcp', float $timeout = 5.0): mixed
     {
         $type = $this->mapType($protocol);
@@ -134,6 +137,7 @@ final class SwowTransport implements TransportInterface
      * @param SwowSocket $socket socket 对象
      * @param int        $length 期望读取的最大字节数
      */
+    #[\Override]
     public function read(mixed $socket, int $length): string|false
     {
         if ($length <= 0) {
@@ -153,6 +157,7 @@ final class SwowTransport implements TransportInterface
      * @param SwowSocket $socket socket 对象
      * @param string     $data   待写入数据
      */
+    #[\Override]
     public function write(mixed $socket, string $data): int|false
     {
         try {
@@ -167,6 +172,7 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      */
+    #[\Override]
     public function close(mixed $socket): void
     {
         try {
@@ -187,6 +193,7 @@ final class SwowTransport implements TransportInterface
      *
      * @return array{0: array<int, SwowSocket>, 1: array<int, SwowSocket>}|false
      */
+    #[\Override]
     public function select(array $read, ?array $write, int $timeoutMicroseconds): array|false
     {
         if ($read === [] && ($write === null || $write === [])) {
@@ -224,6 +231,7 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      */
+    #[\Override]
     public function setNonBlocking(mixed $socket): void
     {
         // 协程 Socket 默认由调度器管理，无需手动设置非阻塞
@@ -235,6 +243,7 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      */
+    #[\Override]
     public function setBlocking(mixed $socket): void
     {
         // 协程 Socket 默认由调度器管理，无需手动设置阻塞
@@ -246,6 +255,7 @@ final class SwowTransport implements TransportInterface
      *
      * @param SwowSocket $socket socket 对象
      */
+    #[\Override]
     public function getPeerName(mixed $socket): string|false
     {
         try {
@@ -266,6 +276,7 @@ final class SwowTransport implements TransportInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function driver(): string
     {
         return self::DRIVER_SWOW;

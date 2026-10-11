@@ -85,11 +85,13 @@ class Server extends AbstractAdapter
 
     protected ?ServerBuilder $builder = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'mqtt';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'mqtt-3.1.1';
@@ -106,6 +108,7 @@ class Server extends AbstractAdapter
     /**
      * @return array<string, mixed>
      */
+    #[\Override]
     protected function defaultConfig(): array
     {
         return [
@@ -129,6 +132,7 @@ class Server extends AbstractAdapter
      *
      * @throws MqttException 监听失败时抛出
      */
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -156,6 +160,7 @@ class Server extends AbstractAdapter
      *   2. 读取已有连接数据并解析 MQTT 包
      *   3. 检测 Keep Alive 超时
      */
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -229,6 +234,7 @@ class Server extends AbstractAdapter
      *
      * @throws LogicException
      */
+    #[\Override]
     public function connect(array $config): ConnectionInterface
     {
         throw new LogicException('MQTT Server 不支持 connect()');
@@ -237,6 +243,7 @@ class Server extends AbstractAdapter
     /**
      * 优雅停机：关闭所有连接、释放 socket。
      */
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

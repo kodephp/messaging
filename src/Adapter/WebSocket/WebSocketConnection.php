@@ -108,6 +108,7 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
         return $buf;
     }
 
+    #[\Override]
     public function send(mixed $payload, array $options = []): bool
     {
         if (! $this->open) {
@@ -132,6 +133,7 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
         return true;
     }
 
+    #[\Override]
     public function close(int $code = 1000, string $reason = ''): void
     {
         if (! $this->open) {

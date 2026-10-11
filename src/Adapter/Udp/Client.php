@@ -24,16 +24,19 @@ final class Client extends AbstractAdapter
 
     private ?UdpConnection $conn = null;
 
+    #[\Override]
     public static function scheme(): string
     {
         return 'udp';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'rfc768';
     }
 
+    #[\Override]
     public function connect(array $config = []): ConnectionInterface
     {
         $host = $config['host'] ?? '127.0.0.1';
@@ -64,11 +67,13 @@ final class Client extends AbstractAdapter
         return $this->conn;
     }
 
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         throw new LogicException('UDP Client 不支持 listen()');
     }
 
+    #[\Override]
     public function run(): void
     {
         // UDP 无连接，循环接收
@@ -91,6 +96,7 @@ final class Client extends AbstractAdapter
         }
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         $this->running = false;

@@ -40,22 +40,26 @@ class MqttOverWsServer extends Server
     /**
      * 协议 scheme。
      */
+    #[\Override]
     public static function scheme(): string
     {
         return 'mqtt+ws';
     }
 
+    #[\Override]
     public function version(): string
     {
         return 'mqtt-3.1.1-over-ws';
     }
 
+    #[\Override]
     public static function autoRegister(): void
     {
         Registry::register('mqtt+ws', self::class);
         Registry::register('mqtt+wss', self::class);
     }
 
+    #[\Override]
     protected function defaultConfig(): array
     {
         return array_merge(parent::defaultConfig(), [
@@ -69,6 +73,7 @@ class MqttOverWsServer extends Server
     /**
      * 开始监听 TCP 端口（与父类相同，WebSocket 也是 TCP）。
      */
+    #[\Override]
     public function listen(string $host, int $port): void
     {
         $errno = 0;
@@ -94,6 +99,7 @@ class MqttOverWsServer extends Server
      *   2. 已升级连接读取 WebSocket 二进制帧，payload 喂给 MQTT 解析器
      *   3. 禁用 WebSocket 层心跳，由 MQTT PINGREQ 维持连接
      */
+    #[\Override]
     public function run(): void
     {
         $this->running = true;
@@ -373,6 +379,7 @@ class MqttOverWsServer extends Server
     /**
      * 覆盖父类的 write()：把 MQTT 包封装在 WebSocket 二进制帧中发送。
      */
+    #[\Override]
     protected function write(string $peer, string $data): void
     {
         $conn = $this->connections[$peer] ?? null;
@@ -420,6 +427,7 @@ class MqttOverWsServer extends Server
         unset($this->handshakeBuffers[$peer]);
     }
 
+    #[\Override]
     public function shutdown(): void
     {
         parent::shutdown();
