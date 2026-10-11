@@ -28,7 +28,7 @@ final class Connect
     public static function encode(
         string $clientId,
         ?string $username = null,
-        ?string $password = null,
+        #[\SensitiveParameter] ?string $password = null,
         int $keepalive = 60,
         bool $cleanSession = true,
         ?array $will = null,

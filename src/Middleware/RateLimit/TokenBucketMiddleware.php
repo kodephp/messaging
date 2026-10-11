@@ -70,7 +70,7 @@ final class TokenBucketMiddleware implements MiddlewareInterface
         int $redisPort,
         int $capacity = 1000,
         float $refillRate = 100.0,
-        ?string $password = null,
+        #[\SensitiveParameter] ?string $password = null,
         int $database = 0,
         string $keyPrefix = 'rtmp:',
         string $keyField = 'connection_id',

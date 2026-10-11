@@ -67,7 +67,7 @@ final class SlidingWindowMiddleware implements MiddlewareInterface
         int $redisPort,
         int $capacity = 1000,
         float $windowSize = 1.0,
-        ?string $password = null,
+        #[\SensitiveParameter] ?string $password = null,
         int $database = 0,
         string $keyPrefix = 'sw:',
         string $keyField = 'connection_id',

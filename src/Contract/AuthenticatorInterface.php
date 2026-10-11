@@ -20,5 +20,5 @@ interface AuthenticatorInterface
      * @return AuthContext 鉴权成功后的业务上下文
      * @throws \Kode\Messaging\Exception\MessagingException 鉴权失败
      */
-    public function authenticate(array $credentials): AuthContext;
+    public function authenticate(#[\SensitiveParameter] array $credentials): AuthContext;
 }

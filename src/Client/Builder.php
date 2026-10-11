@@ -116,7 +116,7 @@ final class Builder
         return $this;
     }
 
-    public function withCredentials(?string $username = null, ?string $password = null): self
+    public function withCredentials(?string $username = null, #[\SensitiveParameter] ?string $password = null): self
     {
         $this->username = $username;
         $this->password = $password;

@@ -35,7 +35,7 @@ final class CoapPacket
         public int $tokenLength,
         public float $code,
         public int $messageId,
-        public string $token = '',
+        #[\SensitiveParameter] public string $token = '',
         /** @var list<array{number:int, value:string}> */
         public array $options = [],
         public string $payload = '',
