@@ -325,13 +325,7 @@ final class Server extends AbstractAdapter
 
     private function findSidForConn(NatsConnection $conn, string $pattern): ?int
     {
-        foreach ($this->subscriptions as $sid => $sub) {
-            if ($sub['conn'] === $conn && $sub['subject'] === $pattern) {
-                return $sid;
-            }
-        }
-
-        return null;
+        return array_find_key($this->subscriptions, fn($sub, $sid) => $sub['conn'] === $conn && $sub['subject'] === $pattern);
     }
 
     private function matchSubject(string $filter, string $subject): bool

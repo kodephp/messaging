@@ -1464,13 +1464,7 @@ class Server extends AbstractAdapter
      */
     protected function clientIdOf(string $peer): ?string
     {
-        foreach ($this->clientIds as $clientId => $p) {
-            if ($p === $peer) {
-                return $clientId;
-            }
-        }
-
-        return null;
+        return array_find_key($this->clientIds, fn($p, $clientId) => $p === $peer);
     }
 
     /**
