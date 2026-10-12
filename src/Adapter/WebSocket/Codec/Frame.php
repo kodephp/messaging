@@ -89,6 +89,13 @@ final class Frame
         $opcode = $first & 0x0F;
         $masked = ($second & 0x80) !== 0;
 
+        // RFC 6455 §5.2：0x3-0x7 与 0xB-0xF 为保留 opcode，收到必须以
+        // 1002 (protocol error) 关闭连接；放行会让它们混进数据帧分支被
+        // 当作文本消息处理。
+        if (($opcode >= 0x3 && $opcode <= 0x7) || ($opcode >= 0xB && $opcode <= 0xF)) {
+            throw WebSocketException::invalidFrame('保留 opcode 非法', ['opcode' => $opcode]);
+        }
+
         if ($mustMask && ! $masked) {
             throw WebSocketException::invalidFrame('客户端帧必须 mask', []);
         }

@@ -55,6 +55,8 @@ final class Server extends AbstractAdapter
             'heartbeat_interval' => 30,
             'heartbeat_timeout' => 60,
             'handshake_timeout' => 10,
+            // 单帧总读取超时（秒）：防慢速滴灌帧占住事件循环
+            'read_timeout' => 10,
             'subprotocols' => [],
         ];
     }
@@ -147,6 +149,8 @@ final class Server extends AbstractAdapter
             'ws',
             stream_socket_get_name($socket, true) ?: 'unknown',
             $socket,
+            maxFrameSize: (int) ($this->config['max_frame_size'] ?? 1_048_576),
+            readTimeout: (float) ($this->config['read_timeout'] ?? 10),
         );
         $this->connections[(int) $socket] = $conn;
         $this->emit('connection.open', ['connection' => $conn]);
@@ -174,11 +178,14 @@ final class Server extends AbstractAdapter
             if ($conn === null) {
                 continue;
             }
-            $frame = $conn->readOnce();
+            // RFC 6455 §5.1：服务端必须要求客户端帧已 mask
+            $frame = $conn->readOnce(true);
             if ($frame === null) {
-                // 检查连接是否还活着
+                // 对端 EOF / 读超时 / 协议违规已关闭 → 三种情形都要回收，
+                // 否则死连接会永远留在连接表里（EOF 连接还会让 select 持续
+                // 可读，形成事件循环空转）。
                 $meta = @stream_get_meta_data($conn->stream());
-                if (! empty($meta['timed_out'])) {
+                if (! empty($meta['timed_out']) || ! empty($meta['eof']) || ! $conn->isOpen()) {
                     $this->removeConnection($conn);
                 }
                 continue;

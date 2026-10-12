@@ -38,12 +38,13 @@ $ php bin/messaging config websocket
 |---|---|---|
 | `host` | `0.0.0.0` | 监听地址 |
 | `port` | `8080` | 监听端口 |
-| `max_frame_size` | `1_048_576` | 单帧最大字节（1 MiB） |
+| `max_frame_size` | `1_048_576` | 单帧最大字节（1 MiB）；超限帧在**分配载荷内存之前**以 1009 关闭 |
 | `max_connections` | `10_000` | 最大并发连接 |
 | `allowed_origins` | `['*']` | Origin 白名单（生产必须明确指定） |
 | `heartbeat_interval` | `30` | 心跳间隔（秒） |
 | `heartbeat_timeout` | `60` | 心跳超时（秒） |
 | `handshake_timeout` | `10` | 握手超时（秒） |
+| `read_timeout` | `10` | 单帧总读取超时（秒）；慢速滴灌帧以 1001 关闭，防事件循环被拖死 |
 | `subprotocols` | `[]` | 支持的子协议 |
 | `enable_compression` | `false` | permessage-deflate |
 | `enable_binary` | `true` | 是否支持二进制帧 |

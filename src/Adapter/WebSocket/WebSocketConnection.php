@@ -23,17 +23,27 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
 
     protected LoggerInterface $logger;
 
+    /** 入站帧载荷上限（字节）：在分配内存之前拒绝超大帧，防内存耗尽 DoS */
+    protected int $maxFrameSize;
+
+    /** 单帧总读取超时（秒）：防止慢速滴灌（slowloris）帧把事件循环拖死 */
+    protected float $readTimeout;
+
     public function __construct(
         string $connId,
         string $protocol,
         string $remoteAddress,
         $stream,
         ?LoggerInterface $logger = null,
+        int $maxFrameSize = 1_048_576,
+        float $readTimeout = 10.0,
     ) {
         parent::__construct($connId, $protocol, $remoteAddress);
         $this->stream = $stream;
         $this->lastPongAt = time();
         $this->logger = $logger ?? new NullLogger();
+        $this->maxFrameSize = max(1, $maxFrameSize);
+        $this->readTimeout = $readTimeout > 0 ? $readTimeout : 10.0;
     }
 
     public function logger(): LoggerInterface
@@ -42,62 +52,116 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
     }
 
     /**
-     * 读取并解析一帧。
+     * 读取并解析一帧（流式）。
+     *
+     * 只负责「拉取多少字节」（带单帧总超时与分配前上限守卫），语义校验
+     * （掩码方向、控制帧规则、64 位长度最高位、保留 opcode）全部委托给
+     * Codec\Frame::decode()——与解码层共用同一套 RFC 6455 防线，避免
+     * 两套解析逻辑各自漂移。
+     *
+     * 违反协议时按 RFC 关闭连接并返回 null；对端正常 EOF 则直接返回
+     * null（由调用方按 eof 元数据回收连接）。
+     *
+     * @param bool $mustMask true=要求对端帧已 mask（服务端收客户端帧）；
+     *                       false=要求未 mask（客户端收服务端帧）
      */
     public function readFrame(bool $mustMask = false): ?Frame
     {
-        $header = $this->readN(2);
-        if ($header === '' || strlen($header) < 2) {
-            return null;
+        $deadline = microtime(true) + $this->readTimeout;
+
+        $header = $this->readN(2, $deadline);
+        if (strlen($header) < 2) {
+            return $this->abortShortRead();
         }
+
         $second = ord($header[1]);
         $len = $second & 0x7F;
-        $offset = 2;
+        $ext = '';
         if ($len === 126) {
-            $ext = $this->readN(2);
+            $ext = $this->readN(2, $deadline);
             if (strlen($ext) < 2) {
-                return null;
+                return $this->abortShortRead();
             }
             $len = unpack('n', $ext)[1];
-            $offset += 2;
         } elseif ($len === 127) {
-            $ext = $this->readN(8);
+            $ext = $this->readN(8, $deadline);
             if (strlen($ext) < 8) {
-                return null;
+                return $this->abortShortRead();
             }
             $len = unpack('J', $ext)[1];
-            $offset += 8;
-        }
-        $mask = '';
-        $masked = ($second & 0x80) !== 0;
-        if ($masked) {
-            $mask = $this->readN(4);
-            if (strlen($mask) < 4) {
-                return null;
+            if ($len < 0) {
+                // 64 位长度最高位必须为 0（RFC 6455 §5.2）
+                return $this->failProtocol(\Kode\Messaging\Exception\WebSocketException::CODE_PROTOCOL_ERROR, '64-bit length invalid');
             }
-            $offset += 4;
         }
-        $payload = $this->readN($len);
-        if (strlen($payload) < $len) {
-            return null;
-        }
-        if ($masked) {
-            $payload = Frame::applyMask($payload, $mask);
-        }
-        $first = ord($header[0]);
 
-        return new Frame(
-            ($first & 0x80) !== 0,
-            $first & 0x0F,
-            $payload,
-            $masked,
-        );
+        // 分配前上限守卫：绝不能按对端声明的长度去 readN 分配内存
+        if ($len > $this->maxFrameSize) {
+            return $this->failProtocol(\Kode\Messaging\Exception\WebSocketException::CODE_MESSAGE_TOO_BIG, 'message too big');
+        }
+
+        $mask = '';
+        if (($second & 0x80) !== 0) {
+            $mask = $this->readN(4, $deadline);
+            if (strlen($mask) < 4) {
+                return $this->abortShortRead();
+            }
+        }
+
+        $payload = $this->readN($len, $deadline);
+        if (strlen($payload) < $len) {
+            return $this->abortShortRead();
+        }
+
+        try {
+            return Frame::decode($header . $ext . $mask . $payload, mustMask: $mustMask, maxPayload: $this->maxFrameSize);
+        } catch (\Kode\Messaging\Exception\WebSocketException $e) {
+            $code = $e->getCode();
+            if ($code < 1000 || $code > 1015) {
+                $code = \Kode\Messaging\Exception\WebSocketException::CODE_PROTOCOL_ERROR;
+            }
+            return $this->failProtocol($code, substr($e->getMessage(), 0, 100));
+        }
     }
 
-    private function readN(int $n): string
+    /**
+     * 读取不足且对端已 EOF：正常断开，返回 null 由调用方回收。
+     * 读取不足但流仍存活（帧超时/读错误）：以 1001 关闭，防慢速滴灌占住事件循环。
+     */
+    private function abortShortRead(): ?Frame
+    {
+        if (is_resource($this->stream) && ! feof($this->stream)) {
+            $this->close(\Kode\Messaging\Exception\WebSocketException::CODE_GOING_AWAY, 'frame read timeout');
+        }
+
+        return null;
+    }
+
+    /** 协议违规：按 code 关闭连接并返回 null */
+    private function failProtocol(int $code, string $reason): ?Frame
+    {
+        $this->close($code, $reason);
+
+        return null;
+    }
+
+    /**
+     * 读取恰好 $n 字节；$deadline（单调秒级时间戳）到达或流结束即短返回。
+     */
+    private function readN(int $n, ?float $deadline = null): string
     {
         $buf = '';
         while (strlen($buf) < $n) {
+            if ($deadline !== null) {
+                $remaining = $deadline - microtime(true);
+                if ($remaining <= 0) {
+                    break;
+                }
+                // 把底层流超时钉在剩余时间内：否则阻塞的 fread 会按
+                // 流自身的超时（可能长达默认 60s）穿透帧级 deadline。
+                $sec = (int) $remaining;
+                stream_set_timeout($this->stream, $sec, (int) (($remaining - $sec) * 1_000_000));
+            }
             $chunk = @fread($this->stream, $n - strlen($buf));
             if ($chunk === false || $chunk === '') {
                 break;
@@ -181,11 +245,13 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
     }
 
     /**
-     * 尝试读取一帧；返回 null 表示连接已关闭或暂无数据。
+     * 尝试读取一帧；返回 null 表示连接已关闭、暂无数据或协议违规已断开。
+     *
+     * @param bool $mustMask 见 readFrame()；服务端应传 true（要求客户端帧已 mask）
      */
-    public function readOnce(): ?Frame
+    public function readOnce(bool $mustMask = false): ?Frame
     {
-        return $this->readFrame();
+        return $this->readFrame($mustMask);
     }
 
     /**
