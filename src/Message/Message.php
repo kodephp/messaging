@@ -20,16 +20,16 @@ final readonly class Message implements MessageInterface
      * @param array<string, mixed>  $context  附加上下文（trace id、user id 等）
      */
     public function __construct(
-        public string $messageId,
+        public private(set) string $messageId,
         public ?string $eventName,
         public ?string $topic,
         public mixed $body,
-        public string $rawBytes,
+        public private(set) string $rawBytes,
         public array $headers,
-        public int $qos,
-        public bool $binary,
-        public bool $retain,
-        public string $proto,
+        public private(set) int $qos,
+        public private(set) bool $binary,
+        public private(set) bool $retain,
+        public private(set) string $proto,
         public int $timestamp,
         public array $context = [],
     ) {}

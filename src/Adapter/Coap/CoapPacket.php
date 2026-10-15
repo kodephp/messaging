@@ -32,9 +32,9 @@ final class CoapPacket
 
     public function __construct(
         public int $type,
-        public int $tokenLength,
+        public private(set) int $tokenLength,
         public float $code,
-        public int $messageId,
+        public private(set) int $messageId,
         #[\SensitiveParameter] public string $token = '',
         /** @var list<array{number:int, value:string}> */
         public array $options = [],
