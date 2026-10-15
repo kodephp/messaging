@@ -111,7 +111,9 @@ final class Server extends AbstractAdapter
             usleep(1_000);
         }
     }
-
+    /**
+     * @param resource $socket
+     */
     private function handshake($socket): void
     {
         stream_set_timeout($socket, (int) ($this->config['handshake_timeout'] ?? 10));

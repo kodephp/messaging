@@ -59,7 +59,8 @@ final class WebTransportCodec
         }
         $headerPart = substr($raw, 0, $headerEnd);
         $lines = explode("\r\n", $headerPart);
-        if ($lines === [] || ! preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
+        // explode 至少返回一个元素，$lines === [] 恒假
+        if (! preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
             throw WebTransportException::handshakeFailed('无效的 HTTP 响应');
         }
         $headers = [];

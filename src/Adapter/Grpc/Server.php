@@ -243,7 +243,7 @@ final class Server extends AbstractAdapter
     {
         $lines = explode("\r\n", $raw);
         $headers = [];
-        if (isset($lines[0]) && preg_match('#^([A-Z]+)\s+(\S+)(?:\s+HTTP/[\d.]+)?$#', $lines[0], $m)) {
+        if (preg_match('#^([A-Z]+)\s+(\S+)(?:\s+HTTP/[\d.]+)?$#', $lines[0], $m)) {
             $headers['__method'] = $m[1];
             $headers['__path'] = $m[2];
             array_shift($lines);
@@ -260,7 +260,9 @@ final class Server extends AbstractAdapter
 
         return $headers;
     }
-
+    /**
+     * @param resource $sock
+     */
     private function decodeChunked(string $body, array $headers, $sock): ?string
     {
         $decoded = '';
@@ -285,7 +287,9 @@ final class Server extends AbstractAdapter
 
         return $decoded;
     }
-
+    /**
+     * @param resource $sock
+     */
     private function respondOk($sock, string $payload): void
     {
         $grpcBody = GrpcCodec::encode($payload);
@@ -298,7 +302,9 @@ final class Server extends AbstractAdapter
         ];
         @fwrite($sock, implode("\r\n", $headers)."\r\n\r\n".$chunked);
     }
-
+    /**
+     * @param resource $sock
+     */
     private function respondError($sock, int $http, int $grpcCode, string $msg): void
     {
         $headers = [

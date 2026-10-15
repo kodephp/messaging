@@ -93,6 +93,7 @@ final class Server extends AbstractAdapter
 
     /**
      * 将 stream resource 转为 ext-sockets 的 socket 资源（可选）。
+     * @param resource $stream
      */
     private function toSocket($stream): Socket|false
     {

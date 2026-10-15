@@ -170,6 +170,7 @@ final class Server extends AbstractAdapter
 
     /**
      * 解析并分发一个 HTTP 请求。
+     * @param resource $socket
      */
     private function handleRequest($socket, int $holdMs): void
     {
@@ -236,6 +237,7 @@ final class Server extends AbstractAdapter
      * 解析 HTTP 请求（最大 header 16 KiB、body 上限由配置决定）。
      *
      * @return null|array{method:string, path:string, query:array<string,string>, headers:array<string,string>, body:string}
+     * @param resource $socket
      */
     private function parseRequest($socket): ?array
     {
@@ -344,6 +346,7 @@ final class Server extends AbstractAdapter
 
     /**
      * 写一个完整响应并关闭 socket。
+     * @param resource $socket
      */
     private function writeResponse($socket, int $code, string $text, string $body = '', array $extra = []): void
     {
@@ -362,6 +365,7 @@ final class Server extends AbstractAdapter
 
     /**
      * 写一个错误响应。
+     * @param resource $socket
      */
     private function sendError($socket, int $code, string $text): void
     {

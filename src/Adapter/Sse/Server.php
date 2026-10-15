@@ -123,7 +123,9 @@ final class Server extends AbstractAdapter
             usleep(1_000);
         }
     }
-
+    /**
+     * @param resource $socket
+     */
     private function acceptHttp($socket): void
     {
         stream_set_timeout($socket, 5);

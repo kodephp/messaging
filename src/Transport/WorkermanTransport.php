@@ -125,7 +125,8 @@ final class WorkermanTransport implements TransportInterface
 
         try {
             $connection = new AsyncTcpConnection($socketName);
-            // 设置连接超时（Workerman 内部以秒为单位）
+            // 设置连接超时（Workerman 内部以秒为单位；connectTimeout 走 BaseConnection 魔术 __set）
+            // @phpstan-ignore property.notFound (Workerman 魔术属性，静态不可证)
             $connection->connectTimeout = $timeout;
 
             return $connection;
@@ -250,7 +251,8 @@ final class WorkermanTransport implements TransportInterface
         $ip = $socket->getRemoteIp();
         $port = $socket->getRemotePort();
 
-        if ($ip === null || $ip === '' || $port === null) {
+        // Workerman getRemoteIp(): string / getRemotePort(): int（不可能为 null）
+        if ($ip === '') {
             return false;
         }
 

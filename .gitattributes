@@ -44,3 +44,5 @@ bin/* text eol=lf
 *.tar binary
 *.7z binary
 *.rar binary
+/phpstan.neon           export-ignore
+/stubs/                 export-ignore

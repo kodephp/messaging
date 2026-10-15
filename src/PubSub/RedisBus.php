@@ -78,9 +78,15 @@ final class RedisBus extends Bus
         $channel = $this->channels[$topic] ?? null;
         unset($this->channels[$topic]);
 
-        if ($channel !== null && $this->subscribing && method_exists($this->redis, 'unsubscribe')) {
-            /* @var \Redis $this->redis */
-            $this->redis->unsubscribe($channel);
+        if ($channel !== null && $this->subscribing) {
+            $redis = $this->redis;
+            if ($redis instanceof \Redis) {
+                // phpredis 运行期为 unsubscribe($channel, ...$channels) 变长 string；phpstub 收窄为 array
+                $redis->unsubscribe($channel); // @phpstan-ignore argument.type
+            } elseif ($redis instanceof \Predis\Client) {
+                // predis 2 经 __call 转发 SUBSCRIBE/UNSUBSCRIBE 命令
+                $redis->unsubscribe($channel); // @phpstan-ignore method.notFound
+            }
         }
     }
 

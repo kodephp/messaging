@@ -92,7 +92,8 @@ final class Frame
         // RFC 6455 §5.2：0x3-0x7 与 0xB-0xF 为保留 opcode，收到必须以
         // 1002 (protocol error) 关闭连接；放行会让它们混进数据帧分支被
         // 当作文本消息处理。
-        if (($opcode >= 0x3 && $opcode <= 0x7) || ($opcode >= 0xB && $opcode <= 0xF)) {
+        // $opcode 为 4 位位域（int<0,15>），>= 0xB 已隐含 <= 0xF
+        if (($opcode >= 0x3 && $opcode <= 0x7) || $opcode >= 0xB) {
             throw WebSocketException::invalidFrame('保留 opcode 非法', ['opcode' => $opcode]);
         }
 

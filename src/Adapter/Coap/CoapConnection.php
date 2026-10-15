@@ -140,7 +140,9 @@ class CoapConnection extends Connection
     {
         return $this->peer;
     }
-
+    /**
+     * @return resource
+     */
     public function socket()
     {
         return $this->socket;

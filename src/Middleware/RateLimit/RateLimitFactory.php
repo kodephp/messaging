@@ -106,6 +106,7 @@ final class RateLimitFactory
                 self::resolveRedisMode((string) ($opts['mode'] ?? 'standalone')),
                 is_array($opts['sentinels'] ?? null) ? $opts['sentinels'] : ['127.0.0.1:26379'],
                 (string) ($opts['master_name'] ?? 'mymaster'),
+                (string) ($opts['prefix'] ?? 'kode:limiting:'),
                 is_array($opts['cluster_nodes'] ?? null) ? $opts['cluster_nodes'] : ['127.0.0.1:7000'],
             );
 

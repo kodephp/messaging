@@ -15,7 +15,9 @@ class SseConnection extends Connection
 {
     /** @var resource */
     protected $stream;
-
+    /**
+     * @param resource $stream
+     */
     public function __construct(
         string $connId,
         string $protocol,
@@ -67,7 +69,9 @@ class SseConnection extends Connection
         }
         $this->closeCallbacks = [];
     }
-
+    /**
+     * @return resource
+     */
     public function stream()
     {
         return $this->stream;

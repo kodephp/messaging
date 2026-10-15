@@ -16,7 +16,7 @@ use Throwable;
  */
 class LongPollingConnection extends Connection
 {
-    /** @var resource 底层 HTTP 响应 socket */
+    /** @var null|resource 底层 HTTP 响应 socket（客户端连接无底层 socket，为 null） */
     private $socket;
 
     /** @var array<string, string> HTTP 响应头 */
@@ -27,7 +27,9 @@ class LongPollingConnection extends Connection
     private string $statusText = 'OK';
 
     private bool $responded = false;
-
+    /**
+     * @param null|resource $socket
+     */
     public function __construct(
         string $connId,
         string $remoteAddress,

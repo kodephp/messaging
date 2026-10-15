@@ -16,7 +16,9 @@ final class SseClientConnection extends SseConnection
 {
     /** @var array<string, callable(Msg):void> */
     private array $handlers = [];
-
+    /**
+     * @param resource $stream
+     */
     public function __construct(
         string $connId,
         string $protocol,

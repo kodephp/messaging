@@ -219,7 +219,7 @@ final class Client extends \Kode\Messaging\Adapter\AbstractAdapter
         $status = 0;
         $reason = '';
         $headers = [];
-        if (isset($lines[0]) && preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
+        if (preg_match('#^HTTP/[\d.]+\s+(\d+)(?:\s+(.*))?$#', $lines[0], $m)) {
             $status = (int) $m[1];
             $reason = $m[2] ?? '';
             $headers['__status'] = (string) $status;

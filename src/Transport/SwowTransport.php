@@ -259,7 +259,7 @@ final class SwowTransport implements TransportInterface
     public function getPeerName(mixed $socket): string|false
     {
         try {
-            $name = $socket->getPeerName();
+            // Swow getPeerName() 返回数组；对端地址以 getPeerAddress/getPeerPort 为准
             $address = $socket->getPeerAddress();
             $port = $socket->getPeerPort();
 
@@ -267,7 +267,7 @@ final class SwowTransport implements TransportInterface
                 return "{$address}:{$port}";
             }
 
-            return $name !== '' ? $name : false;
+            return false;
         } catch (Throwable) {
             return false;
         }

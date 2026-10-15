@@ -28,7 +28,9 @@ class WebSocketConnection extends \Kode\Messaging\Connection\Connection
 
     /** 单帧总读取超时（秒）：防止慢速滴灌（slowloris）帧把事件循环拖死 */
     protected float $readTimeout;
-
+    /**
+     * @param resource $stream
+     */
     public function __construct(
         string $connId,
         string $protocol,

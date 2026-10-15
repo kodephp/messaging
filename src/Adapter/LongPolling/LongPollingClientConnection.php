@@ -39,12 +39,13 @@ final class LongPollingClientConnection extends LongPollingConnection
      */
     public function __construct(
         string $connId,
-        string $_protocol,
+        string $protocol,
         string $remoteAddress,
         array $config,
         ?LoggerInterface $logger = null,
     ) {
         parent::__construct($connId, $remoteAddress, null, []);
+        $this->protocol = $protocol;
         $this->config = $config;
         $this->logger = $logger ?? new NullLogger();
     }
@@ -236,7 +237,9 @@ final class LongPollingClientConnection extends LongPollingConnection
             @fclose($socket);
         }
     }
-
+    /**
+     * @param resource $socket
+     */
     private function writeRequest($socket): void
     {
         $method = (string) ($this->config['method'] ?? 'GET');
@@ -274,6 +277,7 @@ final class LongPollingClientConnection extends LongPollingConnection
 
     /**
      * @return array{status:int, headers:array<string,string>, body:string}
+     * @param resource $socket
      */
     private function readResponse($socket): array
     {

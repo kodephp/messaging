@@ -173,10 +173,8 @@ final class NatsCodec
         }
         $line = substr($buffer, $offset, $crlfPos - $offset);
         $line = rtrim($line, "\r\n");
+        // explode 对任意字符串至少返回一个元素，$parts === [] 永不成立
         $parts = explode(' ', $line);
-        if ($parts === []) {
-            return null;
-        }
         $op = strtoupper($parts[0]);
         if (! in_array($op, ['PUB', 'MSG', 'HPUB', 'HMSG'], true)) {
             return [
