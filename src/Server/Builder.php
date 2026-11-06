@@ -49,6 +49,9 @@ final class Builder
 
     private ?string $nodeId = null;
 
+    /** 调用方显式注入的适配器（需要在外部管理连接/生命周期时使用）。 */
+    private ?AdapterInterface $adapter = null;
+
     public function __construct(
         private readonly string $scheme,
         private readonly array $userConfig = [],
@@ -221,7 +224,7 @@ final class Builder
      */
     public function start(): void
     {
-        $adapter = $this->makeAdapter();
+        $adapter = $this->adapter();
         $url = \Kode\Messaging\Messaging::parseUrl($this->scheme);
         $merged = array_replace_recursive(
             $this->globalConfig[$url['scheme']] ?? [],
@@ -313,10 +316,23 @@ final class Builder
     }
 
     /**
-     * 创建并返回适配器实例（业务层可用于挂接协议级回调）。
+     * 注入适配器实例。
+     *
+     * 需要在启动后继续持有适配器（例如外部维护连接表、做优雅停机）时使用；
+     * 未注入时 `start()` 仍按 scheme 自动创建，行为不变。
+     */
+    public function withAdapter(AdapterInterface $adapter): self
+    {
+        $this->adapter = $adapter;
+
+        return $this;
+    }
+
+    /**
+     * 返回启动时使用的适配器实例（注入过就复用，否则新建）。
      */
     public function adapter(): AdapterInterface
     {
-        return $this->makeAdapter();
+        return $this->adapter ?? $this->makeAdapter();
     }
 }

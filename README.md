@@ -76,6 +76,18 @@ Messaging::server('sse://0.0.0.0:8081')
 `$conn->getAttribute('lastEventId')` 读取（5.2.0 起才暴露；未带该头为 `null`）。
 `start()` 会自动把构建器注入适配器，`interval` / `connection.open` 无需手动接线。
 
+需要在启动后继续持有适配器（例如断连时 `removeConnection()`、做优雅停机）时，
+用 `withAdapter()` 注入实例，不要在外部手动 `boot()/listen()/run()`：
+
+```php
+$adapter = new \Kode\Messaging\Adapter\Sse\Server();
+Messaging::server('sse://0.0.0.0:8081')
+    ->withAdapter($adapter)   // 5.3.0 起
+    ->interval(1000)
+    ->on('connection.open', fn($c) => $c->send('ready'))
+    ->start();
+```
+
 ### MQTT
 
 客户端（连接外部 Broker）：

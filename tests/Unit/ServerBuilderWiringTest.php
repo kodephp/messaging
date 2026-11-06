@@ -39,6 +39,20 @@ final class ServerBuilderWiringTest extends TestCase
         self::assertTrue(WiringTestAdapter::$ran);
         self::assertSame([1000], array_keys($builder->intervals()));
     }
+
+    /** 外部注入适配器时，start() 必须复用它（而不是另建一个实例让外部拿不到运行态）。 */
+    public function test_start_reuses_injected_adapter(): void
+    {
+        Registry::register('wiring-test', WiringTestAdapter::class);
+
+        $adapter = new WiringTestAdapter();
+        $builder = new Builder('wiring-test://127.0.0.1:0');
+        $builder->withAdapter($adapter);
+
+        self::assertSame($adapter, $builder->adapter());
+        $builder->start();
+        self::assertTrue(WiringTestAdapter::$ran);
+    }
 }
 
 final class WiringTestAdapter extends AbstractAdapter
