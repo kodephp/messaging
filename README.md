@@ -72,6 +72,10 @@ Messaging::server('sse://0.0.0.0:8081')
     ->start();
 ```
 
+断点续传：重连时浏览器会带 `Last-Event-ID`，在 `connection.open` 中用
+`$conn->getAttribute('lastEventId')` 读取（5.2.0 起才暴露；未带该头为 `null`）。
+`start()` 会自动把构建器注入适配器，`interval` / `connection.open` 无需手动接线。
+
 ### MQTT
 
 客户端（连接外部 Broker）：

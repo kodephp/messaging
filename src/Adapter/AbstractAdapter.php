@@ -55,6 +55,15 @@ abstract class AbstractAdapter implements AdapterInterface
         return $this->bus;
     }
 
+    /**
+     * 注入服务端构建器（提供 interval 定时器与事件总线）。
+     *
+     * `Server\Builder::start()` 在 `boot()` 之后自动调用本方法；具体适配器按需覆盖
+     * 并保存实例（SSE 用它驱动 interval 回调，WebSocket 同理）。
+     * 默认空实现，保证 `Builder::start()` 对所有内置适配器都能安全接线。
+     */
+    public function setBuilder(\Kode\Messaging\Server\Builder $builder): void {}
+
     #[\Override]
     public function version(): string
     {

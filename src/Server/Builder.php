@@ -229,6 +229,12 @@ final class Builder
         );
         $adapter->boot($merged);
 
+        // 把构建器交给适配器：interval 定时器与 connection.open/close 事件都挂在它上面。
+        // 此前只有调用方手动 setBuilder 才能用，直接 start() 会得到「监听起来了但 interval 永不触发」。
+        if ($adapter instanceof \Kode\Messaging\Adapter\AbstractAdapter) {
+            $adapter->setBuilder($this);
+        }
+
         // 集群模式：创建跨节点消息总线
         if ($this->withCluster) {
             $this->initClusterBus($adapter);
@@ -294,9 +300,13 @@ final class Builder
 
     public function makeAdapter(): AdapterInterface
     {
-        $class = Registry::find($this->scheme);
+        // scheme 是完整 URL（`sse://0.0.0.0:8081`），注册表只认协议名。
+        // 以前直接拿 URL 查表，`Messaging::server('sse://...')->start()` 会抛「适配器未注册」，
+        // 只有外部手动 new Adapter 才绕得过去。
+        $url = \Kode\Messaging\Messaging::parseUrl($this->scheme);
+        $class = Registry::find(\Kode\Messaging\Messaging::normalizeScheme($url['scheme']));
         if ($class === null) {
-            throw AdapterNotFoundException::forScheme($this->scheme, Registry::schemes());
+            throw AdapterNotFoundException::forScheme($url['scheme'], Registry::schemes());
         }
 
         return new $class($this->logger);

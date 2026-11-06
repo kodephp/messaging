@@ -77,7 +77,30 @@ const es = new EventSource('/stream?token=xxx');
 retry: 5000\n\n
 ```
 
-### 2.5 多事件类型
+### 2.5 断点续传（Last-Event-ID）
+
+浏览器在自动重连时会带上最后一次收到的 `id`：
+
+```http
+GET /stream HTTP/1.1
+Last-Event-ID: order-1002
+```
+
+服务端在 `connection.open` 里直接读取该头（命名统一为 `lastEventId`，原样字符串，格式由业务定义）：
+
+```php
+->on('connection.open', function (SseConnection $conn) {
+    $last = $conn->getAttribute('lastEventId'); // null 表示首连
+    foreach (messagesAfter($last) as $m) {
+        $conn->send(['id' => $m['id'], 'event' => 'message', 'data' => $m]);
+    }
+})
+```
+
+> 5.2.0 起该头才会被写入连接属性；此前会被静默丢弃。未带该头时属性为 `null`，不会伪造默认值。
+> 若客户端无法使用 `EventSource`（例如需要自定义 header），也可以把游标放进 query 自行解析。
+
+### 2.6 多事件类型
 
 ```php
 $conn->send([
@@ -128,6 +151,10 @@ SSE 不适合 60Hz 高频，但适合亚秒级（200ms+）推送。
 ```
 
 浏览器 EventSource 看不到注释心跳，但能维持代理连接。
+
+> 5.2.0 修正：握手时会写入 `last_keepalive` 基准，`checkAlive()` 才能按周期真正发出
+> `: keepalive`。旧实现该属性从未初始化，空闲连接永远不会收到心跳（只能靠客户端断开被动回收）。
+> 多个 `interval()` 也已改为各自计时，不会再互相饿死。
 
 ## 6. 集群模式
 

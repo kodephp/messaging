@@ -86,7 +86,9 @@ final class Server extends AbstractAdapter
     {
         $this->running = true;
         $maxConn = (int) ($this->config['max_connections'] ?? 10_000);
-        $lastInterval = 0;
+        // 每个 interval 各自记上次触发时间：以前共用一个 $lastInterval，
+        // 先到期的定时器会把后到期的那个一起「刷新」，多个 interval 时只有一个能稳定跑。
+        $lastRun = [];
         $intervals = (array) ($this->builder?->intervals() ?? []);
 
         while ($this->running) {
@@ -105,9 +107,11 @@ final class Server extends AbstractAdapter
             $now = (int) (microtime(true) * 1000);
             foreach ($intervals as $msStr => $handler) {
                 $ms = (int) $msStr;
-                if ($now - $lastInterval < $ms) {
+                $prev = $lastRun[$msStr] ?? 0;
+                if ($now - $prev < $ms) {
                     continue;
                 }
+                $lastRun[$msStr] = $now;
                 foreach ($this->connections as $conn) {
                     if ($conn->isOpen()) {
                         try {
@@ -117,12 +121,12 @@ final class Server extends AbstractAdapter
                         }
                     }
                 }
-                $lastInterval = $now;
             }
 
             usleep(1_000);
         }
     }
+
     /**
      * @param resource $socket
      */
@@ -185,6 +189,14 @@ final class Server extends AbstractAdapter
             $socket,
         );
         $conn->setAttribute('path', $path);
+        // 断线重连时浏览器会带 `Last-Event-ID` 头；此前它只被丢弃，业务层无法据此续传。
+        // 统一暴露为 lastEventId（原样字符串，由业务定义格式，例如 `stream:seq`）。
+        $lastEventId = $headers['last-event-id'] ?? null;
+        if (is_string($lastEventId) && $lastEventId !== '') {
+            $conn->setAttribute('lastEventId', $lastEventId);
+        }
+        // keepalive 计时基准：checkAlive 以该属性计算「距上次保活」，握手时不写入就永远不会触发。
+        $conn->setAttribute('last_keepalive', time());
         $this->connections[(int) $socket] = $conn;
         $this->builder?->emit('connection.open', ['connection' => $conn]);
     }
